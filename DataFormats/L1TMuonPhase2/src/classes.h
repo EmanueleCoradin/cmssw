@@ -10,4 +10,6 @@
 #include "DataFormats/L1TMuonPhase2/interface/EMTFTrack.h"
 #include "DataFormats/L1TMuonPhase2/interface/EMTFInput.h"
 
+#include "DataFormats/L1TMuonPhase2/interface/L1ScoutingTrackerMuon.h"
+#include "DataFormats/L1Scouting/interface/OrbitCollection.h"
 #include <vector>

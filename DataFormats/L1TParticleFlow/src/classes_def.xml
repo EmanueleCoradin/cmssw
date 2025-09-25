@@ -29,6 +29,8 @@
   <class name="edm::RefProd<l1t::PFCandidateCollection>" />
   <class name="l1t::RegionalOutput<l1t::PFCandidateCollection>" />
   <class name="edm::Wrapper<l1t::RegionalOutput<l1t::PFCandidateCollection>>" />
+  <class name="OrbitCollection<l1t::PFCandidate>" />
+  <class name="edm::Wrapper<OrbitCollection<l1t::PFCandidate>>" />
 
   <class name="l1t::io_v1::PFJet"  ClassVersion="3">
         <version ClassVersion="3" checksum="1164493406"/>
@@ -58,4 +60,26 @@
   <class name="edm::RefVector<l1t::HPSPFTauCollection>" /> 
   <class name="std::vector<edm::Ref<l1t::HPSPFTauCollection> >" />
 
+  <class name="l1Scouting::Puppi"  ClassVersion="3">
+        <version ClassVersion="3" checksum="3223900940"/>
+  </class>
+  <class name="std::vector<l1Scouting::Puppi>" />
+  <class name="OrbitCollection<l1Scouting::Puppi>" />
+  <class name="edm::Wrapper<OrbitCollection<l1Scouting::Puppi>>" />
+  <class name="l1Scouting::PuppiSOA" />
+  <class name="edm::Wrapper<l1Scouting::PuppiSOA>" />
+
+  <class name="l1Scouting::TkEm"  ClassVersion="3">
+	<version ClassVersion="3" checksum="429045954"/>
+  </class>
+  <class name="std::vector<l1Scouting::TkEm>" />
+  <class name="OrbitCollection<l1Scouting::TkEm>" />
+  <class name="edm::Wrapper<OrbitCollection<l1Scouting::TkEm>>" />
+
+  <class name="l1Scouting::TkEle"  ClassVersion="3">
+	<version ClassVersion="3" checksum="1583094166"/>
+  </class>
+  <class name="std::vector<l1Scouting::TkEle>" />
+  <class name="OrbitCollection<l1Scouting::TkEle>" />
+  <class name="edm::Wrapper<OrbitCollection<l1Scouting::TkEle>>" />
 </lcgdict>

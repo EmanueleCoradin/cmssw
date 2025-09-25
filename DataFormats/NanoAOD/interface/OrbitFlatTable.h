@@ -20,7 +20,18 @@ namespace l1ScoutingRun3 {
 
     OrbitFlatTable() : nanoaod::FlatTable(), bxOffsets_(orbitBufferSize_ + 1, 0) {}
 
-    OrbitFlatTable(std::vector<unsigned> bxOffsets,
+    OrbitFlatTable(const std::vector<unsigned> &bxOffsets,
+                   const std::string &name,
+                   bool singleton = false,
+                   bool extension = false)
+        : nanoaod::FlatTable(bxOffsets.back(), name, singleton, extension), bxOffsets_(bxOffsets) {
+      if (bxOffsets.size() != orbitBufferSize_ + 1) {
+        throw cms::Exception("LogicError") << "Mismatch between bxOffsets.size() " << bxOffsets.size()
+                                           << " and orbitBufferSize_ + 1" << (orbitBufferSize_ + 1);
+      }
+    }
+
+    OrbitFlatTable(std::vector<unsigned> &&bxOffsets,
                    const std::string &name,
                    bool singleton = false,
                    bool extension = false)

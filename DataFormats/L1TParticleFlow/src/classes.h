@@ -8,3 +8,6 @@
 #include "DataFormats/L1TParticleFlow/interface/PFTau.h"
 #include "DataFormats/L1TParticleFlow/interface/HPSPFTau.h"
 #include "DataFormats/L1TParticleFlow/interface/HPSPFTauFwd.h"
+#include "DataFormats/L1TParticleFlow/interface/L1ScoutingPuppi.h"
+#include "DataFormats/L1TParticleFlow/interface/L1ScoutingTkEm.h"
+#include "DataFormats/L1Scouting/interface/OrbitCollection.h"
