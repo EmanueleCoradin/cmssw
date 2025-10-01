@@ -18,12 +18,26 @@
   <class name="edm::Wrapper<l1sc::BxLookupHostCollection>" splitLevel="0"/>
   <!-- ___________ END ___________ -->
 
+  <!-- ClustersHostCollection -->
+  <class name="l1sc::ClustersSoA"/>
+  <class name="l1sc::ClustersSoA::View"/>
+  <class name="l1sc::ClustersSoA::ConstView"/>
+  <class name="l1sc::ClustersHostCollection"/>
+  <class name="edm::Wrapper<l1sc::ClustersHostCollection>" splitLevel="0"/>
+
   <!-- PuppiHostCollection -->
   <class name="l1sc::PuppiSoA"/>
   <class name="l1sc::PuppiSoA::View"/>
   <class name="l1sc::PuppiSoA::ConstView"/>
   <class name="l1sc::PuppiHostCollection"/>
   <class name="edm::Wrapper<l1sc::PuppiHostCollection>" splitLevel="0"/>
+
+  <!-- PFCandidateHostCollection -->
+  <class name="l1sc::PFCandidateSoA"/>
+  <class name="l1sc::PFCandidateSoA::View"/>
+  <class name="l1sc::PFCandidateSoA::ConstView"/>
+  <class name="l1sc::PFCandidateHostCollection"/>
+  <class name="edm::Wrapper<l1sc::PFCandidateHostCollection>" splitLevel="0"/>
 
   <!-- SelectedBxHostCollection -->
   <class name="l1sc::SelectedBxSoA"/>

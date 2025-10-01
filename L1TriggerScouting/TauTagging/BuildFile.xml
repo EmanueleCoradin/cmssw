@@ -1,0 +1,11 @@
+<use name="FWCore/Framework"/>
+<use name="HeterogeneousCore/AlpakaCore"/>
+<use name="HeterogeneousCore/AlpakaInterface"/>
+<use name="DataFormats/L1Scouting"/>
+<use name="DataFormats/L1ScoutingSoA"/>
+<use name="DataFormats/L1Trigger"/>
+<use name="DataFormats/L1TParticleFlow"/>
+<flags ALPAKA_BACKENDS="serial cuda"/>
+<export>
+  <lib name="1"/>
+</export>
