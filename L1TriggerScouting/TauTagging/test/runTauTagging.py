@@ -2,7 +2,7 @@ import FWCore.ParameterSet.Config as cms
 from IOPool.Input.modules import PoolSource
 from L1TriggerScouting.TauTagging.options_cff import args
 from L1TriggerScouting.TauTagging.modules import (
-    l1sc_PFCandidatesAoSToSoA_alpaka,
+    l1sc_PFCandidateAoSToSoA_alpaka,
     l1sc_CLUETaus_alpaka,
     l1sc_TauTaggingSink,
 )
@@ -32,7 +32,7 @@ process.source = PoolSource(
 
 # setup chain configs
 # PFCandidates
-process.PFCandidatesAoSToSoA = l1sc_PFCandidatesAoSToSoA_alpaka(
+process.PFCandidatesAoSToSoA = l1sc_PFCandidateAoSToSoA_alpaka(
     alpaka = cms.untracked.PSet(
         backend = cms.untracked.string(args.backend)
     ),

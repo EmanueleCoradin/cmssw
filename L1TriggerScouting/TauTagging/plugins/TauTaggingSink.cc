@@ -43,32 +43,31 @@ namespace l1sc {
 
     void analyze(edm::Event const& event, edm::EventSetup const&) override {
       if (environment_ >= Environment::kDevelopment) {
-        constexpr int total_len = 72;
+        constexpr int total_len = 100;
         auto label = fmt::format("EVENT: {}", event.id().event());
         int pad = total_len - static_cast<int>(label.size());
         int pad_left = pad / 2;
         int pad_right = pad - pad_left - 1;
         fmt::print("\n{0} {1} {2}\n\n", std::string(pad_left, '-'), label, std::string(pad_right, '-'));
-      }
 
-      // unpacking/decoding step debugging
-      const auto pf_handle = event.getHandle(pf_token_);
-      const auto clusters_handle = event.getHandle(clusters_token_);
-      
-      if (pf_handle.isValid()) {
-        // pf
-        auto const& pf = *pf_handle;
-        auto const pf_backend = static_cast<Backend>(event.get(pf_backend_));
-        if (!clusters_handle.isValid()) {
-          print(pf.const_view(), toString(pf_backend));
-        } else {
-          // clusters
-          auto const& clusters = *clusters_handle;
-          // backends
-          auto const clusters_backend = static_cast<Backend>(event.get(clusters_backend_));
-          print(pf.const_view(), clusters.const_view(), toString(pf_backend), toString(clusters_backend));
-        }
+        // unpacking/decoding step debugging
+        const auto pf_handle = event.getHandle(pf_token_);
+        const auto clusters_handle = event.getHandle(clusters_token_);
         
+        if (pf_handle.isValid()) {
+          // pf
+          auto const& pf = *pf_handle;
+          auto const pf_backend = static_cast<Backend>(event.get(pf_backend_));
+          if (!clusters_handle.isValid()) {
+            print(pf.const_view(), toString(pf_backend));
+          } else {
+            // clusters
+            auto const& clusters = *clusters_handle;
+            // backends
+            auto const clusters_backend = static_cast<Backend>(event.get(clusters_backend_));
+            print(pf.const_view(), clusters.const_view(), toString(pf_backend), toString(clusters_backend));
+          }
+        }
       }
     }
 
@@ -98,31 +97,41 @@ namespace l1sc {
       }
       fmt::print("[DEBUG] CLUETaus[{}] ({}) found {} clusters:\n", size, pf_backend, clusters_num);
 
-      constexpr auto sep = "+---------+---------+---------+---------+---------+---------+-------+---------+";
+      constexpr auto sep = "+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+";
       auto printHeader = [&] {
         fmt::print("{}\n", sep);
-        fmt::print("| {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>5} | {:>7} |\n",
+        fmt::print("| {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} |\n",
                    "index",
                    "is_seed",
                    "cluster",
                    "pt",
                    "eta",
                    "phi",
-                   "pdgid",
-                   "z0");
+                   "mass",
+                   "z0",
+                   "dxy",
+                   "puppiw",
+                   "charge",
+                   "type",
+                   "pdgid");
         fmt::print("{}\n", sep);
       };
 
       auto printRow = [&](int index, const auto& pf_view, const auto& clusters_view) {
-        fmt::print("| {:7d} | {:7d} | {:7d} | {:7.2f} | {:7.2f} | {:7.2f} | {:5d} | {:7.2f} |\n",
+        fmt::print("| {:>7d} | {:>7d} | {:>7d} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7d} | {:>7d} | {:>7d} |\n",
                    index,
                    clusters_view.is_seed(),
                    clusters_view.cluster(),
                    pf_view.pt(),
                    pf_view.eta(),
                    pf_view.phi(),
-                   pf_view.pdgid(),
-                   pf_view.z0());
+                   pf_view.mass(),
+                   pf_view.z0(),
+                   pf_view.dxy(),
+                   pf_view.puppiw(),
+                   pf_view.charge(),
+                   pf_view.type(),
+                   pf_view.pdgid());
       };
 
       printHeader();
@@ -136,7 +145,12 @@ namespace l1sc {
       }
 
       if (max_entries < size) {
-        fmt::print("| {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>5} | {:>7} |\n",
+        fmt::print("| {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} |\n",
+                   "...",
+                   "...",
+                   "...",
+                   "...",
+                   "...",
                    "...",
                    "...",
                    "...",
@@ -161,27 +175,37 @@ namespace l1sc {
       // Header
       fmt::print("[DEBUG] PFCandidateCollection[{}] ({}):\n", size, pf_backend);
 
-      constexpr auto sep = "+---------+---------+---------+---------+-------+---------+";
+      constexpr auto sep = "+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+---------+";
       auto printHeader = [&] {
         fmt::print("{}\n", sep);
-        fmt::print("| {:>7} | {:>7} | {:>7} | {:>7} | {:>5} | {:>7} |\n",
+        fmt::print("| {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} |\n",
                    "index",
                    "pt",
                    "eta",
                    "phi",
-                   "pdgid",
-                   "z0");
+                   "mass",
+                   "z0",
+                   "dxy",
+                   "puppiw",
+                   "charge",
+                   "type",
+                   "pdgid");
         fmt::print("{}\n", sep);
       };
 
-      auto printRow = [&](int index, const auto& view) {
-        fmt::print("| {:7d} | {:7.2f} | {:7.2f} | {:7.2f} | {:5d} | {:7.2f} |\n",
+      auto printRow = [&](int index, const auto& pf_view) {
+        fmt::print("| {:7d} | {:7.2f} | {:7.2f} | {:7.2f} | {:7.2f} | {:7.2f} | {:7.2f} | {:7.2f} | {:7d} | {:7d} | {:7d} |\n",
                    index,
-                   view.pt(),
-                   view.eta(),
-                   view.phi(),
-                   view.pdgid(),
-                   view.z0());
+                   pf_view.pt(),
+                   pf_view.eta(),
+                   pf_view.phi(),
+                   pf_view.mass(),
+                   pf_view.z0(),
+                   pf_view.dxy(),
+                   pf_view.puppiw(),
+                   pf_view.charge(),
+                   pf_view.type(),
+                   pf_view.pdgid());
       };
 
       printHeader();
@@ -195,7 +219,12 @@ namespace l1sc {
       }
 
       if (max_entries < size) {
-        fmt::print("| {:>7} | {:>7} | {:>7} | {:>7} | {:>5} | {:>7} |\n",
+        fmt::print("| {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} |\n",
+                   "...",
+                   "...",
+                   "...",
+                   "...",
+                   "...",
                    "...",
                    "...",
                    "...",
