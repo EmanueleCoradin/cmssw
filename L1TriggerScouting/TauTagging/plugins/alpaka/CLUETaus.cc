@@ -12,51 +12,60 @@
 #include "L1TriggerScouting/Phase2/interface/L1TScPhase2Common.h"
 #include "L1TriggerScouting/TauTagging/plugins/alpaka/CLUEsteringAlgo.h"
 
-
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
   class CLUETaus : public stream::EDProducer<> {
   public:
-    explicit CLUETaus(const edm::ParameterSet &params) 
+    explicit CLUETaus(const edm::ParameterSet &params)
         : EDProducer<>(params),
-          pf_candidates_token_{consumes(params.getParameter<edm::InputTag>("pf"))},
+          pf_candidates_token_{consumes(params.getParameter<edm::InputTag>("src"))},
+          bx_lookup_token_{consumes(params.getParameter<edm::InputTag>("src"))},
           cluestering_token_{produces()},
           num_clusters_token_{produces()},
           clustering_(static_cast<float>(params.getParameter<double>("dc")),
                       static_cast<float>(params.getParameter<double>("rhoc")),
                       static_cast<float>(params.getParameter<double>("dm")),
                       params.getParameter<bool>("wrapCoords")),
-          environment_{static_cast<Environment>(params.getUntrackedParameter<int>("environment"))} {}
+          environment_{static_cast<Environment>(params.getUntrackedParameter<int>("environment"))},
+          run_scout_{params.getParameter<bool>("run_scout")} {}
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
       // get collection from device memory space (implicit copy done by framework)
       const auto &pf = event.get(pf_candidates_token_);
       const auto n_points = pf.const_view().metadata().size();
 
-    // allocate buffer
-    auto clusters = ClustersDeviceCollection(n_points, event.queue());
+      // allocate buffer
+      auto clusters = ClustersDeviceCollection(n_points, event.queue());
 
-    // run CLUEstering algo
-    clustering_.run(event.queue(), pf, clusters);
+      // run CLUEstering algo
+      if (run_scout_) {
+        const auto &bx_lookup = event.get(bx_lookup_token_);
+        clustering_.run(event.queue(), pf, bx_lookup, clusters);
+      } else {
+        clustering_.run(event.queue(), pf, clusters);
+      }
 
-    // move clustering results to event storage
-    event.emplace(cluestering_token_, std::move(clusters));
+      // move clustering results to event storage
+      event.emplace(cluestering_token_, std::move(clusters));
     }
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
-      desc.add<edm::InputTag>("pf");
+      desc.add<edm::InputTag>("src");
       desc.add<double>("dc");
       desc.add<double>("rhoc");
       desc.add<double>("dm");
       desc.add<bool>("wrapCoords");
+      desc.add<bool>("run_scout");
       desc.addUntracked<int>("environment", static_cast<int>(Environment::kProduction));
       descriptions.addWithDefaultLabel(desc);
     }
 
   private:
-    // get device pf data 
+    // get device pf data
     const device::EDGetToken<PFCandidateDeviceCollection> pf_candidates_token_;
+    // get association map if runScouting=False
+    const device::EDGetToken<BxLookupDeviceCollection> bx_lookup_token_;
     // put device clustering data
     const device::EDPutToken<ClustersDeviceCollection> cluestering_token_;
     const edm::EDPutTokenT<int> num_clusters_token_;
@@ -64,33 +73,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     const kernels::CLUEsteringAlgo clustering_;
     // debug / test
     const Environment environment_;
+    const bool run_scout_;
   };
-
-  // /**
-  //  * Log CLUEstering results to stdout
-  //  */
-  // void CLUETaus::logDebugMessage(const CLUEsteringHostCollection &clue_collection) const {
-  //   const auto size = clue_collection.const_view().metadata().size();
-  //   fmt::print("[DEBUG] l1sc::CLUETaus: CLUEstering results:\n", size);
-  //   // table header
-  //   const std::string separator = "+-------+---------+---------+";
-  //   fmt::print("{}\n", separator);
-  //   fmt::print("| {:>5} | {:>7} | {:>7} |\n", "index", "cluster", "is_seed");
-  //   fmt::print("{}\n", separator);
-  //   // log collection
-  //   auto span = (size > 10) ? 10 : size;
-  //   if (verbose_level_ == 1)
-  //     span = size;
-  //   for (int32_t idx = 0; idx < span; ++idx) {
-  //     const auto &view = clue_collection.const_view()[idx];
-  //     fmt::print("| {:5d} | {:7d} | {:7d} |\n", idx, view.cluster(), view.is_seed());
-  //   }
-  //   // log tail
-  //   if (span < size) {
-  //     fmt::print("| {:>5} | {:>7} | {:>7} |\n", "...", "...", "...");
-  //   }
-  //   fmt::print("{}\n", separator);
-  // }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc
 

@@ -17,8 +17,10 @@
   <use name="FWCore/Utilities"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="L1TriggerScouting/TauTagging"/>
   <flags ALPAKA_BACKENDS="serial cuda"/>
   <flags EDM_PLUGIN="1"/>
+  <!-- CLUEstering lib -->
   <flags CXXFLAGS="-Wno-sign-compare"/>
   <flags CXXFLAGS="-Wno-type-limits"/>
   <flags CXXFLAGS="-I${CMSSW_BASE}/src/CLUEstering/include"/>
