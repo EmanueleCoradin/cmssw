@@ -15,10 +15,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     const uint32_t n_points = pf_cast.view().metadata().size();
 
     // buffers
-    auto* coords_ptr = pf_cast.view().eta();
-    auto* weights_ptr = pf_cast.view().pt();
-    auto* cluster_indices_ptr = clusters.view().cluster();
-    auto* is_seed_ptr = clusters.view().is_seed();
+    auto* coords_ptr = pf_cast.view().eta().data();
+    auto* weights_ptr = pf_cast.view().pt().data();
+    auto* cluster_indices_ptr = clusters.view().cluster().data();
+    auto* is_seed_ptr = clusters.view().is_seed().data();
 
     // wrap device buffers
     auto points_device =
@@ -53,10 +53,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         continue;
 
       // types
-      using coords_dtype_t = std::remove_pointer_t<decltype(pf_cast.view().eta())>;
-      using weights_dtype_t = std::remove_pointer_t<decltype(pf_cast.view().pt())>;
-      using clusters_dtype_t = std::remove_pointer_t<decltype(clusters.view().cluster())>;
-      using seeds_dtype_t = std::remove_pointer_t<decltype(clusters.view().is_seed())>;
+      using coords_dtype_t = std::remove_pointer_t<decltype(pf_cast.view().eta().data())>;
+      using weights_dtype_t = std::remove_pointer_t<decltype(pf_cast.view().pt().data())>;
+      using clusters_dtype_t = std::remove_pointer_t<decltype(clusters.view().cluster().data())>;
+      using seeds_dtype_t = std::remove_pointer_t<decltype(clusters.view().is_seed().data())>;
 
       // base extent
       auto extent = Vec1D{n_points};
@@ -67,11 +67,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       auto coords_buffer = make_device_buffer<coords_dtype_t[]>(queue, n_points * kDims);
 
       // spans to memory layouts
-      std::span<coords_dtype_t> eta_span(pf_cast.view().eta() + begin, pf_cast.view().eta() + end);
-      std::span<coords_dtype_t> phi_span(pf_cast.view().phi() + begin, pf_cast.view().phi() + end);
-      std::span<weights_dtype_t> pt_span(pf_cast.view().pt() + begin, pf_cast.view().pt() + end);
-      std::span<clusters_dtype_t> cluster_span(clusters.view().cluster() + begin, clusters.view().cluster() + end);
-      std::span<seeds_dtype_t> seed_span(clusters.view().is_seed() + begin, clusters.view().is_seed() + end);
+      std::span<coords_dtype_t> eta_span(pf_cast.view().eta().data() + begin, pf_cast.view().eta().data() + end);
+      std::span<coords_dtype_t> phi_span(pf_cast.view().phi().data() + begin, pf_cast.view().phi().data() + end);
+      std::span<weights_dtype_t> pt_span(pf_cast.view().pt().data() + begin, pf_cast.view().pt().data() + end);
+      std::span<clusters_dtype_t> cluster_span(clusters.view().cluster().data() + begin, clusters.view().cluster().data() + end);
+      std::span<seeds_dtype_t> seed_span(clusters.view().is_seed().data() + begin, clusters.view().is_seed().data() + end);
 
       // memcpy
       auto eta_coord = createView(alpaka::getDev(queue), alpaka::getPtrNative(coords_buffer), extent);

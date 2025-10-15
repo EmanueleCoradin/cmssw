@@ -58,14 +58,14 @@ void ClusterSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm:
   edm::Handle<l1sc::ClustersHostCollection> srcClusters;
   iEvent.getByToken(srcClusters_, srcClusters);
 
-  const auto *bxs = srcBx->const_view<l1sc::OffsetsSoA>().offsets();
+  const auto *bxs = srcBx->const_view<l1sc::OffsetsSoA>().offsets().data();
   const unsigned int nbx = srcBx->const_view<l1sc::OffsetsSoA>().metadata().size();
   std::vector<unsigned int> bxOffsets;
   bxOffsets.push_back(0);
   bxOffsets.insert(bxOffsets.end(), bxs, bxs + nbx);
 
-  const auto *cluster = srcClusters->const_view().cluster();
-  const auto *seed = srcClusters->const_view().is_seed();
+  const auto *cluster = srcClusters->const_view().cluster().data();
+  const auto *seed = srcClusters->const_view().is_seed().data();
   const unsigned int nclusters = srcClusters->const_view().metadata().size();
   std::vector<int32_t> clusters{cluster, cluster + nclusters};
   std::vector<int32_t> is_seed{seed, seed + nclusters};

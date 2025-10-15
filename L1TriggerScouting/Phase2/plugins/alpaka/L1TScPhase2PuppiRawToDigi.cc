@@ -40,6 +40,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           bx_lookup_token_{produces()},
           nbx_token_{produces("nbx")},
           streams_(params.getParameter<std::vector<uint32_t>>("streams")),
+          splitFactor_(params.getParameter<unsigned int>("splitFactor")),
           environment_{static_cast<Environment>(params.getUntrackedParameter<int>("environment"))},
           sync_timer_(std::in_place, "L1TScPhase2PuppiRawToDigi", environment_) {}
 
@@ -51,7 +52,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       const auto &raw_data = event.get(raw_data_token_);
 
       // normalize header & payload
-      normalize(raw_data);
+      auto ngoodbx = normalize(raw_data);
       const auto nbx = static_cast<int32_t>(h_data_.size());
 
       // allocate memory buffers
@@ -70,7 +71,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       event.emplace(puppi_token_, std::move(puppi));
 
       // store nbx
-      auto nbx_portable = CounterHost(event.queue(), static_cast<unsigned int>(nbx));
+      auto nbx_portable = CounterHost(event.queue(), static_cast<unsigned int>(ngoodbx));
       event.emplace(nbx_token_, std::move(nbx_portable));
 
       // debug / test end
@@ -80,19 +81,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
       desc.add<std::vector<uint32_t>>("streams");
+      desc.add<unsigned int>("splitFactor", 1)->setComment("Number of streams per BX");
       desc.add<edm::InputTag>("src");
       desc.addUntracked<int>("environment", static_cast<int>(Environment::kProduction));
       descriptions.addWithDefaultLabel(desc);
     };
 
-    void normalize(const SDSRawDataCollection &raw_data) {
+    unsigned int normalize(const SDSRawDataCollection &raw_data) {
       p_data_.clear();
       h_data_.clear();
 
       MinHeap min_heap;
       // readout data from links breadth-first (order not guaranteed)
-      for (size_t idx = 0; idx < streams_.size(); ++idx) {
-        auto stream_id = streams_[idx];
+      for (auto stream_id : streams_) {
         const auto &stream = raw_data.FEDData(stream_id);
         const auto chunk_begin = reinterpret_cast<const data_t *>(stream.data());
         const auto chunk_end = reinterpret_cast<const data_t *>(stream.data() + stream.size());
@@ -109,8 +110,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
           const size_t payload = chunk_end - ptr;                           // calculate payload size
           const size_t copy_count = std::min<size_t>(chunk_size, payload);  // block size
-          // do not skip empty BXs
-          // if (copy_count == 0) continue;                                    // skip if no trailing payload
 
           min_heap.push({bx, ptr - 1, ptr, copy_count});
           ptr += copy_count;  // move to the next word
@@ -143,6 +142,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         p_data_.insert(p_data_.end(), bx_data.data_ptr, bx_data.data_ptr + bx_data.data_size);  // copy payload
         min_heap.pop();
       }
+      if (nslices == splitFactor_)
+        ngoodbx++;
+
+      return ngoodbx;
     }
 
   private:
@@ -158,6 +161,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
     // utility members
     const std::vector<uint32_t> streams_;
+    const unsigned int splitFactor_;  // number of streams per BX
     const Environment environment_;
 
     // temporary storage

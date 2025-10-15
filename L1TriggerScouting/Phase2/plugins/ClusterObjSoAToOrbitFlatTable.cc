@@ -58,13 +58,13 @@ void ClusterObjSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, e
   edm::Handle<l1sc::ClusterObjHostCollection> srcClusters;
   iEvent.getByToken(srcClusters_, srcClusters);
 
-  const auto *bxs = srcBx->const_view<l1sc::OffsetsSoA>().offsets();
+  const auto *bxs = srcBx->const_view<l1sc::OffsetsSoA>().offsets().data();
   const unsigned int nbx = srcBx->const_view<l1sc::OffsetsSoA>().metadata().size();
 
-  const auto *pt = srcClusters->const_view().pt();
-  const auto *eta = srcClusters->const_view().eta();
-  const auto *phi = srcClusters->const_view().phi();
-  const auto *cluster = srcClusters->const_view().cluster();
+  const auto *pt = srcClusters->const_view().pt().data();
+  const auto *eta = srcClusters->const_view().eta().data();
+  const auto *phi = srcClusters->const_view().phi().data();
+  const auto *cluster = srcClusters->const_view().cluster().data();
 
   std::vector<unsigned int> bxOffsets{1, 0};
   std::vector<float> pts, etas, phis;

@@ -54,7 +54,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 #endif
         }
       }
-      radixSortMulti(acc, uieta, idx, bx_lookup.offsets(), nullptr);
+      radixSortMulti(acc, uieta, idx, bx_lookup.offsets().data(), nullptr);
 
       // step-1: rearrange
       for (uint32_t block_idx : independent_groups(acc, grid_dim)) {
