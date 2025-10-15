@@ -118,9 +118,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       }
 
       // restore bx order (size of heap at max 3564 not that heavy to track)
+      // pop the first element outside the loop
+      if (min_heap.empty())
+        return 0;
+
+      unsigned int ngoodbx = 0;
+      BxData bx_data = min_heap.top();
+      h_data_.push_back(*(bx_data.header_ptr));                                               // store header
+      p_data_.insert(p_data_.end(), bx_data.data_ptr, bx_data.data_ptr + bx_data.data_size);  // copy payload
+      min_heap.pop();
+      unsigned int nslices = 1;
       while (!min_heap.empty()) {
-        const auto &bx_data = min_heap.top();
-        h_data_.push_back(*(bx_data.header_ptr));                                               // store header
+        const auto &bx_data2 = min_heap.top();
+        if (bx_data2.bx != bx_data.bx) {  // new bx
+          if (nslices == splitFactor_)
+            ngoodbx++;
+          nslices = 1;
+          h_data_.push_back(*(bx_data2.header_ptr));           // store header
+        } else {                                               // same bx, skip header
+          h_data_.back() += (*(bx_data2.header_ptr)) & 0xFFF;  // merge size in header
+          nslices++;
+        }
+        bx_data = bx_data2;
         p_data_.insert(p_data_.end(), bx_data.data_ptr, bx_data.data_ptr + bx_data.data_size);  // copy payload
         min_heap.pop();
       }
