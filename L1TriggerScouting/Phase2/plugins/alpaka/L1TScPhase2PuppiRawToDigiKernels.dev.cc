@@ -1,4 +1,4 @@
-#include "L1TriggerScouting/Phase2/interface/alpaka/L1TScPhase2PuppiRawToDigiKernels.h"
+#include "L1TriggerScouting/Phase2/plugins/alpaka/L1TScPhase2PuppiRawToDigiKernels.h"
 
 #include "HeterogeneousCore/AlpakaInterface/interface/prefixScan.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"

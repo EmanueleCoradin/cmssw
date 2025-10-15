@@ -1,157 +1,134 @@
-import FWCore.ParameterSet.VarParsing as VarParsing
+import argparse
 
+def parse_args():
+    parser = argparse.ArgumentParser()
 
-args = VarParsing.VarParsing("analysis")
+    # Basic CMSSW settings
+    parser.add_argument(
+        "-nt", "--numberOfThreads",
+        type=int,
+        default=1,
+        help="Number of CMSSW threads"
+    )
+    parser.add_argument(
+        "-ns", "--numberOfStreams",
+        type=int,
+        default=1,
+        help="Number of CMSSW streams"
+    )
+    parser.add_argument(
+        "-ne", "--numberOfEvents",
+        type=int,
+        default=1,
+        help="Number of events to process"
+    )
 
-args.register(
-    "numberOfThreads",
-    1,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.int,
-    "Number of CMSSW threads"
-)
+    # Backend and environment
+    parser.add_argument(
+        "-b", "--backend",
+        type=str,
+        default="serial_sync",
+        choices=["serial_sync", "cuda_async", "rocm_async"],
+        help="Hardware accelerator backend"
+    )
+    parser.add_argument(
+        "-e", "--environment",
+        type=int,
+        default=0,
+        choices=[0, 1, 2],
+        help="0 - production, 1 - development, 2 - test"
+    )
 
-args.register(
-    "numberOfStreams",
-    1,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.int,
-    "Number of CMSSW streams"
-)
+    # Clustering parameters
+    parser.add_argument(
+        "--dc",
+        type=float,
+        default=0.2,
+        help="Side of the box inside which the density of a point is calculated"
+    )
+    parser.add_argument(
+        "--rhoc",
+        type=float,
+        default=5.0,
+        help="Minimum rhoc required for a point to be considered a seed candidate"
+    )
+    parser.add_argument(
+        "--dm",
+        type=float,
+        default=0.4,
+        help="Side of the box inside which the followers of a point are searched"
+    )
+    parser.add_argument(
+        "--wrapCoords",
+        action="store_true",
+        help="Wrap phi coordinate in CLUEstering"
+    )
 
-args.register(
-    "numberOfEvents",
-    1,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.int,
-    "Number of events to process"
-)
+    # Scouting configuration
+    parser.add_argument(
+        "-scout", "--runScouting",
+        action="store_true",
+        help="Run scouting-based tagging"
+    )
+    parser.add_argument(
+        "--runNumber",
+        type=int,
+        default=38,
+        help="Run number"
+    )
+    parser.add_argument(
+        "--lumiNumber",
+        type=int,
+        default=1,
+        help="Lumisection number"
+    )
+    parser.add_argument(
+        "--daqSourceMode",
+        type=str,
+        default="ScoutingPhase2",
+        help="DAQ source data mode"
+    )
+    parser.add_argument(
+        "--broker",
+        type=str,
+        default="none",
+        help="Broker: 'none' or 'hostname:port'"
+    )
 
-args.register(
-    "backend",
-    "serial_sync",
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.string,         
-    "Hardware accelerator backend: serial_sync, cuda_async, or rocm_async"
-)
+    # Directories and I/O streams
+    parser.add_argument(
+        "--fuBaseDir",
+        type=str,
+        default="/dev/shm/ramdisk",
+        help="FU base directory"
+    )
+    parser.add_argument(
+        "--buBaseDir",
+        nargs="+",
+        default=["/dev/shm/ramdisk"],
+        help="BU base directory (can specify multiple)"
+    )
+    parser.add_argument(
+        "--buNumStreams",
+        nargs="+",
+        type=int,
+        default=[],
+        help="Number of input streams (i.e. files) used simultaneously for each BU directory"
+    )
+    parser.add_argument(
+        "--streams",
+        nargs="+",
+        type=int,
+        default=[],
+        help="Input link IDs for the inputs"
+    )
 
-args.register(
-    "environment",
-    0,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.bool,         
-    "0 - production, 1 - development, 2 - test"
-)
+    # Output/reporting
+    parser.add_argument(
+        "--name",
+        type=str,
+        default="",
+        help="Name for output report file"
+    )
 
-args.register(
-    "dc",
-    0.2,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.float,         
-    "Side of the box inside of which the density of a point is calculated"
-)
-
-args.register(
-    "rhoc",
-    5.0,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.float,         
-    "Minimum rhoc required for a point to be considered a seed candidate "
-)
-
-args.register(
-    "dm",
-    0.4,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.float,         
-    "Side of the box inside of which the followers of a point are searched"
-)
-
-args.register(
-    "wrapCoords",
-    False,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.bool,         
-    "Wrap phi coordinate in CLUEstering"
-)
-
-# scouting
-args.register(
-    "runScouting",
-    False,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.bool,         
-    "Run scouting based tagging"
-)
-
-args.register (
-    "runNumber",
-    38,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.int,
-    "Run number"
-)
-
-args.register (
-    "lumiNumber",
-    1,
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.int,
-    "Lumisection number"
-)
-
-args.register (
-    "daqSourceMode",
-    "ScoutingPhase2",
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.string,
-    "DAQ source data mode")
-
-args.register (
-    "broker",
-    "none",
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.string,
-    "Broker: 'none' or 'hostname:port'"
-)
-
-args.register (
-    "fuBaseDir",
-    "/dev/shm/ramdisk",
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.string,
-    "BU base directory"
-)
-
-args.register (
-    "buBaseDir",
-    "/dev/shm/ramdisk",
-    VarParsing.VarParsing.multiplicity.list,
-    VarParsing.VarParsing.varType.string,
-    "BU base directory"
-)
-
-args.register (
-    "buNumStreams",
-    [],
-    VarParsing.VarParsing.multiplicity.list,
-    VarParsing.VarParsing.varType.int,
-    "Number of input streams (i.e. files) used simultaneously for each BU directory"
-)
-
-
-args.register (
-    "streams",
-    [],
-    VarParsing.VarParsing.multiplicity.list,
-    VarParsing.VarParsing.varType.int,
-    "Input links IDs for the inputs"
-)
-
-args.register (
-    "name",
-    "",
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.string,
-    "Name for output report file"
-)
+    return parser.parse_args()

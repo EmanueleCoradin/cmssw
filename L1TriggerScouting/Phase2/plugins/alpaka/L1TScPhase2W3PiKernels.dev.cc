@@ -1,4 +1,4 @@
-#include "L1TriggerScouting/Phase2/interface/alpaka/L1TScPhase2W3PiKernels.h"
+#include "L1TriggerScouting/Phase2/plugins/alpaka/L1TScPhase2W3PiKernels.h"
 
 #include <alpaka/alpaka.hpp>
 
@@ -6,8 +6,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/prefixScan.h"
 #include "L1TriggerScouting/Phase2/interface/L1TScPhase2Common.h"
-#include "L1TriggerScouting/Phase2/interface/alpaka/PhysicsKernelsUtilities.h"
-#include "L1TriggerScouting/Phase2/interface/alpaka/SynchronizingTimer.h"
+#include "L1TriggerScouting/Phase2/plugins/alpaka/PhysicsKernelsUtilities.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 

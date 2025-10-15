@@ -1,4 +1,4 @@
-#include "L1TriggerScouting/Phase2/interface/alpaka/L1TScPhase2SCJetsKernels.h"
+#include "L1TriggerScouting/Phase2/plugins/alpaka/L1TScPhase2SCJetsKernels.h"
 
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/host.h"

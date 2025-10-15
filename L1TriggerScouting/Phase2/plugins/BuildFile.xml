@@ -18,6 +18,6 @@
   <use name="FWCore/Utilities"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
-  <flags ALPAKA_BACKENDS="1"/>
+  <flags ALPAKA_BACKENDS="serial cuda"/>
   <flags EDM_PLUGIN="1"/>
 </library>

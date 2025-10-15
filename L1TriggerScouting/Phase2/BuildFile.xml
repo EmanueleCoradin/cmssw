@@ -8,7 +8,7 @@
 <use name="FWCore/Framework"/>
 <use name="HeterogeneousCore/AlpakaCore"/>
 <use name="HeterogeneousCore/AlpakaInterface"/>
-<flags ALPAKA_BACKENDS="1"/>
+<flags ALPAKA_BACKENDS="serial cuda"/>
 <export>
   <lib name="1"/>
 </export>

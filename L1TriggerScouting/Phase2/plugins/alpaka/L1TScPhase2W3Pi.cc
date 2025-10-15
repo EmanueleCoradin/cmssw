@@ -16,8 +16,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "L1TriggerScouting/Phase2/interface/L1TScPhase2Common.h"
 #include "L1TriggerScouting/Phase2/interface/W3PiAlgoParams.h"
-#include "L1TriggerScouting/Phase2/interface/alpaka/SynchronizingTimer.h"
-#include "L1TriggerScouting/Phase2/interface/alpaka/L1TScPhase2W3PiKernels.h"
+#include "L1TriggerScouting/Phase2/plugins/alpaka/L1TScPhase2W3PiKernels.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
@@ -34,7 +33,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           w3pi_table_token_{produces()},
           environment_{static_cast<Environment>(params.getUntrackedParameter<int>("environment"))},
           fast_path_{params.getParameter<bool>("fast_path")},
-          sync_timer_(std::in_place, "L1TScPhase2W3Pi", environment_),
           w3pi_params_{PortableHostObject<W3PiAlgoParams>{
               cms::alpakatools::host(),
               W3PiAlgoParams{
@@ -51,9 +49,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
                   .ang_sep_lower_bound = static_cast<float>(params.getParameter<double>("ang_sep_lower_bound"))}}} {}
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
-      // debug / test
-      sync_timer_.value().start(event.queue());
-
       // query input data (consumed on device-side)
       const auto &puppi = event.get(puppi_token_);
       const auto &bx_lookup = event.get(bx_lookup_token_);
@@ -67,9 +62,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       // store device-side products
       event.emplace(selected_bx_token_, std::move(selected_bxs));
       event.emplace(w3pi_table_token_, std::move(w3pi_table));
-
-      // debug / test end
-      sync_timer_.value().sync(event.queue());
     }
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
@@ -104,9 +96,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     // utility members
     const Environment environment_;
     const bool fast_path_;
-
-    // debug / test stats
-    std::optional<SynchronizingTimer> sync_timer_;
 
     // control params
     cms::alpakatools::MoveToDeviceCache<Device, PortableHostObject<W3PiAlgoParams>> w3pi_params_;

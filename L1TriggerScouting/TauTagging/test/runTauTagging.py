@@ -1,7 +1,7 @@
 import os
 import FWCore.ParameterSet.Config as cms
 from IOPool.Input.modules import PoolSource
-from L1TriggerScouting.TauTagging.options_cff import args
+from L1TriggerScouting.TauTagging.options_cff import parse_args
 from L1TriggerScouting.Phase2.modules import (
     l1sc_L1TScPhase2PuppiRawToDigi_alpaka,
 )
@@ -11,7 +11,7 @@ from L1TriggerScouting.TauTagging.modules import (
     l1sc_TauTaggingSink,
 )
 
-args.parseArguments()
+args = parse_args()
 process = cms.Process("L1TScPhase2TauTagging")
 
 # enable multithreading

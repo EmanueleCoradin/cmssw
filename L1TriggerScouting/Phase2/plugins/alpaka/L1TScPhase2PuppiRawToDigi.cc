@@ -12,8 +12,7 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/EDProducer.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "L1TriggerScouting/Phase2/interface/L1TScPhase2Common.h"
-#include "L1TriggerScouting/Phase2/interface/alpaka/SynchronizingTimer.h"
-#include "L1TriggerScouting/Phase2/interface/alpaka/L1TScPhase2PuppiRawToDigiKernels.h"
+#include "L1TriggerScouting/Phase2/plugins/alpaka/L1TScPhase2PuppiRawToDigiKernels.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
@@ -41,13 +40,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           nbx_token_{produces("nbx")},
           streams_(params.getParameter<std::vector<uint32_t>>("streams")),
           splitFactor_(params.getParameter<unsigned int>("splitFactor")),
-          environment_{static_cast<Environment>(params.getUntrackedParameter<int>("environment"))},
-          sync_timer_(std::in_place, "L1TScPhase2PuppiRawToDigi", environment_) {}
+          environment_{static_cast<Environment>(params.getUntrackedParameter<int>("environment"))} {}
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
-      // debug / test
-      sync_timer_.value().start(event.queue());
-
       // get raw data input
       const auto &raw_data = event.get(raw_data_token_);
 
@@ -73,9 +68,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       // store nbx
       auto nbx_portable = CounterHost(event.queue(), static_cast<unsigned int>(ngoodbx));
       event.emplace(nbx_token_, std::move(nbx_portable));
-
-      // debug / test end
-      sync_timer_.value().sync(event.queue());
     };
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
@@ -170,9 +162,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
     // kernel
     kernels::L1TScPhase2PuppiRawToDigiKernels rtd_kernels_;
-
-    // debug / test stats
-    std::optional<SynchronizingTimer> sync_timer_;
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc
