@@ -4,7 +4,7 @@
 
 #include "DataFormats/L1ScoutingSoA/interface/BxLookupHostCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/ClustersHostCollection.h"
-#include "DataFormats/L1ScoutingSoA/interface/PuppiHostCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/PFCandidateHostCollection.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/stream/EDAnalyzer.h"
@@ -104,7 +104,7 @@ namespace l1sc {
       fmt::print("=========================================================================\n");
     }
 
-    void print(const PuppiHostCollection::ConstView& pf,
+    void print(const PFCandidateHostCollection::ConstView& pf,
                const ClustersHostCollection::ConstView& clusters,
                const std::string_view clusters_backend) {
       const auto size = pf.metadata().size();
@@ -191,7 +191,7 @@ namespace l1sc {
       fmt::print("{}\n", sep);
     }
 
-    void print(const PuppiHostCollection::ConstView& pf,
+    void print(const PFCandidateHostCollection::ConstView& pf,
                const BxIndexSoA::ConstView& bx_index,
                const OffsetsSoA::ConstView& offsets,
                const ClustersHostCollection::ConstView& clusters,
@@ -212,7 +212,7 @@ namespace l1sc {
         all_clusters_num += clusters_num;
       }
       // Header
-      fmt::print("[DEBUG] PuppiCollection[{}] ({}) found {} clusters per BX (avg. across {} BXs):\n",
+      fmt::print("[DEBUG] PFCandidateCollection[{}] ({}) found {} clusters per BX (avg. across {} BXs):\n",
                  size,
                  pf_backend,
                  static_cast<int>(all_clusters_num / bx_index.metadata().size()),
@@ -220,7 +220,7 @@ namespace l1sc {
 
       constexpr auto sep =
           "+-------+-------+---------+---------+---------+---------+---------+---------+---------+-"
-          "--------+---------+---------+";
+          "--------+---------+---------+---------+";
       auto printHeader = [&] {
         fmt::print("{}\n", sep);
         fmt::print(
@@ -316,13 +316,13 @@ namespace l1sc {
       fmt::print("{}\n", sep);
     }
 
-    void print(const PuppiHostCollection::ConstView& pf, const std::string_view pf_backend) {
+    void print(const PFCandidateHostCollection::ConstView& pf, const std::string_view pf_backend) {
       const auto size = pf.metadata().size();
       if (size == 0)
         return;
 
       // Header
-      fmt::print("[DEBUG] PuppiCollection[{}] ({}):\n", size, pf_backend);
+      fmt::print("[DEBUG] PFCandidateCollection[{}] ({}):\n", size, pf_backend);
 
       constexpr auto sep =
           "+---------+---------+---------+---------+---------+---------+---------+---------+-------"
@@ -386,7 +386,7 @@ namespace l1sc {
 
   private:
     // get products
-    const edm::EDGetTokenT<PuppiHostCollection> pf_token_;
+    const edm::EDGetTokenT<PFCandidateHostCollection> pf_token_;
     const edm::EDGetTokenT<BxLookupHostCollection> bx_lookup_token_;
     const edm::EDGetTokenT<ClustersHostCollection> clusters_token_;
     // backend query

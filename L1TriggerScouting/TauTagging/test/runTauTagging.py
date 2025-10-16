@@ -2,14 +2,7 @@ import os
 import FWCore.ParameterSet.Config as cms
 from IOPool.Input.modules import PoolSource
 from L1TriggerScouting.TauTagging.options_cff import parse_args
-from L1TriggerScouting.Phase2.modules import (
-    l1sc_L1TScPhase2PuppiRawToDigi_alpaka,
-)
-from L1TriggerScouting.TauTagging.modules import (
-    l1sc_PFCandidateAoSToSoA_alpaka,
-    l1sc_CLUETaus_alpaka,
-    l1sc_TauTaggingSink,
-)
+from L1TriggerScouting.TauTagging.modules import l1sc_TauTaggingSink
 
 args = parse_args()
 process = cms.Process("L1TScPhase2TauTagging")
@@ -26,6 +19,7 @@ process.load("Configuration.StandardSequences.Accelerators_cff")
 process.load("FWCore.MessageService.MessageLogger_cfi")
 process.MessageLogger.cerr.FwkReport.reportEvery = 100
 
+process.path = cms.Path()
 # process a limited number of events
 if args.runScouting:
     if len(args.buNumStreams) != len(args.buBaseDir):
@@ -76,6 +70,7 @@ else:
 # setup chain configs
 # PFCandidates
 if args.runScouting:
+    from L1TriggerScouting.Phase2.modules import l1sc_L1TScPhase2PuppiRawToDigi_alpaka
     process.PFCandidatesProducer = l1sc_L1TScPhase2PuppiRawToDigi_alpaka(
         alpaka = cms.untracked.PSet(
             backend = cms.untracked.string(args.backend)
@@ -86,6 +81,7 @@ if args.runScouting:
         environment = cms.untracked.int32(args.environment),
     )
 else:
+    from L1TriggerScouting.TauTagging.modules import l1sc_PFCandidateAoSToSoA_alpaka
     process.PFCandidatesProducer = l1sc_PFCandidateAoSToSoA_alpaka(
         alpaka = cms.untracked.PSet(
             backend = cms.untracked.string(args.backend)
@@ -93,20 +89,24 @@ else:
         src = cms.InputTag("l1tLayer1Extended", "PF", "L1Dump"),
         environment = cms.untracked.int32(args.environment),
     )
+process.path += process.PFCandidatesProducer
 
 # CLUEstering
-process.CLUETaus = l1sc_CLUETaus_alpaka(
-    alpaka = cms.untracked.PSet(
-        backend = cms.untracked.string(args.backend)
-    ),
-    src = 'PFCandidatesProducer',
-    dc = cms.double(args.dc),
-    rhoc = cms.double(args.rhoc),
-    dm = cms.double(args.dm),
-    wrapCoords = cms.bool(args.wrapCoords),
-    environment = cms.untracked.int32(args.environment),
-    run_scout = cms.bool(args.runScouting),
-)
+if "clustering" in args.only or "tagging" in args.only:
+    from L1TriggerScouting.TauTagging.modules import l1sc_CLUETaus_alpaka
+    process.CLUETaus = l1sc_CLUETaus_alpaka(
+        alpaka = cms.untracked.PSet(
+            backend = cms.untracked.string(args.backend)
+        ),
+        src = 'PFCandidatesProducer',
+        dc = cms.double(args.dc),
+        rhoc = cms.double(args.rhoc),
+        dm = cms.double(args.dm),
+        wrapCoords = cms.bool(args.wrapCoords),
+        environment = cms.untracked.int32(args.environment),
+        run_scout = cms.bool(args.runScouting),
+    )
+    process.path += process.CLUETaus
 
 # debug sink
 process.TauTaggingSink = l1sc_TauTaggingSink(
@@ -115,10 +115,4 @@ process.TauTaggingSink = l1sc_TauTaggingSink(
     environment = cms.untracked.int32(args.environment),
     run_scout = cms.bool(args.runScouting),
 )
-
-# schedule the modules
-process.path = cms.Path(
-    process.PFCandidatesProducer +
-    process.CLUETaus +
-    process.TauTaggingSink
-)
+process.path += process.TauTaggingSink

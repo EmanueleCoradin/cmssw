@@ -22,6 +22,15 @@ def parse_args():
         default=1,
         help="Number of events to process"
     )
+    
+    # pipeline 
+    parser.add_argument(
+        "-o", "--only",
+        nargs="+",
+        default=["tagging"],
+        choices=["unpacking", "clustering", "tagging"],
+        help="Run only the specified pipeline stages"
+    )
 
     # Backend and environment
     parser.add_argument(

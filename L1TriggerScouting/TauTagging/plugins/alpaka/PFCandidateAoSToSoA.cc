@@ -1,5 +1,6 @@
-#include "DataFormats/L1ScoutingSoA/interface/PuppiHostCollection.h"
-#include "DataFormats/L1ScoutingSoA/interface/alpaka/PuppiDeviceCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/PFCandidateHostCollection.h"
+// even if not explicitly used this is needed for framework to implement automatic CopyToXXX methods
+#include "DataFormats/L1ScoutingSoA/interface/alpaka/PFCandidateDeviceCollection.h"
 #include "DataFormats/L1TParticleFlow/interface/PFCandidate.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -34,7 +35,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         return c.eta() > -2.4 && c.eta() < 2.4;
       });
       // allocate buffer to store converted soa
-      auto pf_candidates_soa = PuppiHostCollection(size, event.queue());
+      auto pf_candidates_soa = PFCandidateHostCollection(size, event.queue());
       alpaka::wait(event.queue());
 
       // convert aos to soa
@@ -72,7 +73,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     // get host data
     const edm::EDGetTokenT<std::vector<l1t::PFCandidate>> pf_candidates_aos_token_;
     // produce host data that will be automatically copied to device
-    const edm::EDPutTokenT<PuppiHostCollection> pf_candidates_soa_token_;
+    const edm::EDPutTokenT<PFCandidateHostCollection> pf_candidates_soa_token_;
     // debug / test
     const Environment environment_;
   };
