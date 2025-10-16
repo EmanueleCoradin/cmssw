@@ -105,7 +105,7 @@ namespace cms::torch::alpakatools {
       sizes_ = std::vector<long int>(dims_.size() + 1);
       sizes_[0] = dims_.batch_size();
       std::copy(dims_.begin(), dims_.end(), sizes_.begin() + 1);
-      if (dims_.size() > 1 && dims_[0] == 1 && !dims_.is_scalar()) {
+      if (dims_.size() >= 1 && dims_[0] == 1) {
         sizes_.erase(sizes_.begin() + 1);
       }
     }
@@ -124,6 +124,11 @@ namespace cms::torch::alpakatools {
         // no tensor dimensions (scalar case)
         strides_[0] = 0;
         bunches = 1;
+      }
+
+      if (dims_.size() == 1 && dims_[0] == 1) {
+        strides_.erase(strides_.begin() + 1);
+        return;
       }
 
       // stride for the second dimension (or first available)

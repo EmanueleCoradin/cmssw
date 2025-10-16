@@ -87,7 +87,6 @@ else:
             backend = cms.untracked.string(args.backend)
         ),
         src = cms.InputTag("l1tLayer1Extended", "PF", "L1Dump"),
-        environment = cms.untracked.int32(args.environment),
     )
 process.path += process.PFCandidatesProducer
 
@@ -103,15 +102,29 @@ if "clustering" in args.only or "tagging" in args.only:
         rhoc = cms.double(args.rhoc),
         dm = cms.double(args.dm),
         wrapCoords = cms.bool(args.wrapCoords),
-        environment = cms.untracked.int32(args.environment),
         run_scout = cms.bool(args.runScouting),
     )
     process.path += process.CLUETaus
+
+# Tagging
+if "tagging" in args.only:
+    from L1TriggerScouting.TauTagging.modules import l1sc_SoftTauIdML_alpaka
+    process.SoftTauId = l1sc_SoftTauIdML_alpaka(
+        alpaka = cms.untracked.PSet(
+            backend = cms.untracked.string(args.backend)
+        ),
+        pf = 'PFCandidatesProducer',
+        clusters = 'CLUETaus',
+        model = cms.FileInPath(args.model),
+        run_scout = cms.bool(args.runScouting),
+    )
+    process.path += process.SoftTauId
 
 # debug sink
 process.TauTaggingSink = l1sc_TauTaggingSink(
     src = 'PFCandidatesProducer',
     clusters = 'CLUETaus',
+    taus = 'SoftTauId',
     environment = cms.untracked.int32(args.environment),
     run_scout = cms.bool(args.runScouting),
 )

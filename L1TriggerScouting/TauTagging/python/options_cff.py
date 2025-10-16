@@ -44,7 +44,7 @@ def parse_args():
         "-e", "--environment",
         type=int,
         default=0,
-        choices=[0, 1, 2],
+        choices=[0, 1, 2, 3],
         help="0 - production, 1 - development, 2 - test"
     )
 
@@ -102,6 +102,14 @@ def parse_args():
         type=str,
         default="none",
         help="Broker: 'none' or 'hostname:port'"
+    )
+
+    # Tagger
+    parser.add_argument(
+        "-m","--model",
+        type=str,
+        default="L1TriggerScouting/TauTagging/data/softtauid.pt",
+        help="Path to JIT compiled PyTorch model."
     )
 
     # Directories and I/O streams

@@ -1,4 +1,4 @@
-<iftool name="cuda-gcc-support">
+<!-- <iftool name="cuda-gcc-support">
 <bin name="testJitLoad" file="testJitLoad.cc testRunner.cc">
   <use name="boost_filesystem"/>
   <use name="cppunit"/>
@@ -54,7 +54,7 @@
 </bin>
 </iftool>
 
-<!-- <iftool name="cuda-gcc-support">
+<iftool name="cuda-gcc-support">
 <bin name="testModelAot" file="testModelAot.cc testRunner.cc">
   <use name="boost_filesystem"/>
   <use name="cppunit"/>
@@ -65,7 +65,7 @@
   <use name="HeterogeneousCore/CUDAUtilities"/>
   <use name="PhysicsTools/PyTorch"/>
 </bin> 
-</iftool> -->
+</iftool>
 
 <iftool name="cuda-gcc-support">
 <bin name="testModelJit" file="testModelJit.cc testRunner.cc">
@@ -77,4 +77,4 @@
   <use name="HeterogeneousCore/CUDAUtilities"/>
   <use name="PhysicsTools/PyTorch"/>
 </bin>
-</iftool>
+</iftool> -->

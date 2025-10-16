@@ -68,4 +68,18 @@
   <!-- CounterHost -->
   <class name="l1sc::CounterHost"/>
   <class name="edm::Wrapper<l1sc::CounterHost>" splitLevel="0"/>  
+
+  <!-- SoftTauInputHostTensor -->
+  <class name="l1sc::SoftTauInputTensorSoA"/>
+  <class name="l1sc::SoftTauInputTensorSoA::View"/>
+  <class name="l1sc::SoftTauInputTensorSoA::ConstView"/>
+  <class name="l1sc::SoftTauInputHostTensor"/>
+  <class name="edm::Wrapper<l1sc::SoftTauInputHostTensor>" splitLevel="0"/>
+
+  <!-- SoftTauOutputHostTensor -->
+  <class name="l1sc::SoftTauOutputTensorSoA"/>
+  <class name="l1sc::SoftTauOutputTensorSoA::View"/>
+  <class name="l1sc::SoftTauOutputTensorSoA::ConstView"/>
+  <class name="l1sc::SoftTauOutputHostTensor"/>
+  <class name="edm::Wrapper<l1sc::SoftTauOutputHostTensor>" splitLevel="0"/>
 </lcgdict>

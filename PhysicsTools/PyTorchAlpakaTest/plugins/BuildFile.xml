@@ -1,4 +1,4 @@
-<library file="*.cc" name="PhysicsToolsPyTorchAlpakaTestPlugins">
+<!-- <library file="*.cc" name="PhysicsToolsPyTorchAlpakaTestPlugins">
   <use name="fmt"/>
   <use name="DataFormats/PortableTestObjects"/>
   <use name="FWCore/Framework"/>
@@ -21,4 +21,4 @@
   <use name="PerfTools/Perfetto"/>
   <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
-</library>
+</library> -->

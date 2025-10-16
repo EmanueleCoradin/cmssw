@@ -26,7 +26,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
                       static_cast<float>(params.getParameter<double>("rhoc")),
                       static_cast<float>(params.getParameter<double>("dm")),
                       params.getParameter<bool>("wrapCoords")),
-          environment_{static_cast<Environment>(params.getUntrackedParameter<int>("environment"))},
           run_scout_{params.getParameter<bool>("run_scout")} {}
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
@@ -57,22 +56,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       desc.add<double>("dm");
       desc.add<bool>("wrapCoords");
       desc.add<bool>("run_scout");
-      desc.addUntracked<int>("environment", static_cast<int>(Environment::kProduction));
       descriptions.addWithDefaultLabel(desc);
     }
 
   private:
     // get device pf data
     const device::EDGetToken<PFCandidateDeviceCollection> pf_candidates_token_;
-    // get association map if runScouting=False
+    // get association map if runScouting=True
     const device::EDGetToken<BxLookupDeviceCollection> bx_lookup_token_;
     // put device clustering data
     const device::EDPutToken<ClustersDeviceCollection> cluestering_token_;
     const edm::EDPutTokenT<int> num_clusters_token_;
     // algorithm
     const kernels::CLUEsteringAlgo clustering_;
-    // debug / test
-    const Environment environment_;
+    // scouting switch
     const bool run_scout_;
   };
 

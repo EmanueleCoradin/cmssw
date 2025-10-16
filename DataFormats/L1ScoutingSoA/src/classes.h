@@ -1,6 +1,10 @@
 #ifndef DataFormats_L1ScoutingSoA_src_classes_h
 #define DataFormats_L1ScoutingSoA_src_classes_h
 
+// these first to make sure they get included before any SoA header
+#include <Eigen/Core>
+#include <Eigen/Dense>
+
 #include "DataFormats/Common/interface/Wrapper.h"
 
 #include "DataFormats/L1ScoutingSoA/interface/BxIndexSoA.h"
@@ -11,6 +15,7 @@
 #include "DataFormats/L1ScoutingSoA/interface/TkEleSoA.h"
 #include "DataFormats/L1ScoutingSoA/interface/SelectedBxSoA.h"
 #include "DataFormats/L1ScoutingSoA/interface/W3PiTable.h"
+#include "DataFormats/L1ScoutingSoA/interface/SoftTauTensorSoA.h"
 
 #include "DataFormats/L1ScoutingSoA/interface/BxLookupHostCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/ClustersHostCollection.h"
@@ -20,5 +25,6 @@
 #include "DataFormats/L1ScoutingSoA/interface/SelectedBxHostCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/W3PiHostTable.h"
 #include "DataFormats/L1ScoutingSoA/interface/CounterHost.h"
+#include "DataFormats/L1ScoutingSoA/interface/SoftTauHostTensor.h"
 
 #endif  // DataFormats_L1ScoutingSoA_src_classes_h

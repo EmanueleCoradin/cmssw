@@ -1,4 +1,4 @@
-<use name="eigen"/>
+<!-- <use name="eigen"/>
 <use name="DataFormats/Portable"/>
 <use name="DataFormats/SoATemplate"/>
 <use name="DataFormats/PortableTestObjects"/>
@@ -9,4 +9,4 @@
 <flags ALPAKA_BACKENDS="1"/>
 <export>
   <lib name="1"/>
-</export>
+</export> -->

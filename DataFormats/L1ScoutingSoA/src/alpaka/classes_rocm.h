@@ -1,6 +1,10 @@
 #ifndef DataFormats_L1ScoutingSoA_src_alpaka_classes_rocm_h
 #define DataFormats_L1ScoutingSoA_src_alpaka_classes_rocm_h
 
+// these first to make sure they get included before any SoA header
+#include <Eigen/Core>
+#include <Eigen/Dense>
+
 #include "DataFormats/Common/interface/Wrapper.h"
 #include "DataFormats/Common/interface/DeviceProduct.h"
 
@@ -12,6 +16,7 @@
 #include "DataFormats/L1ScoutingSoA/interface/TkEleSoA.h"
 #include "DataFormats/L1ScoutingSoA/interface/SelectedBxSoA.h"
 #include "DataFormats/L1ScoutingSoA/interface/W3PiTable.h"
+#include "DataFormats/L1ScoutingSoA/interface/SoftTauTensorSoA.h"
 
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
@@ -21,5 +26,6 @@
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/SelectedBxDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/W3PiDeviceTable.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/CounterDevice.h"
+#include "DataFormats/L1ScoutingSoA/interface/alpaka/SoftTauDeviceTensor.h"
 
 #endif  // DataFormats_L1ScoutingSoA_src_alpaka_classes_rocm_h

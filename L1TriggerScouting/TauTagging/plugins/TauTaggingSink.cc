@@ -5,6 +5,7 @@
 #include "DataFormats/L1ScoutingSoA/interface/BxLookupHostCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/ClustersHostCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/PFCandidateHostCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/SoftTauHostTensor.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/stream/EDAnalyzer.h"
@@ -31,6 +32,7 @@ namespace l1sc {
         : pf_token_{consumes(params.getUntrackedParameter<edm::InputTag>("src"))},
           bx_lookup_token_{consumes(params.getUntrackedParameter<edm::InputTag>("src"))},
           clusters_token_{consumes(params.getUntrackedParameter<edm::InputTag>("clusters"))},
+          taus_token_{consumes(params.getUntrackedParameter<edm::InputTag>("taus"))},
           pf_backend_{consumes(getBackendTag(params.getUntrackedParameter<edm::InputTag>("src")))},
           bx_lookup_backend_{consumes(getBackendTag(params.getUntrackedParameter<edm::InputTag>("src")))},
           clusters_backend_{consumes(getBackendTag(params.getUntrackedParameter<edm::InputTag>("clusters")))},
@@ -43,6 +45,7 @@ namespace l1sc {
       desc.addUntracked<int>("environment", static_cast<int>(Environment::kDevelopment));
       desc.addUntracked<edm::InputTag>("src");
       desc.addUntracked<edm::InputTag>("clusters");
+      desc.addUntracked<edm::InputTag>("taus");
       descriptions.addWithDefaultLabel(desc);
     }
 
@@ -59,6 +62,7 @@ namespace l1sc {
         const auto pf_handle = event.getHandle(pf_token_);
         const auto bx_lookup_handle = event.getHandle(bx_lookup_token_);
         const auto clusters_handle = event.getHandle(clusters_token_);
+        const auto taus_handle = event.getHandle(taus_token_);
 
         if (pf_handle.isValid()) {
           // pf
@@ -81,8 +85,16 @@ namespace l1sc {
                     clusters.const_view(),
                     toString(bx_lookup_backend));
             } else {
-              assert(pf_backend == clusters_backend);
-              print(pf.const_view(), clusters.const_view(), toString(clusters_backend));
+              // taus
+              if (taus_handle.isValid()) {
+                auto const& taus = *taus_handle;
+                assert(pf_backend == clusters_backend);
+                print(pf.const_view(), clusters.const_view(), toString(clusters_backend));
+                print(clusters.const_view(), taus.const_view());
+              } else {
+                assert(pf_backend == clusters_backend);
+                print(pf.const_view(), clusters.const_view(), toString(clusters_backend));
+              }
             }
           } else {
             // debug unpacker only
@@ -92,16 +104,25 @@ namespace l1sc {
       }
     }
 
-    void beginStream(edm::StreamID) override {
-      if (environment_ >= Environment::kDevelopment) {
-        fmt::print("=========================================================================\n");
-      }
-    }
+    void print(const ClustersHostCollection::ConstView& clusters,
+               const SoftTauOutputHostTensor::ConstView& taus) {
+      fmt::print("[DEBUG] Taus[{}]\n", taus.metadata().size());
+      constexpr auto sep = "+---------+--------------+-----------+-----------+-----------+-----------+";
+      fmt::print("{}\n", sep);
+      fmt::print("| {:>7} | {:>12} | {:>9} | {:>9} | {:>9} | {:>9} |\n", "jet", "constituents", "true tau", "fake tau", "pt", "vz");
+      fmt::print("{}\n", sep);
 
-    void endStream() override {
-      fmt::print("=========================================================================\n");
-      fmt::print("[INFO] OK - TauTagging\n");
-      fmt::print("=========================================================================\n");
+      std::vector<int> constituents(taus.metadata().size(), 0);
+      for (int i = 0; i < clusters.metadata().size(); ++i) {
+        if (clusters.cluster()[i] < 0)
+          continue;
+        constituents[clusters.cluster()[i]] += 1;
+      }
+      for (int i = 0; i < taus.metadata().size(); ++i) {
+        fmt::print("| {:>7} | {:>12} | {:>9.4f} | {:>9.4f} | {:>9.4f} | {:>9.4f} |\n", 
+          i, constituents[i], taus.genuine_tau_score()[i], taus.fake_tau_score()[i], taus.pt()[i], taus.vz()[i]);
+      }
+      fmt::print("{}\n", sep);
     }
 
     void print(const PFCandidateHostCollection::ConstView& pf,
@@ -117,7 +138,7 @@ namespace l1sc {
         if (clusters.cluster()[i] > clusters_num)
           clusters_num = clusters.cluster()[i];
       }
-      fmt::print("[DEBUG] CLUETaus[{}] ({}) found {} clusters:\n", size, clusters_backend, clusters_num);
+      fmt::print("[DEBUG] CLUETaus[{}] ({}) found {} clusters:\n", size, clusters_backend, clusters_num+1);
 
       constexpr auto sep =
           "+---------+---------+---------+---------+---------+---------+---------+---------+---------+-------"
@@ -389,6 +410,7 @@ namespace l1sc {
     const edm::EDGetTokenT<PFCandidateHostCollection> pf_token_;
     const edm::EDGetTokenT<BxLookupHostCollection> bx_lookup_token_;
     const edm::EDGetTokenT<ClustersHostCollection> clusters_token_;
+    const edm::EDGetTokenT<SoftTauOutputHostTensor> taus_token_;
     // backend query
     const edm::EDGetTokenT<unsigned short> pf_backend_;
     const edm::EDGetTokenT<unsigned short> bx_lookup_backend_;
