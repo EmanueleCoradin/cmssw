@@ -2,12 +2,7 @@
 
 #include <fmt/format.h>
 
-#include "DataFormats/PortableTestObjects/interface/ParticleHostCollection.h"
-#include "DataFormats/PortableTestObjects/interface/ImageHostCollection.h"
-#include "DataFormats/PortableTestObjects/interface/LogitsHostCollection.h"
-#include "DataFormats/PortableTestObjects/interface/SimpleNetHostCollection.h"
-#include "DataFormats/PortableTestObjects/interface/MultiHeadNetHostCollection.h"
-
+#include "DataFormats/PortableTestObjects/interface/TorchTestHostCollection.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/stream/EDAnalyzer.h"
@@ -18,9 +13,11 @@
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/Utilities/interface/EDGetToken.h"
 #include "FWCore/Utilities/interface/InputTag.h"
-#include "PhysicsTools/PyTorchAlpakaTest/interface/Environment.h"
+#include "PhysicsTools/PyTorchAlpakaTest/plugins/Environment.h"
 
 namespace torchtest {
+
+  using namespace torchportabletest;
 
   inline edm::InputTag getBackendTag(edm::InputTag const& tag) {
     return edm::InputTag(tag.label(), "backend", tag.process());
@@ -147,7 +144,7 @@ namespace torchtest {
                 static_cast<cms::alpakatools::Backend>(event.get(multi_head_net_backend_));
             print(multi_head_net.const_view(), cms::alpakatools::toString(multi_head_net_backend));
             // assert, regressiona and classification heads
-            const int dims = portabletest::ClassificationHead::RowsAtCompileTime;
+            const int dims = ClassificationHead::RowsAtCompileTime;
             for (int32_t idx = 0; idx < multi_head_net.const_view().metadata().size(); idx++) {
               auto r = multi_head_net.const_view()[idx].regression_head();
               auto c = multi_head_net.const_view()[idx].classification_head();
@@ -170,7 +167,7 @@ namespace torchtest {
           auto const logits_backend = static_cast<cms::alpakatools::Backend>(event.get(logits_backend_));
           print(logits.const_view(), cms::alpakatools::toString(logits_backend));
 
-          const int dims = portabletest::LogitsType::RowsAtCompileTime;
+          const int dims = LogitsType::RowsAtCompileTime;
           for (int32_t idx = 0; idx < logits.const_view().metadata().size(); idx++) {
             float sum = 0.0f;
             const auto& logit = logits.const_view()[idx];
@@ -208,15 +205,12 @@ namespace torchtest {
     int id_ = 0;
     const Environment environment_;
 
-    const edm::EDGetTokenT<portabletest::ParticleHostCollection> particles_token_;
-    const edm::EDGetTokenT<portabletest::SimpleNetHostCollection> simple_net_token_;
-    const edm::EDGetTokenT<portabletest::SimpleNetHostCollection> simple_net_minibatch_token_;
-    const edm::EDGetTokenT<portabletest::SimpleNetHostCollection> simple_net_runtimeFP16_token_;
-    const edm::EDGetTokenT<portabletest::SimpleNetHostCollection> masked_net_token_;
-    const edm::EDGetTokenT<portabletest::MultiHeadNetHostCollection> multi_head_net_token_;
-    const edm::EDGetTokenT<portabletest::ImageHostCollection> images_token_;
-    const edm::EDGetTokenT<portabletest::LogitsHostCollection> logits_token_;
-    const edm::EDGetTokenT<portabletest::LogitsHostCollection> logits_minibatch_token_;
+    const edm::EDGetTokenT<ParticleHostCollection> particles_token_;
+    const edm::EDGetTokenT<SimpleNetHostCollection> simple_net_token_;
+    const edm::EDGetTokenT<SimpleNetHostCollection> masked_net_token_;
+    const edm::EDGetTokenT<MultiHeadNetHostCollection> multi_head_net_token_;
+    const edm::EDGetTokenT<ImageHostCollection> images_token_;
+    const edm::EDGetTokenT<LogitsHostCollection> logits_token_;
 
     const edm::EDGetTokenT<unsigned short> particles_backend_;
     const edm::EDGetTokenT<unsigned short> simple_net_backend_;
@@ -229,12 +223,8 @@ namespace torchtest {
 
     const int32_t kMaxView = 5;
 
-    void print(const portabletest::LogitsHostCollection::ConstView& logits, const std::string_view logits_backend) {
-      if (logits.metadata().size() == 0) {
-        fmt::print("[DEBUG] LogitsCollection[0]: empty\n");
-        return;
-      }
-      const int rows = portabletest::LogitsType::RowsAtCompileTime;
+    void print(const LogitsHostCollection::ConstView& logits, const std::string_view logits_backend) {
+      const int rows = LogitsType::RowsAtCompileTime;
       constexpr auto line = "+------+------+------+------+------+------+------+------+------+------+\n";
       fmt::memory_buffer buffer;
 
@@ -248,14 +238,10 @@ namespace torchtest {
       fmt::print("{}\n", fmt::to_string(buffer));
     }
 
-    void print(const portabletest::ImageHostCollection::ConstView& images, const std::string_view images_backend) {
+    void print(const ImageHostCollection::ConstView& images, const std::string_view images_backend) {
       const auto size = images.metadata().size();
-      if (size == 0) {
-        fmt::print("[DEBUG] ImageCollection[0]: empty\n");
-        return;
-      }
-      const int rows = portabletest::ColorChannel::RowsAtCompileTime;
-      const int cols = portabletest::ColorChannel::ColsAtCompileTime;
+      const int rows = ColorChannel::RowsAtCompileTime;
+      const int cols = ColorChannel::ColsAtCompileTime;
       constexpr auto line = "+-------+-------+-------+-------+-------+-------+-------+-------+-------+\n";
       fmt::memory_buffer buffer;
 
@@ -290,7 +276,7 @@ namespace torchtest {
       fmt::print("{}\n", fmt::to_string(buffer));
     }
 
-    void print(const portabletest::MultiHeadNetHostCollection::ConstView& multi_head_net,
+    void print(const MultiHeadNetHostCollection::ConstView& multi_head_net,
                const std::string_view multi_head_net_backend) {
       constexpr auto line = "+-------+-----------------+-------+-------+-------+\n";
       const auto size = multi_head_net.metadata().size();
@@ -338,8 +324,9 @@ namespace torchtest {
       fmt::print("{}\n", fmt::to_string(buffer));
     }
 
-    template <typename ViewT>
-    void print_view(const ViewT& simple_net) {
+    void print(const SimpleNetHostCollection::ConstView& simple_net,
+               const std::string_view simple_net_backend,
+               const std::string& label = "SimpleNetCollection") {
       constexpr auto line = "+-------+---------+\n";
       const auto size = simple_net.metadata().size();
       if (size == 0) {
@@ -365,25 +352,7 @@ namespace torchtest {
       fmt::print("{}\n", fmt::to_string(buffer));
     }
 
-    template <typename ViewT>
-    void print(const ViewT& simple_net, std::string_view backend, const std::string& label = "SimpleNetCollection") {
-      constexpr auto line = "+-------+---------+\n";
-      const auto size = simple_net.metadata().size();
-      fmt::memory_buffer buffer;
-
-      fmt::format_to(std::back_inserter(buffer), "[DEBUG] {}[{}] ({}):\n", label, size, backend);
-
-      fmt::format_to(std::back_inserter(buffer), "{}", line);
-      fmt::format_to(std::back_inserter(buffer), "| {:>5} | {:>7} |\n", "index", "reco_pt");
-      fmt::format_to(std::back_inserter(buffer), "{}", line);
-
-      fmt::print("{}\n", fmt::to_string(buffer));
-
-      print_view(simple_net);
-    }
-
-    void print(const portabletest::ParticleHostCollection::ConstView& particles,
-               const std::string_view particles_backend) {
+    void print(const ParticleHostCollection::ConstView& particles, const std::string_view particles_backend) {
       constexpr auto line = "+-------+---------+---------+---------+\n";
       const auto size = particles.metadata().size();
       if (size == 0) {

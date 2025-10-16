@@ -16,9 +16,10 @@ namespace cms::torch::alpakatools {
       return ::torch::Device(c10::DeviceType::CUDA, device.getNativeHandle());
 #elif ALPAKA_ACC_GPU_HIP_ENABLED
     if constexpr (std::is_same_v<TDev, alpaka::DevHipRt>)
-      return ::torch::Device(c10::DeviceType::CUDA, device.getNativeHandle());
+      return ::torch::Device(c10::DeviceType::CPU);
+      // return ::torch::Device(c10::DeviceType::HIP, device.getNativeHandle());
 #else
-    // default, omit device index for CPU
+    // default, crop index
     return ::torch::Device(c10::DeviceType::CPU);
 #endif
   }

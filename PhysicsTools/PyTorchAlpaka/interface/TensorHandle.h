@@ -10,14 +10,7 @@
 #include "PhysicsTools/PyTorch/interface/TorchInterface.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/Policy.h"
 
-// Forward declaration for friend
 namespace cms::torch::alpakatools {
-  template <typename TQueue>
-    requires alpaka::concepts::Queue<TQueue>
-  class TensorCollection;
-}
-
-namespace cms::torch::alpakatools::detail {
 
   template <typename T>
   ::torch::ScalarType get_type() {
@@ -54,50 +47,24 @@ namespace cms::torch::alpakatools::detail {
     bool is_scalar_;
   };
 
-  inline size_t num_spanned_elements(const Dims& dims,
-                                     const int total_size,
-                                     const size_t alignment,
-                                     const size_t bytes) {
-    // Returns the number of memory elements spanned by the tensor.
-
-    if (dims.volume() == 0 || dims.batch_size() == 0)
-      return 0;
-    if (dims.is_scalar())
-      return 1;
-
-    const auto padded_column_size = static_cast<size_t>(num_elements_per_column(total_size, alignment, bytes));
-    const auto offset_to_last_column = static_cast<size_t>(dims.volume() - 1) * padded_column_size;
-
-    return offset_to_last_column + static_cast<size_t>(dims.batch_size());
-  }
-
-  template <typename TQueue>
-    requires alpaka::concepts::Queue<TQueue>
   class ITensorHandle {
   public:
     virtual ~ITensorHandle() = default;
 
+    virtual void copy(void* queue_ptr, const MemcpyKind kind) = 0;
+
     virtual size_t alignment() const = 0;
     virtual size_t bytes() const = 0;
+    virtual void* data() = 0;
     virtual ::torch::ScalarType type() const = 0;
 
     virtual std::vector<long int> sizes() const = 0;
     virtual std::vector<long int> strides() const = 0;
-
-    template <typename TQueue_T>
-    friend ::torch::Tensor arrayToTensor(::torch::Device device, ITensorHandle<TQueue_T>& tensor_handle);
-    friend class ::cms::torch::alpakatools::TensorCollection<TQueue>;
-
-  private:
-    virtual void copy(TQueue& queue) = 0;
-    virtual void* data() = 0;
   };
 
-  // TODO: handle case when user register only one column:
-  // e.g. .register_tensor("test", soa.pt()); (stride should be [1] instead of e.g. [1, 32])
-  template <typename TQueue, typename T>
-    requires alpaka::concepts::Queue<TQueue>
-  class TensorHandle : public ITensorHandle<TQueue> {
+  template <typename TDev, typename T>
+    requires alpaka::isDevice<TDev>
+  class TensorHandle : public ITensorHandle {
   public:
     explicit TensorHandle(const size_t alignment,
                           const size_t bytes,
@@ -118,10 +85,13 @@ namespace cms::torch::alpakatools::detail {
 
     size_t alignment() const override { return alignment_; }
     size_t bytes() const override { return bytes_; }
+    void* data() override { return static_cast<void*>(policy_.data()); }
     ::torch::ScalarType type() const override { return get_type<T>(); }
 
     std::vector<long int> strides() const override { return strides_; }
     std::vector<long int> sizes() const override { return sizes_; }
+
+    void copy(void* queue_ptr, const MemcpyKind kind) override { policy_.copy(queue_ptr, kind); }
 
     // propagate iterator from Dims
     using iterator_t = std::vector<int>::const_iterator;
@@ -131,8 +101,6 @@ namespace cms::torch::alpakatools::detail {
     iterator_t cend() const { return dims_.cend(); }
 
   private:
-    void copy(TQueue& queue) override { policy_.copy(queue); }
-    void* data() override { return static_cast<void*>(policy_.data()); }
     void init_sizes() {
       sizes_ = std::vector<long int>(dims_.size() + 1);
       sizes_[0] = dims_.batch_size();
@@ -185,9 +153,9 @@ namespace cms::torch::alpakatools::detail {
 
     // workaround until pytorch COW Tensors is implemented
     // in the mainstream framework or cmssw add patch with COW inital state.
-    cms::torch::alpakatools::detail::Policy<TQueue, T> policy_;
+    Policy<TDev, T> policy_;
   };
 
-}  // namespace cms::torch::alpakatools::detail
+}  // namespace cms::torch::alpakatools
 
 #endif  // PhysicsTools_PyTorchAlpaka_interface_TensorHandle_h

@@ -1,66 +1,13 @@
-<test name="test-torch-control-flow"   command="torch-control-flow.py"/>
-<test name="test-torch-cpu"          command="torch-test.py cpu"/>
-<test name="test-torch-cpu-gpu"      command="torch-cpu-gpu.py cpu"/>
-<test name="test-torch-mini-nn-cpu"  command="torch-mini-nn.py cpu"/>
-<test name="test-torch-tensor-cpu"   command="torch-tensor.py cpu"/>
-<test name="pytorch-create_simple_dnn-cpu" command="create_simple_dnn.py ."/>
-<test name="pytorch-create_simple_dnn-gpu" command="create_simple_dnn.py .">
-  <iftool name="cuda">
-    <use name="cuda"/>
-  </iftool>
-  <iftool name="rocm">
-    <use name="rocm"/>
-  </iftool>
-</test>
-<test name="pytorch-test_simple_dnn-cpu"   command="test_simple_dnn.py cpu .">
-  <flags PRE_TEST="pytorch-create_simple_dnn-cpu"/>
-</test>
-
-<iftool name="pytorch-cuda">
-  <test name="test-torch-cuda"         command="torch-test.py cuda">
-    <use name="cuda"/>
-  </test>
-  <test name="test-torch-cpu-cuda"     command="torch-cpu-gpu.py cuda">
-    <use name="cuda"/>
-  </test>
-  <test name="test-torch-mini-nn-cuda"  command="torch-mini-nn.py cuda">
-    <use name="cuda"/>
-  </test>
-  <test name="test-torch-tensor-cuda"   command="torch-tensor.py cuda">
-    <use name="cuda"/>
-  </test>
-  <test name="pytorch-test_simple_dnn-cuda"   command="test_simple_dnn.py cuda .">
-    <flags PRE_TEST="pytorch-create_simple_dnn-gpu"/>
-    <use name="cuda"/>
-  </test>
-</iftool>
-
-<iftool name="pytorch-rocm">
-  <test name="test-torch-cpu-rocm"     command="torch-cpu-gpu.py rocm">
-    <use name="rocm"/>
-  </test>
-  <test name="test-torch-mini-nn-rocm"  command="torch-mini-nn.py rocm">
-    <use name="rocm"/>
-  </test>
-  <test name="test-torch-tensor-rocm"   command="torch-tensor.py rocm">
-    <use name="rocm"/>
-  </test>
-  <test name="pytorch-test_simple_dnn-rocm"   command="test_simple_dnn.py rocm .">
-    <flags PRE_TEST="pytorch-create_simple_dnn-gpu"/>
-    <use name="rocm"/>
-  </test>
-</iftool>
-
 <iftool name="cuda-gcc-support">
-  <bin name="testJitLoad" file="testJitLoad.cc testRunner.cc">
-	<use name="boost_filesystem"/>
-	<use name="cppunit"/>
-	<use name="cuda"/>
-	<use name="pytorch"/>
-	<use name="pytorch-cuda"/>
-	<use name="HeterogeneousCore/CUDAUtilities"/>
-	<use name="PhysicsTools/PyTorch"/>
-  </bin>
+<bin name="testJitLoad" file="testJitLoad.cc testRunner.cc">
+  <use name="boost_filesystem"/>
+  <use name="cppunit"/>
+  <use name="cuda"/>
+  <use name="pytorch"/>
+  <use name="pytorch-cuda"/>
+  <use name="HeterogeneousCore/CUDAUtilities"/>
+  <use name="PhysicsTools/PyTorch"/>
+</bin>
 </iftool>
 
 <bin name="testTorchlibModelsCpu" file="testTorchlibModelsCpu.cc testRunner.cc">
@@ -69,65 +16,65 @@
 </bin>
 
 <iftool name="cuda-gcc-support">
-  <bin name="testTorchlibModelsCuda" file="testTorchlibModelsCuda.cc testRunner.cc">
-	<use name="cppunit"/>
-	<use name="cuda"/>
-	<use name="pytorch"/>
-	<use name="pytorch-cuda"/>
-	<use name="HeterogeneousCore/CUDAUtilities"/>
-  </bin>
+<bin name="testTorchlibModelsCuda" file="testTorchlibModelsCuda.cc testRunner.cc">
+  <use name="cppunit"/>
+  <use name="cuda"/>
+  <use name="pytorch"/>
+  <use name="pytorch-cuda"/>
+  <use name="HeterogeneousCore/CUDAUtilities"/>
+</bin>
 </iftool>
 
 <iftool name="cuda-gcc-support">
-  <bin name="testTorchTensorStride" file="testRunner.cc testTorchTensorStride.cu">
-	<use name="cppunit"/>
-	<use name="cuda"/>
-	<use name="pytorch"/>
-	<use name="pytorch-cuda"/>
-	<use name="HeterogeneousCore/CUDAUtilities"/>
-  </bin>
+<bin name="testTorchTensorStride" file="testRunner.cc testTorchTensorStride.cu">
+  <use name="cppunit"/>
+  <use name="cuda"/>
+  <use name="pytorch"/>
+  <use name="pytorch-cuda"/>
+  <use name="HeterogeneousCore/CUDAUtilities"/>
+</bin>
 </iftool>
 
 <iftool name="cuda-gcc-support">
-  <bin name="testTorchFromBlobStride" file="testTorchFromBlobStride.cu">
-	<use name="cppunit"/>
-	<use name="cuda"/>
-	<use name="pytorch"/>
-	<use name="pytorch-cuda"/>
-	<use name="HeterogeneousCore/CUDAUtilities"/>
-  </bin>
+<bin name="testTorchFromBlobStride" file="testTorchFromBlobStride.cu">
+  <use name="cppunit"/>
+  <use name="cuda"/>
+  <use name="pytorch"/>
+  <use name="pytorch-cuda"/>
+  <use name="HeterogeneousCore/CUDAUtilities"/>
+</bin>
 </iftool>
 
 <iftool name="cuda-gcc-support">
-  <bin name="testTorchFromBufferPinnedMemory" file="testTorchFromBufferPinnedMemory.cu">
-	<use name="cppunit"/>
-	<use name="cuda"/>
-	<use name="pytorch"/>
-	<use name="HeterogeneousCore/CUDAUtilities"/>
-  </bin>
+<bin name="testTorchFromBufferPinnedMemory" file="testTorchFromBufferPinnedMemory.cu">
+  <use name="cppunit"/>
+  <use name="cuda"/>
+  <use name="pytorch"/>
+  <use name="HeterogeneousCore/CUDAUtilities"/>
+</bin>
 </iftool>
 
 <!-- <iftool name="cuda-gcc-support">
-  <bin name="testModelAot" file="testModelAot.cc testRunner.cc">
-	<use name="boost_filesystem"/>
-	<use name="cppunit"/>
-	<use name="cuda"/>
-	<use name="pytorch"/>
-	<use name="pytorch-cuda"/>
-	<use name="FWCore/Utilities"/>
-	<use name="HeterogeneousCore/CUDAUtilities"/>
-	<use name="PhysicsTools/PyTorch"/>
-  </bin> 
+<bin name="testModelAot" file="testModelAot.cc testRunner.cc">
+  <use name="boost_filesystem"/>
+  <use name="cppunit"/>
+  <use name="cuda"/>
+  <use name="pytorch"/>
+  <use name="pytorch-cuda"/>
+  <use name="FWCore/Utilities"/>
+  <use name="HeterogeneousCore/CUDAUtilities"/>
+  <use name="PhysicsTools/PyTorch"/>
+</bin> 
 </iftool> -->
 
 <iftool name="cuda-gcc-support">
-  <bin name="testModelJit" file="testModelJit.cc testRunner.cc">
-	<use name="boost_filesystem"/>
-	<use name="cppunit"/>
-	<use name="cuda"/>
-	<use name="pytorch"/>
-	<use name="pytorch-cuda"/>
-	<use name="HeterogeneousCore/CUDAUtilities"/>
-	<use name="PhysicsTools/PyTorch"/>
-  </bin>
+<bin name="testModelJit" file="testModelJit.cc testRunner.cc">
+  <use name="boost_filesystem"/>
+  <use name="cppunit"/>
+  <use name="cuda"/>
+  <use name="pytorch"/>
+  <use name="pytorch-cuda"/>
+  <use name="HeterogeneousCore/CUDAUtilities"/>
+  <use name="PhysicsTools/PyTorch"/>
+</bin>
 </iftool>

@@ -3,10 +3,10 @@ Tutorial code and demonstration of a full implementation of a CMSSW pipeline wit
 
 Example run with default options and `CudaAsync` backend
 ```sh
-cmsRun ${LOCALTOP}/src/PhysicsTools/PyTorchAlpakaTest/test/runPyTorchAlpakaTest.py backend=cuda_async
+cmsRun ${CMSSW_BASE}/src/PhysicsTools/PyTorchAlpakaTest/test/testPyTorchAlpakaHeterogeneousPipeline.py backend=cuda_async
 ```
 
 Run with 1000 events, 4 streams, 4 threads, on default backend (`SerialSync`)
 ```sh
-cmsRun ${LOCALTOP}/src/PhysicsTools/PyTorchAlpakaTest/test/runPyTorchAlpakaTest.py numberOfStreams=4 numberOfThreads=4 numberOfEvents=1000
+cmsRun ${CMSSW_BASE}/src/PhysicsTools/PyTorchAlpakaTest/test/testPyTorchAlpakaHeterogeneousPipeline.py numberOfStreams=4 numberOfThreads=4 numberOfEvents=1000
 ```

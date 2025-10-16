@@ -14,9 +14,11 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
+  using namespace cms::torch::alpakatools;
+
   class TestSOADataTypesAlpaka : public CppUnit::TestFixture {
     CPPUNIT_TEST_SUITE(TestSOADataTypesAlpaka);
-    CPPUNIT_TEST(testInterface);
+    CPPUNIT_TEST(testInterfaceVerbose);
     CPPUNIT_TEST(testMultiOutput);
     CPPUNIT_TEST(testSingleElement);
     CPPUNIT_TEST(testNoElement);
@@ -24,7 +26,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     CPPUNIT_TEST_SUITE_END();
 
   public:
-    void testInterface();
+    void testInterfaceVerbose();
     void testMultiOutput();
     void testSingleElement();
     void testNoElement();
@@ -51,23 +53,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
   using SoA = SoATemplate<>;
   using SoAView = SoA::View;
-  using SoACollection = PortableCollection<Device, SoA>;
-  using SoACollectionView = PortableCollection<Device, SoA>::View;
-  using SoAHostCollection = PortableHostCollection<SoA>;
-  using SoAHostCollectionView = PortableHostCollection<SoA>::View;
+  using SoAMetaRecords = SoA::View::Metarecords;
 
   constexpr auto tol = 1.0e-5;
 
   class FillKernel {
   public:
-    template <alpaka::concepts::Acc TAcc>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc, SoACollectionView view) const {
+    template <typename TAcc, typename = std::enable_if_t<::alpaka::isAccelerator<TAcc>>>
+    ALPAKA_FN_ACC void operator()(TAcc const& acc, PortableCollection<SoA, Device>::View view) const {
       if (cms::alpakatools::once_per_grid(acc)) {
         view.type() = 4;
         view.someNumber() = 5;
       }
 
-      for (auto i : cms::alpakatools::uniform_elements(acc, view.metadata().size())) {
+      for (int32_t i : cms::alpakatools::uniform_elements(acc, view.metadata().size())) {
         view[i].a()(0) = 1 + i;
         view[i].a()(1) = 2 + i;
         view[i].a()(2) = 3 + i;
@@ -90,14 +89,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
   class InputVerifyKernel {
   public:
-    template <alpaka::concepts::Acc TAcc>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc, SoACollectionView view) const {
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc, PortableCollection<SoA, Device>::View view) const {
       if (cms::alpakatools::once_per_grid(acc)) {
         ALPAKA_ASSERT_ACC(view.type() == 4);
         ALPAKA_ASSERT_ACC(view.someNumber() == 5);
       }
 
-      for (auto i : cms::alpakatools::uniform_elements(acc, view.metadata().size())) {
+      for (uint32_t i : cms::alpakatools::uniform_elements(acc, view.metadata().size())) {
         ALPAKA_ASSERT_ACC(view[i].a()(0) == 1 + i);
         ALPAKA_ASSERT_ACC(view[i].a()(1) == 2 + i);
         ALPAKA_ASSERT_ACC(view[i].a()(2) == 3 + i);
@@ -120,9 +118,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
   class TestOutputVerifyKernel {
   public:
-    template <alpaka::concepts::Acc TAcc>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc, SoACollectionView view) const {
-      for (auto i : cms::alpakatools::uniform_elements(acc, view.metadata().size())) {
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc, PortableCollection<SoA, Device>::View view) const {
+      for (uint32_t i : cms::alpakatools::uniform_elements(acc, view.metadata().size())) {
         ALPAKA_ASSERT_ACC(view.x()[i] - view.v()[i] < tol);
         ALPAKA_ASSERT_ACC(view.x()[i] - view.v()[i] > -tol);
 
@@ -132,22 +129,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     }
   };
 
-  void fill(Queue& queue, SoACollection& collection) {
-    size_t items = 64;
-    auto groups = cms::alpakatools::divide_up_by(collection->metadata().size(), items);
+  void fill(Queue& queue, PortableCollection<SoA, Device>& collection) {
+    uint32_t items = 64;
+    uint32_t groups = cms::alpakatools::divide_up_by(collection->metadata().size(), items);
     auto workDiv = cms::alpakatools::make_workdiv<Acc1D>(groups, items);
     ::alpaka::exec<Acc1D>(queue, workDiv, FillKernel{}, collection.view());
     ::alpaka::exec<Acc1D>(queue, workDiv, InputVerifyKernel{}, collection.view());
   }
 
-  void check_output(Queue& queue, SoACollection& collection) {
-    size_t items = 64;
-    auto groups = cms::alpakatools::divide_up_by(collection->metadata().size(), items);
+  void check_output(Queue& queue, PortableCollection<SoA, Device>& collection) {
+    uint32_t items = 64;
+    uint32_t groups = cms::alpakatools::divide_up_by(collection->metadata().size(), items);
     auto workDiv = cms::alpakatools::make_workdiv<Acc1D>(groups, items);
     ::alpaka::exec<Acc1D>(queue, workDiv, TestOutputVerifyKernel{}, collection.view());
   }
 
-  void check(SoAHostCollectionView& view, std::vector<::torch::IValue>& tensors) {
+  void check(PortableHostCollection<SoA>& hostCollection, std::vector<::torch::IValue> tensors) {
+    auto view = hostCollection.view();
+
     // Check if tensor list built correctly
     for (int i = 0; i < view.metadata().size(); i++) {
       CPPUNIT_ASSERT(view[i].a()(0) - tensors[3].toTensor()[i][0][0].item<double>() < tol);
@@ -176,9 +175,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
       CPPUNIT_ASSERT(view.x()[i] - tensors[0].toTensor()[i][0].item<double>() < tol);
       CPPUNIT_ASSERT(view.x()[i] - tensors[0].toTensor()[i][0].item<double>() > -tol);
 
-      CPPUNIT_ASSERT(view.x()[i] - tensors[4].toTensor()[i].item<double>() < tol);
-      CPPUNIT_ASSERT(view.x()[i] - tensors[4].toTensor()[i].item<double>() > -tol);
-
       CPPUNIT_ASSERT(view.y()[i] - tensors[0].toTensor()[i][1].item<double>() < tol);
       CPPUNIT_ASSERT(view.y()[i] - tensors[0].toTensor()[i][1].item<double>() > -tol);
 
@@ -190,7 +186,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     }
   }
 
-  void TestSOADataTypesAlpaka::testInterface() {
+  void TestSOADataTypesAlpaka::testInterfaceVerbose() {
     Platform platform;
     std::vector<Device> alpakaDevices = ::alpaka::getDevs(platform);
     const auto& alpakaHost = ::alpaka::getDevByIdx(::alpaka_common::PlatformHost(), 0u);
@@ -203,26 +199,27 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     const std::size_t batch_size = 64;
 
     // Create and fill needed portable collections
-    SoACollection deviceCollection(queue, batch_size);
+    PortableCollection<SoA, Device> deviceCollection(batch_size, queue);
+    PortableHostCollection<SoA> hostCollection(batch_size, queue);
     fill(queue, deviceCollection);
-    auto records = deviceCollection.view().records();
+    SoAMetaRecords records = deviceCollection.view().records();
 
-    cms::torch::alpakatools::TensorCollection<Queue> input(batch_size);
-    input.add<SoA>("vector", records.a(), records.b());
-    input.add<SoA>("single_vector", records.a());
-    input.add<SoA>("matrix", records.c());
-    input.add<SoA>("column", records.x(), records.y(), records.z());
-    input.add<SoA>("single_column", records.x());
-    input.add<SoA>("scalar", records.type());
-    input.change_order({"column", "scalar", "matrix", "vector", "single_column", "single_vector"});
+    TensorRegistry<Device> input(batch_size);
+    input.register_tensor<SoA>("vector", records.a(), records.b());
+    input.register_tensor<SoA>("matrix", records.c());
+    input.register_tensor<SoA>("column", records.x(), records.y(), records.z());
+    input.register_tensor<SoA>("scalar", records.type());
+    input.change_order({"column", "scalar", "matrix", "vector"});
 
-    std::vector<::torch::IValue> tensors = cms::torch::alpakatools::detail::convertInput(input, torchDevice);
+#ifdef ALPAKA_ACC_GPU_HIP_ENABLED
+    input.copy(queue, MemcpyKind::DeviceToHost);
+#endif
+    std::vector<::torch::IValue> tensors = convertInput(input, torchDevice);
 
-    SoAHostCollection hostCollection(queue, batch_size);
     alpaka::memcpy(queue, hostCollection.buffer(), deviceCollection.buffer());
     alpaka::wait(queue);
 
-    check(hostCollection.view(), tensors);
+    check(hostCollection, tensors);
   };
 
   void TestSOADataTypesAlpaka::testMultiOutput() {
@@ -238,20 +235,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     const std::size_t batch_size = 64;
 
     // Create and fill needed portable collections
-    SoACollection deviceCollection(queue, batch_size);
+    PortableCollection<SoA, Device> deviceCollection(batch_size, queue);
     fill(queue, deviceCollection);
 
     auto records = deviceCollection.view().records();
-    cms::torch::alpakatools::TensorCollection<Queue> input(batch_size);
-    input.add<SoA>("x", records.x());
-    input.add<SoA>("y", records.y());
+    TensorRegistry<Device> input(batch_size);
+    input.register_tensor<SoA>("x", records.x());
+    input.register_tensor<SoA>("y", records.y());
 
-    cms::torch::alpakatools::TensorCollection<Queue> output(batch_size);
-    output.add<SoA>("v", records.v());
-    output.add<SoA>("w", records.w());
+    TensorRegistry<Device> output(batch_size);
+    output.register_tensor<SoA>("v", records.v());
+    output.register_tensor<SoA>("w", records.w());
 
-    std::vector<::torch::IValue> tensors = cms::torch::alpakatools::detail::convertInput(input, torchDevice);
-    cms::torch::alpakatools::detail::convertOutput(tensors, output, torchDevice);
+#ifdef ALPAKA_ACC_GPU_HIP_ENABLED
+    input.copy(queue, MemcpyKind::DeviceToHost);
+    output.copy(queue, MemcpyKind::DeviceToHost);
+#else
+    input.copy(queue, MemcpyKind::DeviceToDevice);
+#endif
+    std::vector<::torch::IValue> tensors = convertInput(input, torchDevice);
+    convertOutput(tensors, output, torchDevice);
+#ifdef ALPAKA_ACC_GPU_HIP_ENABLED
+    output.copy(queue, MemcpyKind::HostToDevice);
+#endif
 
     // Check if tensor list built correctly
     check_output(queue, deviceCollection);
@@ -267,30 +273,30 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
     // Create and fill portable collections
     const std::size_t batch_size = 1;
-    SoACollection deviceCollection(queue, batch_size);
+    PortableCollection<SoA, Device> deviceCollection(batch_size, queue);
+    PortableHostCollection<SoA> hostCollection(batch_size, queue);
     fill(queue, deviceCollection);
-    auto records = deviceCollection.view().records();
+    SoAMetaRecords records = deviceCollection.view().records();
 
     // Run Converter for single tensor
-    cms::torch::alpakatools::TensorCollection<Queue> input(batch_size);
-    input.add<SoA>("vector", records.a(), records.b());
-    input.add<SoA>("single_vector", records.a(), records.b());
-    input.add<SoA>("matrix", records.c());
-    input.add<SoA>("column", records.x(), records.y(), records.z());
-    input.add<SoA>("single_column", records.x());
-    input.add<SoA>("scalar", records.type());
-    input.change_order({"column", "scalar", "matrix", "vector", "single_column", "single_vector"});
+    TensorRegistry<Device> input(batch_size);
+    input.register_tensor<SoA>("vector", records.a(), records.b());
+    input.register_tensor<SoA>("matrix", records.c());
+    input.register_tensor<SoA>("column", records.x(), records.y(), records.z());
+    input.register_tensor<SoA>("scalar", records.type());
+    input.change_order({"column", "scalar", "matrix", "vector"});
 
-    cms::torch::alpakatools::TensorCollection<Queue> output(batch_size);
-    output.add<SoA>("result", records.v());
+    TensorRegistry<Device> output(batch_size);
+    output.register_tensor<SoA>("result", records.v());
 
-    std::vector<::torch::IValue> tensors = cms::torch::alpakatools::detail::convertInput(input, torchDevice);
+#ifdef ALPAKA_ACC_GPU_HIP_ENABLED
+    input.copy(queue, MemcpyKind::DeviceToHost);
+#endif
+    std::vector<::torch::IValue> tensors = convertInput(input, torchDevice);
 
     // Check if tensor list built correctly
-    SoAHostCollection hostCollection(queue, batch_size);
     ::alpaka::memcpy(queue, hostCollection.buffer(), deviceCollection.buffer());
-    ::alpaka::wait(queue);
-    check(hostCollection.view(), tensors);
+    check(hostCollection, tensors);
   };
 
   void TestSOADataTypesAlpaka::testNoElement() {
@@ -303,18 +309,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
     //Create empty portable collection
     const std::size_t batch_size = 0;
-    SoACollection deviceCollection(queue, batch_size);
-    auto records = deviceCollection.view().records();
+    PortableCollection<SoA, Device> deviceCollection(batch_size, queue);
+    SoAMetaRecords records = deviceCollection.view().records();
 
     // Run Converter
-    cms::torch::alpakatools::TensorCollection<Queue> input(batch_size);
-    input.add<SoA>("vector", records.a(), records.b());
-    input.add<SoA>("matrix", records.c());
-    input.add<SoA>("column", records.x(), records.y(), records.z());
-    input.add<SoA>("scalar", records.type());
+    TensorRegistry<Device> input(batch_size);
+    input.register_tensor<SoA>("vector", records.a(), records.b());
+    input.register_tensor<SoA>("matrix", records.c());
+    input.register_tensor<SoA>("column", records.x(), records.y(), records.z());
+    input.register_tensor<SoA>("scalar", records.type());
     input.change_order({"column", "scalar", "matrix", "vector"});
 
-    std::vector<::torch::IValue> tensors = cms::torch::alpakatools::detail::convertInput(input, torchDevice);
+#ifdef ALPAKA_ACC_GPU_HIP_ENABLED
+    input.copy(queue, MemcpyKind::DeviceToHost);
+#endif
+    std::vector<::torch::IValue> tensors = convertInput(input, torchDevice);
 
     // Check if tensor list has empty tensors
     CPPUNIT_ASSERT(tensors[0].toTensor().size(0) == 0);
@@ -334,13 +343,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
     // Create and fill portable collections
     const std::size_t batch_size = 32;
-    SoACollection deviceCollection(queue, batch_size);
+    PortableCollection<SoA, Device> deviceCollection(batch_size, queue);
     fill(queue, deviceCollection);
 
     // Run Converter for empty metadata
-    cms::torch::alpakatools::TensorCollection<Queue> input(batch_size);
+    TensorRegistry<Device> input(batch_size);
 
-    std::vector<::torch::IValue> tensors = cms::torch::alpakatools::detail::convertInput(input, torchDevice);
+#ifdef ALPAKA_ACC_GPU_HIP_ENABLED
+    input.copy(queue, MemcpyKind::DeviceToHost);
+#endif
+    std::vector<::torch::IValue> tensors = convertInput(input, torchDevice);
 
     // Check if tensor list is empty
     CPPUNIT_ASSERT(tensors.size() == 0);

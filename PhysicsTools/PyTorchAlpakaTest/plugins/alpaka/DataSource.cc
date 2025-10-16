@@ -1,5 +1,4 @@
-#include "DataFormats/PortableTestObjects/interface/alpaka/ParticleDeviceCollection.h"
-#include "DataFormats/PortableTestObjects/interface/alpaka/ImageDeviceCollection.h"
+#include "DataFormats/PortableTestObjects/interface/alpaka/TorchTestDeviceCollection.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
@@ -9,12 +8,14 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/MakerMacros.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/FixedQueueEDProducer.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
-#include "PhysicsTools/PyTorchAlpakaTest/interface/Environment.h"
+#include "PhysicsTools/PyTorchAlpakaTest/plugins/Environment.h"
 #include "PhysicsTools/PyTorchAlpakaTest/plugins/alpaka/CommonKernels.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
-  class DataSource : public stream::FixedQueueEDProducer<> {
+  using namespace torchportabletest;
+
+  class DataSource : public stream::EDProducer<> {
   public:
     DataSource(const edm::ParameterSet &params)
         : FixedQueueEDProducer<>(params),
@@ -25,8 +26,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
       // allocate data sources
-      auto particles = portabletest::ParticleDeviceCollection(event.queue(), total_size_);
-      auto images = portabletest::ImageDeviceCollection(event.queue(), total_size_);
+      auto particles = ParticleDeviceCollection(batch_size_, event.queue());
+      auto images = ImageDeviceCollection(batch_size_, event.queue());
 
       // fill data
       kernels::randomFillParticleCollection(event.queue(), particles);
@@ -45,9 +46,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     }
 
   private:
-    const device::EDPutToken<portabletest::ParticleDeviceCollection> particles_token_;
-    const device::EDPutToken<portabletest::ImageDeviceCollection> images_token_;
-    const uint32_t total_size_;
+    const device::EDPutToken<ParticleDeviceCollection> particles_token_;
+    const device::EDPutToken<ImageDeviceCollection> images_token_;
+    const uint32_t batch_size_;
     const ::torchtest::Environment environment_;
   };
 

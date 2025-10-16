@@ -19,8 +19,8 @@ namespace torchtest {
     }
   }
 
-  void vector_add(int* a, int* b, int* c, int N, int cuda_grid_size, int cuda_block_size, cudaStream_t stream) {
-    vector_add_kernel<<<cuda_grid_size, cuda_block_size, 0, stream>>>(a, b, c, N);
+  void vector_add(int* a, int* b, int* c, int N, int cuda_grid_size, int cuda_block_size) {
+    vector_add_kernel<<<cuda_grid_size, cuda_block_size>>>(a, b, c, N);
     cudaGetLastError();
   }
 
@@ -30,11 +30,6 @@ int main(int argc, const char* argv[]) {
   // temporary workaround to disable test on non-CUDA devices
   if (not cms::cudatest::testDevices())
     return 0;
-
-  cudaStream_t stream;
-  cudaError_t err = cudaStreamCreate(&stream);
-  if (err != cudaSuccess)
-    CPPUNIT_FAIL("cudaStreamCreate failed");
 
   // Setup array, here 2^16 = 65536 items
   const int N = 1 << 16;
@@ -58,17 +53,17 @@ int main(int argc, const char* argv[]) {
   int *a_gpu, *b_gpu, *c_gpu;
 
   // Allocate memory on the device
-  cudaMallocAsync(&a_gpu, bytes, stream);
-  cudaMallocAsync(&b_gpu, bytes, stream);
-  cudaMallocAsync(&c_gpu, bytes, stream);
+  cudaMalloc(&a_gpu, bytes);
+  cudaMalloc(&b_gpu, bytes);
+  cudaMalloc(&c_gpu, bytes);
 
   // Copy data from the host to the device (CPU -> GPU)
-  cudaMemcpyAsync(a_gpu, a_cpu, bytes, cudaMemcpyHostToDevice, stream);
-  cudaMemcpyAsync(b_gpu, b_cpu, bytes, cudaMemcpyHostToDevice, stream);
+  cudaMemcpy(a_gpu, a_cpu, bytes, cudaMemcpyHostToDevice);
+  cudaMemcpy(b_gpu, b_cpu, bytes, cudaMemcpyHostToDevice);
 
   int NUM_THREADS = 1 << 10;
   int NUM_BLOCKS = (N + NUM_THREADS - 1) / NUM_THREADS;
-  torchtest::vector_add(a_gpu, b_gpu, c_gpu, N, NUM_BLOCKS, NUM_THREADS, stream);
+  torchtest::vector_add(a_gpu, b_gpu, c_gpu, N, NUM_BLOCKS, NUM_THREADS);
 
   try {
     // Convert pinned memory on GPU to Torch tensor on GPU
@@ -83,18 +78,14 @@ int main(int argc, const char* argv[]) {
     cudaFreeHost(b_cpu);
     cudaFreeHost(c_cpu);
 
-    cudaFreeAsync(a_gpu, stream);
-    cudaFreeAsync(b_gpu, stream);
-    cudaFreeAsync(c_gpu, stream);
+    cudaFree(a_gpu);
+    cudaFree(b_gpu);
+    cudaFree(c_gpu);
 
-    cudaStreamSynchronize(stream);
-    cudaStreamDestroy(stream);
     return 1;
   }
 
-  cudaMemcpyAsync(c_cpu, c_gpu, bytes, cudaMemcpyDeviceToHost, stream);
-  cudaStreamSynchronize(stream);
-
+  cudaMemcpy(c_cpu, c_gpu, bytes, cudaMemcpyDeviceToHost);
   for (int i = 0; i < N; ++i) {
     assert(c_cpu[i] == a_cpu[i] + b_cpu[i]);
   }
@@ -103,11 +94,9 @@ int main(int argc, const char* argv[]) {
   cudaFreeHost(b_cpu);
   cudaFreeHost(c_cpu);
 
-  cudaFreeAsync(a_gpu, stream);
-  cudaFreeAsync(b_gpu, stream);
-  cudaFreeAsync(c_gpu, stream);
+  cudaFree(a_gpu);
+  cudaFree(b_gpu);
+  cudaFree(c_gpu);
 
-  cudaStreamSynchronize(stream);
-  cudaStreamDestroy(stream);
   return 0;
 }

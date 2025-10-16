@@ -6,16 +6,19 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
 
-  void randomFillParticleCollection(Queue& queue, portabletest::ParticleDeviceCollection& particles) {
+  using namespace cms::alpakatools;
+  using namespace torchportabletest;
+
+  void randomFillParticleCollection(Queue& queue, ParticleDeviceCollection& particles) {
     const uint32_t threads_per_block = 64;
     const uint32_t blocks_per_grid = particles.view().metadata().size();
-    const auto grid = cms::alpakatools::make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
+    const auto grid = make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
 
     alpaka::exec<Acc1D>(
         queue,
         grid,
-        [] ALPAKA_FN_ACC(Acc1D const& acc, portabletest::ParticleDeviceCollection::View particles_view) {
-          for (int32_t thread_idx : cms::alpakatools::uniform_elements(acc, particles_view.metadata().size())) {
+        [] ALPAKA_FN_ACC(Acc1D const& acc, ParticleDeviceCollection::View particles_view) {
+          for (int32_t thread_idx : uniform_elements(acc, particles_view.metadata().size())) {
             auto rnd_gen = alpaka::rand::engine::createDefault(acc, 43, thread_idx);
             auto dist = alpaka::rand::distribution::createUniformReal<float>(acc);
             particles_view[thread_idx].pt() = dist(rnd_gen);
@@ -27,7 +30,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
   }
 
   struct RandomFillImageCollectionKernel {
-    ALPAKA_FN_ACC void operator()(Acc3D const& acc, portabletest::ImageDeviceCollection::View images_view) const {
+    ALPAKA_FN_ACC void operator()(Acc3D const& acc, ImageDeviceCollection::View images_view) const {
       Vec3D size = Vec3D{images_view.metadata().size(), 9, 9};
       for (Vec3D index_3d : cms::alpakatools::uniform_elements_nd(acc, size)) {
         // Order OpenCL like not CUDA style (reversed)
@@ -47,15 +50,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
     }
   };
 
-  void randomFillImageCollection(Queue& queue, portabletest::ImageDeviceCollection& images) {
+  void randomFillImageCollection(Queue& queue, ImageDeviceCollection& images) {
     const uint32_t items = 4;  // 4x4x4=64
     const uint32_t groups = images.view().metadata().size();
-    const auto grid = cms::alpakatools::make_workdiv<Acc3D>({groups, groups, groups}, {items, items, items});
+    const auto grid = make_workdiv<Acc3D>({groups, groups, groups}, {items, items, items});
 
     alpaka::exec<Acc3D>(
         queue,
         grid,
-        [] ALPAKA_FN_ACC(Acc3D const& acc, portabletest::ImageDeviceCollection::View images_view) {
+        [] ALPAKA_FN_ACC(Acc3D const& acc, ImageDeviceCollection::View images_view) {
           Vec3D size = Vec3D{images_view.metadata().size(), 9, 9};
           for (Vec3D index_3d : cms::alpakatools::uniform_elements_nd(acc, size)) {
             // Order OpenCL like not CUDA style (reversed)
@@ -76,16 +79,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
         images.view());
   }
 
-  void fillMask(Queue& queue, portabletest::MaskDeviceCollection& mask) {
+  void fillMask(Queue& queue, MaskDevice& mask) {
     const uint32_t threads_per_block = 64;
     const uint32_t blocks_per_grid = mask.view().metadata().size();
-    const auto grid = cms::alpakatools::make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
+    const auto grid = make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
 
     alpaka::exec<Acc1D>(
         queue,
         grid,
-        [] ALPAKA_FN_ACC(Acc1D const& acc, portabletest::MaskDeviceCollection::View mask_view) {
-          for (int32_t thread_idx : cms::alpakatools::uniform_elements(acc, mask_view.metadata().size())) {
+        [] ALPAKA_FN_ACC(Acc1D const& acc, MaskDevice::View mask_view) {
+          for (int32_t thread_idx : uniform_elements(acc, mask_view.metadata().size())) {
             // mask eta feature only
             mask_view[thread_idx].mask()[0] = 0;
             mask_view[thread_idx].mask()[1] = 1;

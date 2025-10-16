@@ -5,8 +5,6 @@
   <use name="eigen"/>
   <use name="pytorch"/>
   <use name="pytorch-cuda" for="alpaka/cuda"/>
-  <use name="pytorch-rocm" for="alpaka/rocm"/>
-  <use name="DataFormats/SoATemplate"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
   <use name="PhysicsTools/PyTorchAlpaka"/>
   <flags ALPAKA_BACKENDS="1"/>
@@ -19,8 +17,6 @@
   <use name="eigen"/>
   <use name="pytorch"/>
   <use name="pytorch-cuda" for="alpaka/cuda"/>
-  <use name="pytorch-rocm" for="alpaka/rocm"/>
-  <use name="DataFormats/SoATemplate"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
   <use name="PhysicsTools/PyTorch"/>
   <use name="PhysicsTools/PyTorchAlpaka"/>

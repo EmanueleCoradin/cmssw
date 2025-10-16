@@ -9,6 +9,8 @@
 
 namespace torchtest {
 
+  using namespace cms::torch;
+
   class TestModelAOT : public CppUnit::TestFixture {
   public:
     void testCpu();
@@ -33,7 +35,7 @@ namespace torchtest {
 
   void TestModelAOT::testCpu() {
     auto m_path = edm::FileInPath("PhysicsTools/PyTorch/models/regression_cpu.pt2").fullPath();
-    auto m = cms::torch::ModelAOT(m_path);
+    auto m = ModelAOT(m_path);
 
     std::vector<::torch::IValue> inputs;
     inputs.push_back(torch::ones({batch_size_, 3}, m.device()));
@@ -54,7 +56,7 @@ namespace torchtest {
       return;
 
     auto m_path = edm::FileInPath("PhysicsTools/PyTorch/models/regression_cuda.pt2").fullPath();
-    auto m = cms::torch::ModelAOT(m_path);
+    auto m = ModelAOT(m_path);
 
     std::vector<::torch::IValue> inputs;
     inputs.push_back(torch::ones({batch_size_, 3}, m.device()));
@@ -83,7 +85,7 @@ namespace torchtest {
     auto m_path = edm::FileInPath("PhysicsTools/PyTorch/models/regression_cpu.pt2").fullPath();
 
     // async model load and inference check
-    auto m = cms::torch::ModelAOT(m_path);
+    auto m = ModelAOT(m_path);
 
     auto inputs = std::vector<torch::IValue>();
     inputs.push_back(torch::randn({batch_size_, 3}, dev));
@@ -119,7 +121,7 @@ namespace torchtest {
     c10::cuda::setCurrentCUDAStream(torch_stream);
 
     // async model load and inference check
-    auto m = cms::torch::ModelAOT(m_path);
+    auto m = ModelAOT(m_path);
 
     auto inputs = std::vector<torch::IValue>();
     inputs.push_back(torch::randn({batch_size_, 3}, dev));
