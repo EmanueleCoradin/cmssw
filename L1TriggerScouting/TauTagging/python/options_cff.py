@@ -45,7 +45,12 @@ def parse_args():
         type=int,
         default=0,
         choices=[0, 1, 2, 3],
-        help="0 - production, 1 - development, 2 - test"
+        help="0 - production, 1 - development, 2 - test, 3 - debug"
+    )
+    parser.add_argument(
+        "-ws", "--wantSummary",
+        action='store_true',
+        help="Show timing report"
     )
 
     # Clustering parameters
@@ -68,7 +73,7 @@ def parse_args():
         help="Side of the box inside which the followers of a point are searched"
     )
     parser.add_argument(
-        "--wrapCoords",
+        "-wc", "--wrapCoords",
         action="store_true",
         help="Wrap phi coordinate in CLUEstering"
     )
@@ -80,25 +85,25 @@ def parse_args():
         help="Run scouting-based tagging"
     )
     parser.add_argument(
-        "--runNumber",
+        "-rn","--runNumber",
         type=int,
         default=38,
         help="Run number"
     )
     parser.add_argument(
-        "--lumiNumber",
+        "-ln", "--lumiNumber",
         type=int,
         default=1,
         help="Lumisection number"
     )
     parser.add_argument(
-        "--daqSourceMode",
+        "-dsm", "--daqSourceMode",
         type=str,
         default="ScoutingPhase2",
         help="DAQ source data mode"
     )
     parser.add_argument(
-        "--broker",
+        "-broker", "--broker",
         type=str,
         default="none",
         help="Broker: 'none' or 'hostname:port'"
@@ -114,26 +119,26 @@ def parse_args():
 
     # Directories and I/O streams
     parser.add_argument(
-        "--fuBaseDir",
+        "-fbd", "--fuBaseDir",
         type=str,
         default="/dev/shm/ramdisk",
         help="FU base directory"
     )
     parser.add_argument(
-        "--buBaseDir",
+        "-bbd", "--buBaseDir",
         nargs="+",
         default=["/dev/shm/ramdisk"],
         help="BU base directory (can specify multiple)"
     )
     parser.add_argument(
-        "--buNumStreams",
+        "-bns", "--buNumStreams",
         nargs="+",
         type=int,
         default=[],
         help="Number of input streams (i.e. files) used simultaneously for each BU directory"
     )
     parser.add_argument(
-        "--streams",
+        "-s", "--streams",
         nargs="+",
         type=int,
         default=[],
@@ -142,7 +147,7 @@ def parse_args():
 
     # Output/reporting
     parser.add_argument(
-        "--name",
+        "-n", "--name",
         type=str,
         default="",
         help="Name for output report file"

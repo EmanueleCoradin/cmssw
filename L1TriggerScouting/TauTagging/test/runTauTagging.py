@@ -7,6 +7,9 @@ from L1TriggerScouting.TauTagging.modules import l1sc_TauTaggingSink
 args = parse_args()
 process = cms.Process("L1TScPhase2TauTagging")
 
+# summary
+process.options.wantSummary = cms.untracked.bool(args.wantSummary)
+
 # enable multithreading
 process.options.numberOfThreads = args.numberOfThreads if args.numberOfThreads > 1 else 1 
 process.options.numberOfStreams = args.numberOfStreams if args.numberOfStreams > 1 else 1 
@@ -63,7 +66,8 @@ if args.runScouting:
 else:
     process.source = PoolSource(
         fileNames = [
-        "file:" + cms.FileInPath("L1TriggerScouting/TauTagging/data/pfOnly.root").value()
+            "file:" + cms.FileInPath("L1TriggerScouting/TauTagging/data/pfOnly.root").value()
+            # "file:" + cms.FileInPath("/afs/cern.ch/user/g/gizago/public/CMSSW_15_1_0_pre4/src/l1Nano.root").value()
         ]
     )
 
@@ -108,17 +112,20 @@ if "clustering" in args.only or "tagging" in args.only:
 
 # Tagging
 if "tagging" in args.only:
-    from L1TriggerScouting.TauTagging.modules import l1sc_SoftTauIdML_alpaka
-    process.SoftTauId = l1sc_SoftTauIdML_alpaka(
-        alpaka = cms.untracked.PSet(
-            backend = cms.untracked.string(args.backend)
-        ),
-        pf = 'PFCandidatesProducer',
-        clusters = 'CLUETaus',
-        model = cms.FileInPath(args.model),
-        run_scout = cms.bool(args.runScouting),
-    )
-    process.path += process.SoftTauId
+    if args.runScouting:
+        print("Scouting analysis are not supported for tagging with direct ML inference at the moment")
+    else:
+        from L1TriggerScouting.TauTagging.modules import l1sc_SoftTauIdML_alpaka
+        process.SoftTauId = l1sc_SoftTauIdML_alpaka(
+            alpaka = cms.untracked.PSet(
+                backend = cms.untracked.string(args.backend)
+            ),
+            pf = 'PFCandidatesProducer',
+            clusters = 'CLUETaus',
+            model = cms.FileInPath(args.model),
+            run_scout = cms.bool(args.runScouting),
+        )
+        process.path += process.SoftTauId
 
 # debug sink
 process.TauTaggingSink = l1sc_TauTaggingSink(

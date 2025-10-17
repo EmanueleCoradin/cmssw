@@ -23,13 +23,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                   ClustersDeviceCollection::ConstView clusters,
                                   SoftTauInputDeviceTensor::View input_tensor,
                                   PortableCounter* num_clusters) const {
-      // uint32_t grid_dim = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0];
-      // uint32_t block_dim = alpaka::getWorkDiv<alpaka::Block, alpaka::Threads>(acc)[0];
-      // for (uint32_t cluster_idx : independent_groups(acc, grid_dim)) {
-      //   for (uint32_t tid : independent_group_elements(acc, block_dim)) {
-      //     printf("%d, %d", cluster_idx, tid);
-      //   }
-      // }
+      
     }
   };
 
@@ -42,7 +36,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         make_workdiv<Acc1D>(64, clusters.const_view().metadata().size()),
         [] ALPAKA_FN_ACC(Acc1D const& acc, ClustersDeviceCollection::ConstView clusters, PortableCounter* n_clusters) {
           if (once_per_grid(acc))
-            n_clusters->value = -1;
+            n_clusters->value = 0;
           
           for (int32_t thread_idx : uniform_elements(acc, clusters.metadata().size())) {
             alpaka::atomicMax(acc, &n_clusters->value, clusters.cluster()[thread_idx]);

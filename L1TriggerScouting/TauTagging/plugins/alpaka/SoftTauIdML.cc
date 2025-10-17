@@ -46,7 +46,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       SoftTauInputDeviceTensor input_tensor(0, event.queue());
       input_tensor.zeroInitialise(event.queue());
       if (run_scout_) {
-        throw std::runtime_error("ML part not implemented for scouting yet, use --only clustering instead of full pipeline execution.");
         const auto &bx_lookup = event.get(bx_lookup_token_);
         input_tensor = kernels::transform(event.queue(), pf, bx_lookup, clusters);
       } else {
