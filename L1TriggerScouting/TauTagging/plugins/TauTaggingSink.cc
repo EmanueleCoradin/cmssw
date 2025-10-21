@@ -88,7 +88,7 @@ namespace l1sc {
             } else {
               // clusters info
               assert(pf_backend == clusters_backend);
-              print(pf.const_view(), clusters.const_view(), toString(clusters_backend));
+              // print(pf.const_view(), clusters.const_view(), toString(clusters_backend));
               // taus
               if (taus_handle.isValid()) {
                 auto const& taus = *taus_handle;

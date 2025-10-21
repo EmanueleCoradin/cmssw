@@ -66,8 +66,7 @@ if args.runScouting:
 else:
     process.source = PoolSource(
         fileNames = [
-            "file:" + cms.FileInPath("L1TriggerScouting/TauTagging/data/pfOnly.root").value()
-            # "file:" + cms.FileInPath("/afs/cern.ch/user/g/gizago/public/CMSSW_15_1_0_pre4/src/l1Nano.root").value()
+            "file:" + cms.FileInPath("L1TriggerScouting/TauTagging/data/l1Nano.root").value()
         ]
     )
 
