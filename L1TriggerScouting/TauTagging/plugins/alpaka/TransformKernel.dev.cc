@@ -57,23 +57,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                   SoftTauInputDeviceTensor::View input_tensor,
                                   PortableCounter* max_clusters,
                                   uint32_t* offsets,
-                                  uint32_t* hist,
-                                  uint16_t* indices) const {
+                                  uint16_t* indices,
+                                  int* members) const {
       const uint8_t SHARED_MEM_BLOCK = 128;
       auto& sorted_indices = alpaka::declareSharedVar<int[SHARED_MEM_BLOCK], __COUNTER__>(acc);
       auto& shared_pt = alpaka::declareSharedVar<float[SHARED_MEM_BLOCK], __COUNTER__>(acc); 
 
       // define grid dimensions
       for (uint32_t block_idx: independent_groups(acc, max_clusters->value + 1)) {
-        // fill shared mem (EOF flags)
-        if (once_per_block(acc)) {
-          for (auto idx = 0; idx < SHARED_MEM_BLOCK; idx++) {
-            sorted_indices[idx] = -1;
-            shared_pt[idx] = -1.0f;
-          }
-        }
-        alpaka::syncBlockThreads(acc);
-
         // bind range to hw block
         uint32_t begin = offsets[block_idx];
         uint32_t end = offsets[block_idx + 1];
@@ -82,11 +73,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         if (block_dim == 0)
           continue;
 
-        // fill shared mem
-        for (uint32_t tid : independent_group_elements(acc, block_dim)) {
-          uint32_t thread_idx = tid + begin; // global index
-          sorted_indices[tid] = tid;
-          shared_pt[tid] = pf.pt()[thread_idx];
+        for (uint32_t tid : independent_group_elements(acc, SHARED_MEM_BLOCK)) {
+          if (tid < block_dim) {
+            uint32_t member_idx = begin + tid;
+            uint32_t global_pid = members[member_idx]; 
+
+            sorted_indices[tid] = global_pid;
+            shared_pt[tid] = pf.pt()[global_pid];
+          } else {
+            // sentinel so unused slots never win
+            sorted_indices[tid] = -1;
+            shared_pt[tid]      = -1.0f;
+          }
         }
         alpaka::syncBlockThreads(acc);
 
@@ -109,6 +107,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         for (uint32_t tid : independent_group_elements(acc, block_dim)) {
           uint32_t thread_idx = tid + begin; // global index
           indices[thread_idx] = sorted_indices[tid];
+        }
+      }
+      if (once_per_grid(acc)) {
+        for (int i = 0; i < max_clusters->value + 1; i++) {
+          auto begin = offsets[i];
+          auto end = offsets[i + 1];
+          printf("Cluster %d [%d]: ", i, end - begin);
+          for (int j = 0; j < end - begin; j++) {
+            printf("%5d (%.2f) ", indices[j+begin], pf.pt()[indices[j+begin]]);
+          }
+          printf("\n");
         }
       }
     }
@@ -154,6 +163,33 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                         blocks_per_grid,
                         pc.data(),
                         alpaka::getPreferredWarpSize(alpaka::getDev(queue)));
+    
+    // TODO: write associator struct
+    auto grouped = make_device_buffer<int[]>(queue, pf.const_view().metadata().size());
+    alpaka::memset(queue, grouped, 0x00);
+    alpaka::exec<Acc1D>(queue,
+        make_workdiv<Acc1D>(1, 1),
+        [] ALPAKA_FN_ACC(Acc1D const& acc, 
+              PFCandidateDeviceCollection::ConstView pf, 
+              ClustersDeviceCollection::ConstView clusters,
+              PortableCounter* max_clusters, uint32_t* offsets, int* grouped) {
+          if (once_per_grid(acc)) {
+            int pos = 0;
+            for (uint32_t c = 0; c < max_clusters->value + 1; c++) {
+              for (uint32_t pf_idx = 0; pf_idx < pf.metadata().size(); pf_idx++) {
+                if (clusters.cluster()[pf_idx] == c) {
+                  grouped[pos] = pf_idx;
+                  pos++;
+                }
+              }
+            }
+          }
+        },
+        pf.const_view(),
+        clusters.const_view(),
+        max_clusters.data(),
+        alpaka::getPtrNative(offsets_buf),
+        alpaka::getPtrNative(grouped));
 
     // sort clusters by pt
     const auto max_part_per_cluster = 128;
@@ -168,30 +204,99 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         input_tensor.view(),
         max_clusters.data(),
         alpaka::getPtrNative(offsets_buf),
-        alpaka::getPtrNative(hist_buf),
-        alpaka::getPtrNative(index_buf));
+        alpaka::getPtrNative(index_buf),
+        alpaka::getPtrNative(grouped));
 
     alpaka::exec<Acc1D>(queue,
         make_workdiv<Acc1D>(1, 1),
-        [] ALPAKA_FN_ACC(Acc1D const& acc, PFCandidateDeviceCollection::ConstView pf,
-                                  PortableCounter* max_clusters, uint32_t* offsets, uint16_t* indices) {
-          if (once_per_grid(acc)) {
-            for (int c = 0; c < max_clusters->value + 1; c++) {
-              auto begin = offsets[c];
-              auto end = offsets[c + 1];
-              int cluster_size = end - begin;
-              printf("Cluster %d [%d]", c, cluster_size);
-              for (int i = 0; i < cluster_size; i++) {
-                printf("%5d (%.2f)", indices[i+begin]+begin, pf.pt()[indices[i+begin]+begin]);
+        [] ALPAKA_FN_ACC(Acc1D const& acc, 
+              PFCandidateDeviceCollection::ConstView pf, 
+              SoftTauInputDeviceTensor::View input_tensor,
+              PortableCounter* max_clusters, uint32_t* offsets, uint16_t* indices) {
+          for (uint32_t block_idx: independent_groups(acc, max_clusters->value + 1)) {
+            // bind range to hw block
+            uint32_t begin = offsets[block_idx];
+            uint32_t end = offsets[block_idx + 1];
+            // define block dimensions
+            uint32_t block_dim = end - begin;
+            if (block_dim == 0)
+              continue;
+
+            auto total_energy = 0.0f;
+            auto total_px = 0.0f;
+            auto total_py = 0.0f;
+            auto total_pz = 0.0f;
+
+            auto pt_jet = 0.0f;
+            auto eta_jet = 0.0f;
+            auto phi_jet = 0.0f;
+            // auto mass = 0.0f;
+            if (once_per_block(acc)) {
+              for (int i = 0; i < block_dim; i++) {
+                auto idx = indices[i+begin];
+                auto px = pf.pt()[idx] * alpaka::math::cos(acc, pf.phi()[idx]);
+                auto py = pf.pt()[idx] * alpaka::math::sin(acc, pf.phi()[idx]);
+                auto pz = pf.pt()[idx] * alpaka::math::sinh(acc, pf.eta()[idx]);
+                auto energy = alpaka::math::sqrt(acc, px * px + py * py + pz * pz + 0.13957f * 0.13957f);
+                total_px += px;
+                total_py += py;
+                total_pz += pz;
+                total_energy += energy;
               }
-              printf("\n");
+
+              pt_jet = alpaka::math::sqrt(acc, total_px * total_px + total_py * total_py);
+              phi_jet = alpaka::math::atan2(acc, total_py, total_px);
+              eta_jet = (pt_jet > 0.0f) ? alpaka::math::asinh(acc, total_pz / pt_jet) : 0.0f;
+              // mass = alpaka::math::sqrt(acc, alpaka::math::max(acc, total_energy * total_energy - total_px * total_px - total_py * total_py - total_pz * total_pz, 0.0f));
+            }
+
+            auto jet_cluster = input_tensor[block_idx];
+
+            // fill shared mem
+            for (uint32_t tid : independent_group_elements(acc, block_dim)) {
+              auto thread_idx = tid + begin; 
+              auto glob_idx = indices[thread_idx];
+
+              jet_cluster.features()(tid, 0) = pt_jet;
+              jet_cluster.features()(tid, 1) = eta_jet;
+              jet_cluster.features()(tid, 2) = phi_jet;
+              jet_cluster.features()(tid, 3) = 1.0f;
+              jet_cluster.features()(tid, 4) = pf.z0()[glob_idx];
+              // one hot-encoding from pdgid
+              auto pdgid_v = alpaka::math::abs(acc, static_cast<int>(pf.pdgid()[glob_idx]));
+              jet_cluster.features()(tid, 5) = (pdgid_v == 221 || pdgid_v == 321 || pdgid_v == 2212) ? 1.0f : 0.0f;
+              jet_cluster.features()(tid, 6) = (pdgid_v == 130) ? 1.0f : 0.0f;
+              jet_cluster.features()(tid, 7) = (pdgid_v == 11) ? 1.0f : 0.0f;
+              jet_cluster.features()(tid, 8) = (pdgid_v == 13) ? 1.0f : 0.0f;
+              jet_cluster.features()(tid, 9) = (pdgid_v == 22) ? 1.0f : 0.0f;
             }
           }
         },
         pf.const_view(),
+        input_tensor.view(),
         max_clusters.data(),
         alpaka::getPtrNative(offsets_buf),
         alpaka::getPtrNative(index_buf));
+
+    alpaka::exec<Acc1D>(queue,
+        make_workdiv<Acc1D>(1, 1),
+        [] ALPAKA_FN_ACC(Acc1D const& acc,
+              SoftTauInputDeviceTensor::View input_tensor) {
+          if (once_per_grid(acc)) {
+            for (int c = 0; c < 5; c++) {
+              auto jet_cluster = input_tensor[c];
+              printf("Cluster %d:\n", c);
+              for (int i = 0; i < JetFeatures::RowsAtCompileTime; i++) {
+                printf("  PF %d: ", i);
+                for (int f = 0; f < JetFeatures::ColsAtCompileTime; f++) {
+                  printf("%.2f ", jet_cluster.features()(i, f));
+                }
+                printf("\n");
+              }
+            }
+          }
+        },
+        input_tensor.view());
 
     return input_tensor;
   }
