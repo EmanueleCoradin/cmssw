@@ -1,6 +1,7 @@
 #include "L1TriggerScouting/TauTagging/plugins/alpaka/CLUEsteringAlgo.h"
 
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/radixSort.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
@@ -9,16 +10,43 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   class TransformKernel {
   public:
-    ALPAKA_FN_ACC void operator()(Acc1D const& acc, clue::AssociationMapView associator, int n_clusters) const {
+    ALPAKA_FN_ACC void operator()(
+        Acc1D const& acc, 
+        clue::AssociationMapView associator, 
+        IndexSoA::View indexes, 
+        OffsetsSoA::View offsets, 
+        const float* weights) const {
       if (once_per_grid(acc)) {
-        printf("CLUEstering associations:\n");
-        for (int c_id = 0; c_id < n_clusters; c_id++) {
+        offsets.offsets()[0] = 0;
+        for (int c_id = 0; c_id < offsets.metadata().size() - 1; c_id++) {
           auto span = associator[c_id];
-          printf("CLUE %ld: ", span.size());
-          for (auto idx : span) {
-            printf("%d ", idx);
+          offsets.offsets()[c_id+1] = span.size() + offsets.offsets()[c_id];
+          auto begin = offsets.offsets()[c_id];
+          for (int i = 0; i < span.size(); i++) {
+            indexes.indexes()[i+begin] = span[i];
+          }
+        }
+        for (int i = 0; i < offsets.metadata().size() - 1; i++) {
+          auto begin = offsets.offsets()[i];
+          auto end = offsets.offsets()[i+1];
+          printf("Cluster %d [%d]: ", i, end-begin);
+          for (auto j = begin; j < end; j++) {
+            auto idx = indexes.indexes()[j];
+            printf("%u (w: %.2f) ", idx, weights[idx]);
           }
           printf("\n");
+        }
+      }
+
+      for (uint32_t cluster_idx : independent_groups(acc, offsets.metadata().size() - 1)) {
+        // get event range
+        uint32_t begin = offsets.offsets()[cluster_idx];
+        uint32_t end = offsets.offsets()[cluster_idx + 1];
+        if (end <= begin)
+          continue;
+        uint32_t block_dim = end - begin;
+        for (uint32_t tid : independent_group_elements(acc, block_dim)) {
+          indexes.indexes()[tid + begin] = tid;
         }
       }
     }
@@ -27,7 +55,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   CLUEsteringAlgo::CLUEsteringAlgo(float dc, float rhoc, float dm, bool wrap_coords)
       : dc_(dc), rhoc_(rhoc), dm_(dm), wrap_coords_(wrap_coords) {}
 
-  void CLUEsteringAlgo::run(Queue& queue, const PFCandidateDeviceCollection& pf, ClustersDeviceCollection& clusters) const {
+  AssociationMapDevice CLUEsteringAlgo::run(Queue& queue, const PFCandidateDeviceCollection& pf, ClustersDeviceCollection& clusters) const {
     // CLUEstering call internally reinterpret_cast<T*> to non-const ptr
     const uint32_t n_points = pf.const_view().metadata().size();
 
@@ -46,7 +74,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       clue_algo.setWrappedCoordinates({{0, 1}});
     clue_algo.make_clusters(queue, points_device);
     auto associator = clue_algo.getClusters(queue, points_device);
-    alpaka::exec<Acc1D>(queue, make_workdiv<Acc1D>(1, 1), TransformKernel{}, associator.view(), associator.size());
+
+    auto association_soa = AssociationMapDevice({{static_cast<int>(n_points), static_cast<int>(associator.size()+1)}}, queue);
+    association_soa.zeroInitialise(queue);
+
+    alpaka::exec<Acc1D>(queue, 
+      make_workdiv<Acc1D>(1, 1), 
+      TransformKernel{}, 
+      associator.view(), 
+      association_soa.view<IndexSoA>(), 
+      association_soa.view<OffsetsSoA>(),
+      pf.const_view().pt().data());
+
+    return association_soa;
   }
 
   void CLUEsteringAlgo::run(Queue& queue,

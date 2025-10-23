@@ -1,3 +1,4 @@
+#include "DataFormats/L1ScoutingSoA/interface/alpaka/AssociationMapDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PFCandidateDeviceCollection.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -21,7 +22,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           pf_candidates_token_{consumes(params.getParameter<edm::InputTag>("src"))},
           bx_lookup_token_{consumes(params.getParameter<edm::InputTag>("src"))},
           cluestering_token_{produces()},
-          num_clusters_token_{produces()},
+          association_map_token_{produces()},
           clustering_(static_cast<float>(params.getParameter<double>("dc")),
                       static_cast<float>(params.getParameter<double>("rhoc")),
                       static_cast<float>(params.getParameter<double>("dm")),
@@ -35,13 +36,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
       // allocate buffer
       auto clusters = ClustersDeviceCollection(n_points, event.queue());
-
       // run CLUEstering algo
       if (run_scout_) {
         const auto &bx_lookup = event.get(bx_lookup_token_);
         clustering_.run(event.queue(), pf, bx_lookup, clusters);
       } else {
-        clustering_.run(event.queue(), pf, clusters);
+        auto association_map = clustering_.run(event.queue(), pf, clusters);
+        event.emplace(association_map_token_, std::move(association_map));
       }
 
       // move clustering results to event storage
@@ -66,7 +67,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     const device::EDGetToken<BxLookupDeviceCollection> bx_lookup_token_;
     // put device clustering data
     const device::EDPutToken<ClustersDeviceCollection> cluestering_token_;
-    const edm::EDPutTokenT<int> num_clusters_token_;
+    const device::EDPutToken<AssociationMapDevice> association_map_token_;
     // algorithm
     const kernels::CLUEsteringAlgo clustering_;
     // scouting switch

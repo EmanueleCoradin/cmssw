@@ -1,4 +1,5 @@
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/SoftTauDeviceTensor.h"
+#include "DataFormats/L1ScoutingSoA/interface/alpaka/AssociationMapDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PFCandidateDeviceCollection.h"
@@ -25,6 +26,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           pf_token_(consumes(params.getParameter<edm::InputTag>("pf"))),
           bx_lookup_token_{consumes(params.getParameter<edm::InputTag>("pf"))},
           clusters_token_{consumes(params.getParameter<edm::InputTag>("clusters"))},
+          association_map_token_{consumes(params.getParameter<edm::InputTag>("clusters"))},
           soft_tau_token_{produces()},
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
           run_scout_{params.getParameter<bool>("run_scout")} {}
@@ -49,7 +51,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         const auto &bx_lookup = event.get(bx_lookup_token_);
         input_tensor = kernels::transform(event.queue(), pf, bx_lookup, clusters);
       } else {
-        input_tensor = kernels::transform(event.queue(), pf, clusters);
+        const auto &association_map = event.get(association_map_token_);
+        // input_tensor = kernels::transform(event.queue(), pf, clusters);
+        input_tensor = kernels::transform(event.queue(), pf, association_map);
       }
 
       const auto batch_size = input_tensor.view().metadata().size();
@@ -88,6 +92,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     const device::EDGetToken<BxLookupDeviceCollection> bx_lookup_token_;
     // clustering output
     const device::EDGetToken<ClustersDeviceCollection> clusters_token_;
+    const device::EDGetToken<AssociationMapDevice> association_map_token_;
     // put ml output into event
     const device::EDPutToken<SoftTauOutputDeviceTensor> soft_tau_token_;
     // model
