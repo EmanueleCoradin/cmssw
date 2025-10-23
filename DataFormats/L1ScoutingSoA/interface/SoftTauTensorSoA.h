@@ -17,10 +17,10 @@ namespace l1sc {
   using SoftTauInputTensorSoA = SoftTauInputTensorLayout<>;
 
   GENERATE_SOA_LAYOUT(SoftTauOutputTensorLayout,
-                      SOA_COLUMN(float, genuine_tau_score),
-                      SOA_COLUMN(float, fake_tau_score),
+                      SOA_COLUMN(float, cls),
+                      SOA_COLUMN(float, vz),
                       SOA_COLUMN(float, pt),
-                      SOA_COLUMN(float, vz))
+                      SOA_COLUMN(float, charge))
   using SoftTauOutputTensorSoA = SoftTauOutputTensorLayout<>;
 
 }  // namespace l1sc

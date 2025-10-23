@@ -6,9 +6,77 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
+  template<typename TAcc, typename T>
+  inline ALPAKA_FN_ACC void swap(TAcc const& acc, T &a, T &b) {
+    T temp = a;
+    a = b;
+    b = temp;
+  }
+
   using namespace cms::alpakatools;
 
-  class TransformKernel {
+  class SortClustersKernel {
+  public:
+    ALPAKA_FN_ACC void operator()(
+        Acc1D const& acc,
+        const float* weights,
+        IndexSoA::View indexes, 
+        OffsetsSoA::View offsets) const {
+      const uint8_t kSharedMemSize = 128;
+      auto& indices_shared = alpaka::declareSharedVar<int[kSharedMemSize], __COUNTER__>(acc);
+      auto& weights_shared = alpaka::declareSharedVar<float[kSharedMemSize], __COUNTER__>(acc); 
+
+      // loop over clusters in parallel
+      for (uint32_t block_idx: independent_groups(acc, offsets.metadata().size() - 1)) {
+        // bind range to hw block
+        uint32_t begin = offsets.offsets()[block_idx];
+        uint32_t end = offsets.offsets()[block_idx + 1];
+        // define block dimensions
+        uint32_t block_dim = end - begin;
+        if (block_dim == 0)
+          continue;
+
+        // load global to shared memory with EOF sentinels
+        for (uint32_t tid : independent_group_elements(acc, kSharedMemSize)) {
+          if (tid < block_dim) {
+            uint32_t thread_idx = begin + tid;
+            auto p_index = indexes.indexes()[thread_idx];
+            indices_shared[tid] = p_index;
+            weights_shared[tid] = weights[p_index];
+          } else {
+            // sentinel so unused slots never win
+            indices_shared[tid] = -1;
+            weights_shared[tid] = -1.0f;
+          }
+        }
+        alpaka::syncBlockThreads(acc);
+
+        // odd-even sort algorithm
+        for (uint32_t i = 0; i < block_dim; i++) {
+          for (uint32_t tid : independent_group_elements(acc, block_dim - 1)) {
+            if (tid + 1 < block_dim) {
+              if ((i % 2 == 0 && tid % 2 == 0) || (i % 2 == 1 && tid % 2 == 1)) {
+                if (weights_shared[tid] < weights_shared[tid + 1]) {
+                  swap(acc, weights_shared[tid], weights_shared[tid + 1]);
+                  swap(acc, indices_shared[tid], indices_shared[tid + 1]);
+                }
+              }
+            }
+            // sync tree
+            alpaka::syncBlockThreads(acc);
+          }
+        }
+
+        // write back shared to global memory
+        for (uint32_t tid : independent_group_elements(acc, block_dim)) {
+          uint32_t thread_idx = tid + begin;
+          indexes.indexes()[thread_idx] = indices_shared[tid];
+        }
+      }
+    }
+  };
+
+  class CopyAssociatorKernel {
   public:
     ALPAKA_FN_ACC void operator()(
         Acc1D const& acc, 
@@ -25,28 +93,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           for (int i = 0; i < span.size(); i++) {
             indexes.indexes()[i+begin] = span[i];
           }
-        }
-        for (int i = 0; i < offsets.metadata().size() - 1; i++) {
-          auto begin = offsets.offsets()[i];
-          auto end = offsets.offsets()[i+1];
-          printf("Cluster %d [%d]: ", i, end-begin);
-          for (auto j = begin; j < end; j++) {
-            auto idx = indexes.indexes()[j];
-            printf("%u (w: %.2f) ", idx, weights[idx]);
-          }
-          printf("\n");
-        }
-      }
-
-      for (uint32_t cluster_idx : independent_groups(acc, offsets.metadata().size() - 1)) {
-        // get event range
-        uint32_t begin = offsets.offsets()[cluster_idx];
-        uint32_t end = offsets.offsets()[cluster_idx + 1];
-        if (end <= begin)
-          continue;
-        uint32_t block_dim = end - begin;
-        for (uint32_t tid : independent_group_elements(acc, block_dim)) {
-          indexes.indexes()[tid + begin] = tid;
         }
       }
     }
@@ -80,11 +126,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
     alpaka::exec<Acc1D>(queue, 
       make_workdiv<Acc1D>(1, 1), 
-      TransformKernel{}, 
+      CopyAssociatorKernel{}, 
       associator.view(), 
       association_soa.view<IndexSoA>(), 
       association_soa.view<OffsetsSoA>(),
       pf.const_view().pt().data());
+
+    alpaka::exec<Acc1D>(queue, 
+      make_workdiv<Acc1D>(associator.size(), 128), 
+      SortClustersKernel{}, 
+      pf.const_view().pt().data(),
+      association_soa.view<IndexSoA>(), 
+      association_soa.view<OffsetsSoA>());
 
     return association_soa;
   }

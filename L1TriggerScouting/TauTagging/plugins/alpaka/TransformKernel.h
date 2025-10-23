@@ -37,8 +37,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   using namespace ::l1sc;
 
-  constexpr uint32_t kMaxClustersNum = 100;
-
   SoftTauInputDeviceTensor transform(Queue& queue, 
                  const PFCandidateDeviceCollection& pf, 
                  const BxLookupDeviceCollection& bx_lookup, 
