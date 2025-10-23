@@ -24,7 +24,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         Queue& queue, 
         const PFCandidateDeviceCollection& pf, 
         ClustersDeviceCollection& clusters) const;
-    void run(Queue& queue,
+    AssociationMapDevice run(Queue& queue,
              const PFCandidateDeviceCollection& pf,
              const BxLookupDeviceCollection& bx_lookup,
              ClustersDeviceCollection& clusters) const;

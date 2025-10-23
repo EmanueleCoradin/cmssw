@@ -39,7 +39,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       // run CLUEstering algo
       if (run_scout_) {
         const auto &bx_lookup = event.get(bx_lookup_token_);
-        clustering_.run(event.queue(), pf, bx_lookup, clusters);
+        auto association_map = clustering_.run(event.queue(), pf, bx_lookup, clusters);
+        event.emplace(association_map_token_, std::move(association_map));
       } else {
         auto association_map = clustering_.run(event.queue(), pf, clusters);
         event.emplace(association_map_token_, std::move(association_map));

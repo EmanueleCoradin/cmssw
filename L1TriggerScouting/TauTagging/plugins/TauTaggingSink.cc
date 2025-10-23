@@ -103,8 +103,16 @@ namespace l1sc {
               }
             }
           } else {
-            // debug unpacker only
-            print(pf.const_view(), toString(pf_backend));
+            if (run_scout_ && bx_lookup_handle.isValid()) {
+              // bx lookup
+              auto const& bx_lookup = *bx_lookup_handle;
+              auto const bx_lookup_backend = static_cast<Backend>(event.get(bx_lookup_backend_));
+              assert(pf_backend == bx_lookup_backend);
+              print(pf.const_view(), bx_lookup.const_view<BxIndexSoA>(), bx_lookup.const_view<OffsetsSoA>(), toString(pf_backend));
+            } else {
+              // debug unpacker only
+              print(pf.const_view(), toString(pf_backend));
+            }
           }
         }
       }
@@ -304,9 +312,8 @@ namespace l1sc {
       // Ellipsis row if not all printed
       if (printed < size) {
         fmt::print(
-            "| {:>5} | {:>7} | {:>5} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | "
+            "| {:>5} | {:>7} | {:>5} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | "
             "{:>7} | {:>7} |\n",
-            "...",
             "...",
             "...",
             "...",
@@ -329,6 +336,108 @@ namespace l1sc {
         for (int j = range - n_last; j < range; ++j) {
           const int globalIdx = start + j;
           printRow(bx_index.bx()[lastBxIdx], globalIdx, j, clusters[globalIdx], pf[globalIdx]);
+        }
+      }
+
+      fmt::print("{}\n", sep);
+    }
+
+    void print(const PFCandidateHostCollection::ConstView& pf,
+               const BxIndexSoA::ConstView& bx_index,
+               const OffsetsSoA::ConstView& offsets,
+               const std::string_view pf_backend) {
+      const auto size = pf.metadata().size();
+      if (size == 0)
+        return;
+
+      // Header
+      fmt::print("[DEBUG] PFCandidateCollection[{}] ({}):\n", size, pf_backend);
+
+      constexpr auto sep =
+          "+-------+-----------+---------+---------+---------+---------+---------+---------+-"
+          "--------+---------+---------+";
+      auto printHeader = [&] {
+        fmt::print("{}\n", sep);
+        fmt::print(
+            "| {:>5} | {:>9} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | "
+            "{:>7} | {:>7} |\n",
+            "bx",
+            "index",
+            "local",
+            "pt",
+            "eta",
+            "phi",
+            "z0",
+            "dxy",
+            "puppiw",
+            "quality",
+            "pdgid");
+        fmt::print("{}\n", sep);
+      };
+
+      auto printRow = [&](int bx, int global, int local, const auto& pf_view) {
+        fmt::print(
+            "| {:5d} | {:9d} | {:7d} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} "
+            "| {:>7.2f} | {:>7d} | {:>7d} |\n",
+            bx,
+            global,
+            local,
+            pf_view.pt(),
+            pf_view.eta(),
+            pf_view.phi(),
+            pf_view.z0(),
+            pf_view.dxy(),
+            pf_view.puppiw(),
+            pf_view.quality(),
+            pf_view.pdgid());
+      };
+
+      printHeader();
+
+      const int max_entries = (environment_ > Environment::kTest) ? size : 5;
+      int printed = 0;
+
+      // Print first 5 entries until max_entries
+      for (int i = 0; i < bx_index.metadata().size() && printed < max_entries; ++i) {
+        const int bx = bx_index.bx()[i];
+        const int start = offsets.offsets()[i];
+        const int end = offsets.offsets()[i + 1];
+        const int range = end - start;
+
+        for (int j = 0; j < range && printed < max_entries; ++j) {
+          const int globalIdx = start + j;
+          if (globalIdx >= size)
+            break;
+          printRow(bx, globalIdx, j, pf[globalIdx]);
+          ++printed;
+        }
+      }
+
+      // Ellipsis row if not all printed
+      if (printed < size) {
+        fmt::print(
+            "| {:>5} | {:>9} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} |\n",
+            "...",
+            "...",
+            "...",
+            "...",
+            "...",
+            "...",
+            "...",
+            "...",
+            "...",
+            "...",
+            "...");
+        // Print last 5 entries of the last BX only
+        const int lastBxIdx = bx_index.metadata().size() - 1;
+        const int start = offsets.offsets()[lastBxIdx];
+        const int end = offsets.offsets()[lastBxIdx + 1];
+        const int range = end - start;
+        const int n_last = std::min(5, range);
+
+        for (int j = range - n_last; j < range; ++j) {
+          const int globalIdx = start + j;
+          printRow(bx_index.bx()[lastBxIdx], globalIdx, j, pf[globalIdx]);
         }
       }
 
