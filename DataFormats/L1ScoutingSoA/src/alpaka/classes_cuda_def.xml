@@ -4,6 +4,11 @@
   <class name="edm::DeviceProduct<alpaka_cuda_async::l1sc::BxLookupDeviceCollection>" persistent="false"/>
   <class name="edm::Wrapper<edm::DeviceProduct<alpaka_cuda_async::l1sc::BxLookupDeviceCollection>>" persistent="false"/>
 
+  <!-- AssociationMapDevice -->
+  <class name="alpaka_cuda_async::l1sc::AssociationMapDevice" persistent="false"/>
+  <class name="edm::DeviceProduct<alpaka_cuda_async::l1sc::AssociationMapDevice>" persistent="false"/>
+  <class name="edm::Wrapper<edm::DeviceProduct<alpaka_cuda_async::l1sc::AssociationMapDevice>>" persistent="false"/>
+
   <!-- ClustersDeviceCollection -->
   <class name="alpaka_cuda_async::l1sc::ClustersDeviceCollection" persistent="false"/>
   <class name="edm::DeviceProduct<alpaka_cuda_async::l1sc::ClustersDeviceCollection>" persistent="false"/>

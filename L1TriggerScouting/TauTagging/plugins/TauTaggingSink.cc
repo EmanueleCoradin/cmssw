@@ -151,14 +151,13 @@ namespace l1sc {
 
       constexpr auto sep =
           "+---------+---------+---------+---------+---------+---------+---------+---------+---------+-------"
-          "--+---------+";
+          "--+";
       auto printHeader = [&] {
         fmt::print("{}\n", sep);
         fmt::print(
-            "| {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} "
+            "| {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} "
             "|\n",
             "index",
-            "is_seed",
             "cluster",
             "pt",
             "eta",
@@ -173,10 +172,9 @@ namespace l1sc {
 
       auto printRow = [&](int index, const auto& pf_view, const auto& clusters_view) {
         fmt::print(
-            "| {:>7d} | {:>7d} | {:>7d} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | "
+            "| {:>7d} | {:>7d} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | "
             "{:>7d} | {:>7d} |\n",
             index,
-            clusters_view.is_seed(),
             clusters_view.cluster(),
             pf_view.pt(),
             pf_view.eta(),
@@ -247,16 +245,15 @@ namespace l1sc {
 
       constexpr auto sep =
           "+-------+-------+---------+---------+---------+---------+---------+---------+---------+-"
-          "--------+---------+---------+---------+";
+          "--------+---------+---------+";
       auto printHeader = [&] {
         fmt::print("{}\n", sep);
         fmt::print(
-            "| {:>5} | {:>7} | {:>5} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | "
+            "| {:>5} | {:>7} | {:>5} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | {:>7} | "
             "{:>7} | {:>7} |\n",
             "bx",
             "index",
             "local",
-            "is_seed",
             "cluster",
             "pt",
             "eta",
@@ -271,12 +268,11 @@ namespace l1sc {
 
       auto printRow = [&](int bx, int global, int local, const auto& clusters_view, const auto& pf_view) {
         fmt::print(
-            "| {:5d} | {:7d} | {:5d} | {:7d} | {:7d} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} "
+            "| {:5d} | {:7d} | {:5d} | {:7d} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} | {:>7.2f} "
             "| {:>7.2f} | {:>7d} | {:>7d} |\n",
             bx,
             global,
             local,
-            clusters_view.is_seed(),
             clusters_view.cluster(),
             pf_view.pt(),
             pf_view.eta(),

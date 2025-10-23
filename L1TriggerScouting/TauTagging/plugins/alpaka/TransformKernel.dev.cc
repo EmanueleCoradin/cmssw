@@ -209,81 +209,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
     alpaka::exec<Acc1D>(queue,
         make_workdiv<Acc1D>(1, 1),
-        [] ALPAKA_FN_ACC(Acc1D const& acc, 
-              PFCandidateDeviceCollection::ConstView pf, 
-              SoftTauInputDeviceTensor::View input_tensor,
-              PortableCounter* max_clusters, uint32_t* offsets, uint16_t* indices) {
-          for (uint32_t block_idx: independent_groups(acc, max_clusters->value + 1)) {
-            // bind range to hw block
-            uint32_t begin = offsets[block_idx];
-            uint32_t end = offsets[block_idx + 1];
-            // define block dimensions
-            uint32_t block_dim = end - begin;
-            if (block_dim == 0)
-              continue;
-
-            auto total_energy = 0.0f;
-            auto total_px = 0.0f;
-            auto total_py = 0.0f;
-            auto total_pz = 0.0f;
-
-            auto pt_jet = 0.0f;
-            auto eta_jet = 0.0f;
-            auto phi_jet = 0.0f;
-            // auto mass = 0.0f;
-            if (once_per_block(acc)) {
-              for (int i = 0; i < block_dim; i++) {
-                auto idx = indices[i+begin];
-                auto px = pf.pt()[idx] * alpaka::math::cos(acc, pf.phi()[idx]);
-                auto py = pf.pt()[idx] * alpaka::math::sin(acc, pf.phi()[idx]);
-                auto pz = pf.pt()[idx] * alpaka::math::sinh(acc, pf.eta()[idx]);
-                auto energy = alpaka::math::sqrt(acc, px * px + py * py + pz * pz + 0.13957f * 0.13957f);
-                total_px += px;
-                total_py += py;
-                total_pz += pz;
-                total_energy += energy;
-              }
-
-              pt_jet = alpaka::math::sqrt(acc, total_px * total_px + total_py * total_py);
-              phi_jet = alpaka::math::atan2(acc, total_py, total_px);
-              eta_jet = (pt_jet > 0.0f) ? alpaka::math::asinh(acc, total_pz / pt_jet) : 0.0f;
-              // mass = alpaka::math::sqrt(acc, alpaka::math::max(acc, total_energy * total_energy - total_px * total_px - total_py * total_py - total_pz * total_pz, 0.0f));
-            }
-
-            auto jet_cluster = input_tensor[block_idx];
-
-            // fill shared mem
-            for (uint32_t tid : independent_group_elements(acc, block_dim)) {
-              auto thread_idx = tid + begin; 
-              auto glob_idx = indices[thread_idx];
-
-              jet_cluster.features()(tid, 0) = pt_jet;
-              jet_cluster.features()(tid, 1) = eta_jet;
-              jet_cluster.features()(tid, 2) = phi_jet;
-              jet_cluster.features()(tid, 3) = 1.0f;
-              jet_cluster.features()(tid, 4) = pf.z0()[glob_idx];
-              // one hot-encoding from pdgid
-              auto pdgid_v = alpaka::math::abs(acc, static_cast<int>(pf.pdgid()[glob_idx]));
-              jet_cluster.features()(tid, 5) = (pdgid_v == 221 || pdgid_v == 321 || pdgid_v == 2212) ? 1.0f : 0.0f;
-              jet_cluster.features()(tid, 6) = (pdgid_v == 130) ? 1.0f : 0.0f;
-              jet_cluster.features()(tid, 7) = (pdgid_v == 11) ? 1.0f : 0.0f;
-              jet_cluster.features()(tid, 8) = (pdgid_v == 13) ? 1.0f : 0.0f;
-              jet_cluster.features()(tid, 9) = (pdgid_v == 22) ? 1.0f : 0.0f;
-            }
-          }
-        },
-        pf.const_view(),
-        input_tensor.view(),
-        max_clusters.data(),
-        alpaka::getPtrNative(offsets_buf),
-        alpaka::getPtrNative(index_buf));
-
-    alpaka::exec<Acc1D>(queue,
-        make_workdiv<Acc1D>(1, 1),
         [] ALPAKA_FN_ACC(Acc1D const& acc,
               SoftTauInputDeviceTensor::View input_tensor) {
           if (once_per_grid(acc)) {
-            for (int c = 0; c < 5; c++) {
+            for (int c = 0; c < input_tensor.metadata().size(); c++) {
               auto jet_cluster = input_tensor[c];
               printf("Cluster %d:\n", c);
               for (int i = 0; i < JetFeatures::RowsAtCompileTime; i++) {
