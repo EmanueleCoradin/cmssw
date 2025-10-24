@@ -1,5 +1,7 @@
 #include "L1TriggerScouting/TauTagging/plugins/alpaka/CLUEsteringAlgo.h"
 
+#include <any>
+
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/radixSort.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
@@ -52,6 +54,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         alpaka::syncBlockThreads(acc);
 
         // odd-even sort algorithm
+        // this should be replaced by radixSortMulti?
+        // but in the near future CLUE will provide sorted clusters directly
         for (uint32_t i = 0; i < block_dim; i++) {
           for (uint32_t tid : independent_group_elements(acc, block_dim - 1)) {
             if (tid + 1 < block_dim) {
@@ -124,6 +128,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     auto association_soa = AssociationMapDevice({{static_cast<int>(n_points), static_cast<int>(associator.size()+1)}}, queue);
     association_soa.zeroInitialise(queue);
 
+    // copy clue::AssociationMapView (should be parallelized inside kernel)
     alpaka::exec<Acc1D>(queue, 
       make_workdiv<Acc1D>(1, 1), 
       CopyAssociatorKernel{}, 
@@ -132,6 +137,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       association_soa.view<OffsetsSoA>(),
       pf.const_view().pt().data());
 
+    // sort clusters by pt
+    // TODO: this will be done inside CLUE in the future, efficient copy required
+    // right now all underlying buffers are private
     alpaka::exec<Acc1D>(queue, 
       make_workdiv<Acc1D>(associator.size(), 128), 
       SortClustersKernel{}, 
@@ -146,6 +154,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                             const PFCandidateDeviceCollection& pf,
                             const BxLookupDeviceCollection& bx_lookup,
                             ClustersDeviceCollection& clusters) const {
+    // TODO: CLUE is not yet adapted to run on multiple BXs and batch efficiently, for loop required.
     const auto nbx = static_cast<int32_t>(bx_lookup.const_view<BxIndexSoA>().metadata().size());
     auto bx_lookup_host = BxLookupHostCollection({{nbx, nbx + 1}}, queue);
     alpaka::memcpy(queue, bx_lookup_host.buffer(), bx_lookup.buffer());
@@ -170,7 +179,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       // wrap device buffers
       auto points_device =
           clue::PointsDevice<kDims, Device>(queue, n_points, eta_coord_ptr, phi_coord_ptr, weights_ptr, clusters_ptr);
-      // run (wrap coords if enabled)
       auto clue_algo = clue::Clusterer<kDims>(queue, dc_, rhoc_, dm_);
       if (wrap_coords_)
         clue_algo.setWrappedCoordinates({{0, 1}});
@@ -179,10 +187,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       n_clusters += associator.size();
     }
 
-    // tmp placeholder
     const auto n_pf = pf.const_view().metadata().size();
     auto association_soa = AssociationMapDevice({{n_pf, n_clusters}}, queue);
     association_soa.zeroInitialise(queue);
+
+    // TODO: copy or wrap clue::AssociationMapView directly?
+    // some features required in CLUE to access the underlying buffers
 
     return association_soa;
   }

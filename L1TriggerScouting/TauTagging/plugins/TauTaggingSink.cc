@@ -124,7 +124,7 @@ namespace l1sc {
       fmt::print("[DEBUG] Taus[{}] ({})\n", taus.metadata().size(), taus_backend);
       constexpr auto sep = "+---------+---------+-----------+-----------+-----------+-----------+";
       fmt::print("{}\n", sep);
-      fmt::print("| {:>7} | {:>7} | {:>9} | {:>9} | {:>9} | {:>9} |\n", "cluster", "size", "cls", "vz", "pt", "vz");
+      fmt::print("| {:>7} | {:>7} | {:>9} | {:>9} | {:>9} | {:>9} |\n", "cluster", "size", "cls", "vz", "pt", "charge");
       fmt::print("{}\n", sep);
 
       const int max_entries = (environment_ > Environment::kTest) ? taus.metadata().size() : 5;

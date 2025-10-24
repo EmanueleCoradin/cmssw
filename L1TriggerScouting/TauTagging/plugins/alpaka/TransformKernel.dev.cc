@@ -26,7 +26,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   template <typename TAcc, typename T>
   ALPAKA_FN_ACC T energy(const TAcc& acc, T px, T py, T pz, T mass = 0.13957f) {
-    return alpaka::math::sqrt(acc, px * px + py * py + pz * pz + mass * mass);
+    return alpaka::math::sqrt(acc, 
+        alpaka::math::pow(acc, px, 2) + 
+        alpaka::math::pow(acc, py, 2) + 
+        alpaka::math::pow(acc, pz, 2) + 
+        alpaka::math::pow(acc, mass, 2));
   }
 
   template <typename TAcc, typename T>
@@ -102,7 +106,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         }
 
         auto clue_tau = clue_taus[block_idx];
-        for (uint32_t tid : independent_group_elements(acc, block_dim)) {
+        auto cluster_size = (block_dim > JetFeatures::RowsAtCompileTime) ? JetFeatures::RowsAtCompileTime : block_dim;
+        for (uint32_t tid : independent_group_elements(acc, cluster_size)) {
           auto thread_idx = tid + begin; 
           auto index = indexes.indexes()[thread_idx];
 
@@ -142,29 +147,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       association_map.view<OffsetsSoA>(),
       input_tensor.view());
 
-    alpaka::exec<Acc1D>(queue,
-        make_workdiv<Acc1D>(1, 1),
-        [] ALPAKA_FN_ACC(Acc1D const& acc, SoftTauInputDeviceTensor::View input_tensor) {
-          if (once_per_grid(acc)) {
-            for (int c = 0; c < input_tensor.metadata().size(); c++) {
-              auto jet_cluster = input_tensor[c];
-              printf("Cluster %d:\n", c);
-              for (int i = 0; i < JetFeatures::RowsAtCompileTime; i++) {
-                printf("  PF %d: ", i);
-                for (int f = 0; f < JetFeatures::ColsAtCompileTime; f++) {
-                  printf("%.2f ", jet_cluster.features()(i, f));
-                }
-                printf("\n");
-              }
-              printf("Mask: ");
-              for (int i = 0; i < PaddingMask::RowsAtCompileTime; i++) {
-                printf("%.1f ", jet_cluster.pad_mask()(i));
-              }
-              printf("\n\n");
-            }
-          }
-        },
-        input_tensor.view());
+    // alpaka::exec<Acc1D>(queue,
+    //     make_workdiv<Acc1D>(1, 1),
+    //     [] ALPAKA_FN_ACC(Acc1D const& acc, SoftTauInputDeviceTensor::View input_tensor) {
+    //       if (once_per_grid(acc)) {
+    //         for (int c = 0; c < input_tensor.metadata().size(); c++) {
+    //           auto jet_cluster = input_tensor[c];
+    //           printf("Cluster %d:\n", c);
+    //           for (int i = 0; i < JetFeatures::RowsAtCompileTime; i++) {
+    //             printf("  PF %d: ", i);
+    //             for (int f = 0; f < JetFeatures::ColsAtCompileTime; f++) {
+    //               printf("%.2f ", jet_cluster.features()(i, f));
+    //             }
+    //             printf("\n");
+    //           }
+    //           printf("Mask: ");
+    //           for (int i = 0; i < PaddingMask::RowsAtCompileTime; i++) {
+    //             printf("%.1f ", jet_cluster.pad_mask()(i));
+    //           }
+    //           printf("\n\n");
+    //         }
+    //       }
+    //     },
+    //     input_tensor.view());
 
     return input_tensor;
   }
