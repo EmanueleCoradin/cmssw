@@ -133,6 +133,7 @@ if "alpaka" in options.run.lower():
   process.scPhase2PFRawToDigiAlpaka = l1sc_L1TScPhase2PuppiRawToDigi_alpaka(
       alpaka = cms.untracked.PSet( backend = cms.untracked.string(options.backend) ),
       streams = process.scPhase2PFRawToDigiStruct.fedIDs,
+      splitFactor = cms.uint32(len(pfStreamIDs) // options.timeslices),
       src = process.scPhase2PFRawToDigiStruct.src,
       environment = cms.untracked.int32(options.environment),
   )
