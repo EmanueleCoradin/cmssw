@@ -183,12 +183,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       if (wrap_coords_)
         clue_algo.setWrappedCoordinates({{0, 1}});
       clue_algo.make_clusters(queue, points_device);
-      auto associator = clue_algo.getClusters(queue, points_device);
-      n_clusters += associator.size();
+      //auto associator = clue_algo.getClusters(queue, points_device);
+      //n_clusters += associator.size();
     }
 
     const auto n_pf = pf.const_view().metadata().size();
-    auto association_soa = AssociationMapDevice({{n_pf, n_clusters}}, queue);
+    //auto association_soa = AssociationMapDevice({{n_pf, n_clusters}}, queue);
+    auto association_soa = AssociationMapDevice({{n_pf, nbx}}, queue);
     association_soa.zeroInitialise(queue);
 
     // TODO: copy or wrap clue::AssociationMapView directly?
