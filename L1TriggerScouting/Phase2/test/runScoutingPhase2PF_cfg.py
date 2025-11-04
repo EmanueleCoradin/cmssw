@@ -145,7 +145,6 @@ if "alpaka" in options.run.lower():
       rhoc = cms.double(5.0),
       dm = cms.double(0.4),
       wrapCoords = cms.bool(False),
-      environment = cms.untracked.int32(options.environment),
       run_scout = cms.bool(True),
   )
 
@@ -222,6 +221,21 @@ if options.run not in ("both","inclusive","selected"):
       )
       process.p_dump = cms.Path(process.dumpClusters + process.dumpJets)
       sched.append(process.p_dump)
+    if options.run in ("clueAlpaka",):
+      process.dumpClusters = cms.EDProducer("ClusterSoAToOrbitFlatTable",
+          srcBx = cms.InputTag("scPhase2PFRawToDigiAlpaka"),
+          srcClusters = cms.InputTag("CLUETaus"),
+          name = cms.string("ClueClusters"),
+          doc = cms.string("")
+      )
+      #process.dumpJets = cms.EDProducer("ClusterObjSoAToOrbitFlatTable",
+      #    srcBx = cms.InputTag("scPhase2PFRawToDigiAlpaka"),
+      #    srcClusters = cms.InputTag("scPhase2SC4PFAlpaka"),
+      #    name = cms.string("SC4AlpakaJets"),
+      #    doc = cms.string(""),
+      #)
+      process.p_dump = cms.Path(process.dumpClusters)
+      sched.append(process.p_dump)      
     sched.append(process.p_out)
 else:
   sched = [ process.p_inclusive, process.p_selected ]
