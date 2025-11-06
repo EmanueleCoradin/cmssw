@@ -160,14 +160,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     alpaka::memcpy(queue, bx_lookup_host.buffer(), bx_lookup.buffer());
     alpaka::wait(queue);
 
-    auto n_clusters = 0;
+    // allocate a big map to store all BXs associations, will be compacted at the end
+    // by design the number of clusters is <= number of PF candidates
+    const auto n_pf = pf.const_view().metadata().size();
+    auto association_nonzs = AssociationMapDevice({{n_pf, n_pf+1}}, queue);
+    association_nonzs.zeroInitialise(queue);
+
+    unsigned int clustersTotal = 0, clusteredTotal = 0;
     for (int32_t idx = 0; idx < bx_lookup_host.const_view<BxIndexSoA>().metadata().size(); idx++) {
       const auto begin = bx_lookup_host.const_view<OffsetsSoA>().offsets()[idx];
       const auto end = bx_lookup_host.const_view<OffsetsSoA>().offsets()[idx + 1];
       const uint32_t n_points = end - begin;
 
-      if (n_points == 0)
+      if (n_points == 0) {
         continue;
+      }
 
       // buffers
       // CLUEstering call internally reinterpret_cast<T*> to non-const ptr
@@ -183,18 +190,61 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       if (wrap_coords_)
         clue_algo.setWrappedCoordinates({{0, 1}});
       clue_algo.make_clusters(queue, points_device);
-      //auto associator = clue_algo.getClusters(queue, points_device);
-      //n_clusters += associator.size();
+      auto associator = clue_algo.getClusters(queue, points_device);
+
+      // concatenate the association maps (could be done better!)
+      auto nclusters = associator.size();
+      auto nclustered = associator.extents().values;
+      std::cout << "BX " << idx << ": found " << nclusters << " clusters from " << n_points << " PF candidates of which " << nclustered << " are clustered." << std::endl;
+      alpaka::exec<Acc1D>(queue, 
+        make_workdiv<Acc1D>(1, 1), 
+        [] ALPAKA_FN_ACC(Acc1D const& acc,
+                         clue::AssociationMapView associator, 
+                         IndexSoA::View indexes, 
+                         OffsetsSoA::View offsets,
+                         int nclusters,
+                         unsigned int begin_clusters,
+                         unsigned int begin_clustered) {
+          if (once_per_grid(acc)) {
+            offsets.offsets()[begin_clusters] = begin_clustered;
+            for (int c_id = 0; c_id < nclusters; c_id++) {
+              auto span = associator[c_id];
+              offsets.offsets()[begin_clusters+c_id+1] = span.size() + offsets.offsets()[begin_clusters+c_id];
+              auto begin = offsets.offsets()[begin_clusters+c_id];
+              for (int i = 0; i < span.size(); i++) {
+                indexes.indexes()[i+begin] = span[i];
+              }
+            }
+          }
+        },        
+        associator.view(), 
+        association_nonzs.view<IndexSoA>(), 
+        association_nonzs.view<OffsetsSoA>(),
+        nclusters,
+        clustersTotal,
+        clusteredTotal);
+        clustersTotal += nclusters;
+        clusteredTotal += nclustered;
     }
 
-    const auto n_pf = pf.const_view().metadata().size();
-    //auto association_soa = AssociationMapDevice({{n_pf, n_clusters}}, queue);
-    auto association_soa = AssociationMapDevice({{n_pf, nbx}}, queue);
+    // make final association map copying only used entries
+    // could be done better
+    auto association_soa = AssociationMapDevice({{int(clusteredTotal), int(clustersTotal+1)}}, queue);
     association_soa.zeroInitialise(queue);
-
-    // TODO: copy or wrap clue::AssociationMapView directly?
-    // some features required in CLUE to access the underlying buffers
-
+    auto srcIdx = alpaka::createView(alpaka::getDev(queue), 
+                             association_nonzs.view<IndexSoA>().indexes().data(),
+                             Vec1D{clusteredTotal});
+    auto dstIdx = alpaka::createView(alpaka::getDev(queue), 
+                             association_soa.view<IndexSoA>().indexes().data(),
+                             Vec1D{clusteredTotal});                             
+    auto srcOffs = alpaka::createView(alpaka::getDev(queue), 
+                             association_nonzs.view<OffsetsSoA>().offsets().data(),
+                             Vec1D{clustersTotal});
+    auto dstOffs = alpaka::createView(alpaka::getDev(queue), 
+                             association_soa.view<OffsetsSoA>().offsets().data(),
+                             Vec1D{clustersTotal});                             
+    alpaka::memcpy(queue, dstIdx, srcIdx);
+    alpaka::memcpy(queue, dstOffs, srcOffs);
     return association_soa;
   }
 
