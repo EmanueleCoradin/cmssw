@@ -161,7 +161,7 @@ if "alpaka" in options.run.lower():
       pf = 'scPhase2PFRawToDigiAlpaka',
       clusters = 'scPhase2SC4PFAlpaka',
       model = cms.FileInPath("L1TriggerScouting/TauTagging/data/softtauid_sigmoid.pt"),
-      run_scout = cms.bool(False), # should work 
+      maxBatchSize = cms.uint32(64),
   )
 
   process.goodOrbitsByNBX.unpackersAlpaka = [ "scPhase2PFRawToDigiAlpaka" ]

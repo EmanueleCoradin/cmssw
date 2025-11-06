@@ -24,41 +24,31 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     SoftTauIdML(const edm::ParameterSet &params)
         : EDProducer<>(params),
           pf_token_(consumes(params.getParameter<edm::InputTag>("pf"))),
-          bx_lookup_token_{consumes(params.getParameter<edm::InputTag>("pf"))},
-          clusters_token_{consumes(params.getParameter<edm::InputTag>("clusters"))},
           association_map_token_{consumes(params.getParameter<edm::InputTag>("clusters"))},
           soft_tau_token_{produces()},
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
-          run_scout_{params.getParameter<bool>("run_scout")} {}
+          max_batch_size_{params.getParameter<uint32_t>("maxBatchSize")} {}
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
       desc.add<edm::FileInPath>("model");
       desc.add<edm::InputTag>("pf");
       desc.add<edm::InputTag>("clusters");
-      desc.add<bool>("run_scout");
+      desc.add<uint32_t>("maxBatchSize", std::numeric_limits<uint32_t>::max());
       descriptions.addWithDefaultLabel(desc);
     }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
       // in/out collections
       const auto &pf = event.get(pf_token_);
-      const auto &clusters = event.get(clusters_token_);
+      const auto &association_map = event.get(association_map_token_);
+      SoftTauInputDeviceTensor input_tensor = kernels::transform(event.queue(), pf, association_map);
 
-      SoftTauInputDeviceTensor input_tensor(0, event.queue());
-      input_tensor.zeroInitialise(event.queue());
-      if (run_scout_) {
-        const auto &bx_lookup = event.get(bx_lookup_token_);
-        input_tensor = kernels::transform(event.queue(), pf, bx_lookup, clusters);
-      } else {
-        const auto &association_map = event.get(association_map_token_);
-        // input_tensor = kernels::transform(event.queue(), pf, clusters);
-        input_tensor = kernels::transform(event.queue(), pf, association_map);
-      }
-
-      const auto batch_size = input_tensor.view().metadata().size();
-      auto output_tensor = SoftTauOutputDeviceTensor(batch_size, event.queue());
+      const auto job_size = input_tensor.view().metadata().size();
+      auto output_tensor = SoftTauOutputDeviceTensor(job_size, event.queue());
       output_tensor.zeroInitialise(event.queue());
+
+      const auto batch_size = std::min<uint32_t>(job_size, max_batch_size_);
 
       // records
       auto input_records = input_tensor.view().records();
@@ -98,7 +88,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     // model
     torch::AlpakaModel model_;
     // scouting switch
-    const bool run_scout_;
+    const uint32_t max_batch_size_;
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest
