@@ -30,8 +30,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                     float R2,
                     unsigned int nJets,
                     ClustersDeviceCollection& clusters) const;
-  };
 
+    return_type finalize(Queue& queue,
+                         const BxLookupDeviceCollection& bx_lookup,
+                         const ClustersDeviceCollection& clusters,
+                         const CounterDevice& nJetsTotalDevice,
+                         const ClusterObjDeviceCollection& jetsNonZS,
+                         BxLookupDeviceCollection& jetBxLookup) const;
+  };
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels
 
 #endif  // L1TriggerScouting_Phase2_plugins_alpaka_L1TScPhase2SCJetsKernels_h

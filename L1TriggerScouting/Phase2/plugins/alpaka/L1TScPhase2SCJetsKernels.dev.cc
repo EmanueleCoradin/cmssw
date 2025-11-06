@@ -18,8 +18,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     template <typename TAcc, typename = std::enable_if_t<alpaka::isAccelerator<TAcc>>>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   PuppiDeviceCollection::ConstView puppi,
-                                  OffsetsSoA::ConstView bx_lookup,
-                                  BxIndexSoA::ConstView bx_index,
+                                  OffsetsSoA::ConstView bxLookup,
+                                  BxIndexSoA::ConstView bxIndex,
                                   float R,
                                   float R2,
                                   uint16_t* uieta,
@@ -36,8 +36,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       // step-0: sort by eta in blocks
       for (uint32_t block_idx : independent_groups(acc, grid_dim)) {
         // get event range
-        uint32_t begin = bx_lookup.offsets()[block_idx];
-        uint32_t end = bx_lookup.offsets()[block_idx + 1];
+        uint32_t begin = bxLookup.offsets()[block_idx];
+        uint32_t end = bxLookup.offsets()[block_idx + 1];
         if (end <= begin)
           continue;
         uint32_t block_dim = end - begin;
@@ -60,13 +60,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 #endif
         }
       }
-      radixSortMulti(acc, uieta, idx, bx_lookup.offsets().data(), nullptr);
+      radixSortMulti(acc, uieta, idx, bxLookup.offsets().data(), nullptr);
 
       // step-1: rearrange
       for (uint32_t block_idx : independent_groups(acc, grid_dim)) {
         // get event range
-        uint32_t begin = bx_lookup.offsets()[block_idx];
-        uint32_t end = bx_lookup.offsets()[block_idx + 1];
+        uint32_t begin = bxLookup.offsets()[block_idx];
+        uint32_t end = bxLookup.offsets()[block_idx + 1];
         if (end <= begin)
           continue;
         uint32_t block_dim = end - begin;
@@ -102,8 +102,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       // step-2: seed finding
       for (uint32_t block_idx : independent_groups(acc, grid_dim)) {
         // get event range
-        uint32_t begin = bx_lookup.offsets()[block_idx];
-        uint32_t end = bx_lookup.offsets()[block_idx + 1];
+        uint32_t begin = bxLookup.offsets()[block_idx];
+        uint32_t end = bxLookup.offsets()[block_idx + 1];
         // skip if malformed or empty
         if (end <= begin)
           continue;
@@ -223,7 +223,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         }
 
         if (once_per_block(acc)) {
-          jetBxIndex.bx()[block_idx] = bx_index.bx()[block_idx];
+          jetBxIndex.bx()[block_idx] = bxIndex.bx()[block_idx];
           jetBxLookup.offsets()[block_idx + 1] = nseeds;
           alpaka::atomicAdd(acc, nJetsTotal, nseeds, alpaka::hierarchy::Blocks{});
         }
@@ -390,13 +390,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     template <typename TAcc, typename = std::enable_if_t<alpaka::isAccelerator<TAcc>>>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ClusterObjDeviceCollection::View puppi,
-                                  OffsetsSoA::ConstView bx_lookup,
+                                  OffsetsSoA::ConstView bxLookup,
+                                  BxIndexSoA::ConstView bxIndex,
                                   float R2,
                                   unsigned int nIters,
                                   ClustersDeviceCollection::View clusters,
                                   uint32_t* tag,
                                   ClusterObjDeviceCollection::View work2,
-                                  ClusterObjDeviceCollection::View jets) const {
+                                  ClusterObjDeviceCollection::View jets,
+                                  OffsetsSoA::View jetBxLookup,
+                                  BxIndexSoA::View jetBxIndex,
+                                  unsigned int* nJetsTotal) const {
+      if (cms::alpakatools::once_per_grid(acc))
+        jetBxLookup.offsets()[0] = 0;
       // for prefix scan (only on GPU)
       uint32_t* ws = nullptr;
       [[maybe_unused]] constexpr bool single_thread = requires_single_thread_per_block<TAcc>::value;
@@ -406,8 +412,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       uint32_t grid_dim = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0];
       for (uint32_t block_idx : independent_groups(acc, grid_dim)) {
         // get event range
-        uint32_t begin = bx_lookup.offsets()[block_idx];
-        uint32_t end = bx_lookup.offsets()[block_idx + 1];
+        uint32_t begin = bxLookup.offsets()[block_idx];
+        uint32_t end = bxLookup.offsets()[block_idx + 1];
 
         // skip if empty
         if (end <= begin)
@@ -428,8 +434,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         auto& sum_pt = alpaka::declareSharedVar<float, __COUNTER__>(acc);
         auto& sum_eta = alpaka::declareSharedVar<float, __COUNTER__>(acc);
         auto& sum_phi = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+        auto& sum_dau = alpaka::declareSharedVar<uint32_t, __COUNTER__>(acc);
 
-        for (unsigned int iter = 0; iter < nIters; ++iter) {
+        unsigned int iter = 0;
+        for (iter = 0; iter < nIters; ++iter) {
           bool even = (iter % 2 == 0);
           auto pt = even ? puppi.pt() : work2.pt();
           auto eta = even ? puppi.eta() : work2.eta();
@@ -469,6 +477,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
             sum_pt = 0;
             sum_eta = 0;
             sum_phi = 0;
+            sum_dau = 0;
 #ifdef L1TSC_VERBOSE_DEBUG
             if (block_idx <= 2)
               printf(
@@ -502,6 +511,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
               alpaka::atomicAdd(acc, &sum_pt, pt[ipart], alpaka::hierarchy::Threads{});
               alpaka::atomicAdd(acc, &sum_eta, deta * pt[ipart], alpaka::hierarchy::Threads{});
               alpaka::atomicAdd(acc, &sum_phi, dphi * pt[ipart], alpaka::hierarchy::Threads{});
+              alpaka::atomicAdd(acc, &sum_dau, 1u, alpaka::hierarchy::Threads{});
 #ifdef L1TSC_VERBOSE_DEBUG
               if (block_idx <= 2 && single_thread)
                 printf("  %4u: pt %7.2f eta %+6.3f phi %+6.3f  cluster %7d <<= selected (dr %7.4f)\n",
@@ -523,6 +533,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
             jets.pt()[begin + iter] = sum_pt;
             jets.eta()[begin + iter] = seed_eta + sum_eta / sum_pt;
             jets.phi()[begin + iter] = cms::alpakatools::reducePhiRange(acc, seed_phi + sum_phi / sum_pt);
+            jets.numberOfDaughters()[begin + iter] = sum_dau;
 #ifdef L1TSC_VERBOSE_DEBUG
             if (block_idx <= 2)
               printf("In BX %u Jet pt %7.2f eta %+6.3f phi %+6.3f, seed %d\n\n",
@@ -537,8 +548,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           blockPrefixScan(acc, tag + begin, size, ws);
 
 #ifdef L1TSC_VERBOSE_DEBUG
-          if (once_per_block(acc) && (block_idx <= 2) && single_thread)
-            printf("Reordering candidates\n");
+          //// kept commented out as it's too verbose
+          //if (once_per_block(acc) && (block_idx <= 2) && single_thread)
+          //  printf("Reordering candidates\n");
 #endif
           for (uint32_t tid : independent_group_elements(acc, size)) {
             auto ipart = tid + begin;  // global index
@@ -549,15 +561,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
               phi2[dest] = phi[ipart];
               cluster2[dest] = cluster[ipart];
 #ifdef L1TSC_VERBOSE_DEBUG
-              if (block_idx <= 2 && single_thread)
-                printf("  %4u: pt %7.2f eta %+6.3f phi %+6.3f  cluster %7d tag %u --> %8u\n",
-                       ipart,
-                       pt[ipart],
-                       eta[ipart],
-                       phi[ipart],
-                       cluster[ipart] - begin,
-                       tag[ipart],
-                       dest);
+              //// kept commented out as it's too verbose
+              //if (block_idx <= 2 && single_thread)
+              //  printf("  %4u: pt %7.2f eta %+6.3f phi %+6.3f  cluster %7d tag %u --> %8u\n",
+              //         ipart,
+              //         pt[ipart],
+              //         eta[ipart],
+              //         phi[ipart],
+              //         cluster[ipart] - begin,
+              //         tag[ipart],
+              //         dest);
 #endif
             }
           }
@@ -571,6 +584,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           alpaka::syncBlockThreads(acc);
 
         }  // iter
+        if (once_per_block(acc)) {
+#ifdef L1TSC_VERBOSE_DEBUG
+          if (block_idx <= 2)
+            printf("In BX %u size total jet count %u\n\n", block_idx + 1, iter);
+#endif
+          jetBxIndex.bx()[block_idx] = bxIndex.bx()[block_idx];
+          jetBxLookup.offsets()[block_idx + 1] = iter;
+          alpaka::atomicAdd(acc, nJetsTotal, iter, alpaka::hierarchy::Blocks{});
+        }
 
       }  // block
     }  // operator()
@@ -581,10 +603,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   std::tuple<BxLookupDeviceCollection, ClusterObjDeviceCollection, AssociationMapDevice> L1TScPhase2SCJetsKernels::run(
       Queue& queue,
       const PuppiDeviceCollection& src,
-      const BxLookupDeviceCollection& bx_lookup,
+      const BxLookupDeviceCollection& bxLookup,
       float R2,
       ClustersDeviceCollection& clusters) const {
-    unsigned int nbx = bx_lookup.const_view<OffsetsSoA>().metadata().size() - 1;
+    unsigned int nbx = bxLookup.const_view<OffsetsSoA>().metadata().size() - 1;
 
     uint32_t threads_per_block = 256;
     uint32_t blocks_per_grid = nbx;
@@ -612,8 +634,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                         grid,
                         JetKernel{},
                         src.const_view(),
-                        bx_lookup.const_view<OffsetsSoA>(),
-                        bx_lookup.const_view<BxIndexSoA>(),
+                        bxLookup.const_view<OffsetsSoA>(),
+                        bxLookup.const_view<BxIndexSoA>(),
                         std::sqrt(R2),
                         R2,
                         h_key_device.data(),
@@ -625,12 +647,27 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                         jetBxLookup.view<BxIndexSoA>(),
                         nJetsTotalDevice.data());
 
+    return finalize(queue, bxLookup, clusters, nJetsTotalDevice, jetsNonZS, jetBxLookup);
+  }
+
+  std::tuple<BxLookupDeviceCollection, ClusterObjDeviceCollection, AssociationMapDevice>
+  L1TScPhase2SCJetsKernels::finalize(Queue& queue,
+                                     const BxLookupDeviceCollection& bxLookup,
+                                     const ClustersDeviceCollection& clusters,
+                                     const CounterDevice& nJetsTotalDevice,
+                                     const ClusterObjDeviceCollection& jetsNonZS,
+                                     BxLookupDeviceCollection& jetBxLookup) const {
+    unsigned int nbx = bxLookup.const_view<OffsetsSoA>().metadata().size() - 1;
+    uint32_t threads_per_block = 256;
+    uint32_t blocks_per_grid = nbx;
+    auto grid = make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
+
     auto nJetsTotalHost = CounterHost(queue);
     alpaka::memcpy(queue, nJetsTotalHost.buffer(), nJetsTotalDevice.buffer());
     alpaka::wait(queue);
-
     auto njets = nJetsTotalHost.value();
 
+    // create final jet collection
     auto jets = ClusterObjDeviceCollection(njets, queue);
 
     // prefix sum to build jet offsets
@@ -656,7 +693,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     alpaka::exec<Acc1D>(queue,
                         grid,
                         JetZSKernel{},
-                        bx_lookup.const_view<OffsetsSoA>(),
+                        bxLookup.const_view<OffsetsSoA>(),
                         jetsNonZS.const_view(),
                         jetBxLookup.const_view<OffsetsSoA>(),
                         jets.view(),
@@ -703,10 +740,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                         alpaka::getPreferredWarpSize(alpaka::getDev(queue)));
 
     // indices of the clustered particles within each jet
+    // needs an index buffer for reordering, and a key for sorting
+    unsigned int npart = clusters.const_view().metadata().size();
+    auto h_key_device = alpaka::allocAsyncBuf<uint16_t, Idx>(queue, Vec1D(npart));
+    auto h_idx_device = alpaka::allocAsyncBuf<uint16_t, Idx>(queue, Vec1D(npart));
+    alpaka::memset(queue, h_idx_device, 0x00);
     alpaka::exec<Acc1D>(queue,
                         grid,
                         JetToAssociationMapKernel{},
-                        bx_lookup.const_view<OffsetsSoA>(),
+                        bxLookup.const_view<OffsetsSoA>(),
                         jetBxLookup.const_view<OffsetsSoA>(),
                         map.const_view<OffsetsSoA>(),
                         clusters.const_view(),
@@ -715,39 +757,48 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                         h_key_device.data(),
                         h_idx_device.data(),
                         map.view<IndexSoA>());
+
     return std::make_tuple(std::move(jetBxLookup), std::move(jets), std::move(map));
   }
 
   std::tuple<BxLookupDeviceCollection, ClusterObjDeviceCollection, AssociationMapDevice> L1TScPhase2SCJetsKernels::run(
       Queue& queue,
       const PuppiDeviceCollection& src,
-      const BxLookupDeviceCollection& bx_lookup,
+      const BxLookupDeviceCollection& bxLookup,
       float R2,
       unsigned int nJets,
       ClustersDeviceCollection& clusters) const {
-    // one grid per particles in blocks per BX
+    unsigned int nbx = bxLookup.const_view<OffsetsSoA>().metadata().size() - 1;
+    unsigned int npf = src.const_view().metadata().size();
+
     uint32_t threads_per_block = 256;
-    uint32_t blocks_per_grid = bx_lookup.const_view<OffsetsSoA>().metadata().size() - 1;
+    uint32_t blocks_per_grid = nbx;
     auto grid = make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
 
     // space for output and for reordering inputs
-    auto work = ClusterObjDeviceCollection(src.const_view().metadata().size(), queue);
-    auto work2 = ClusterObjDeviceCollection(src.const_view().metadata().size(), queue);
+    auto work = ClusterObjDeviceCollection(npf, queue);
+    auto work2 = ClusterObjDeviceCollection(npf, queue);
 
     // a buffer space for counting items
-    auto partExtent = Vec1D(src.const_view().metadata().size());
-    auto h_tag_device = alpaka::allocAsyncBuf<uint32_t, Idx>(queue, partExtent);
+    auto h_tag_device = alpaka::allocAsyncBuf<uint32_t, Idx>(queue, Vec1D(npf));
     alpaka::memset(queue, h_tag_device, 0x00);
 
     // one flat grid per particle, with arbitrary block size
     uint32_t threads_per_flatblock = 1024;
-    uint32_t blocks_per_flatgrid =
-        cms::alpakatools::divide_up_by(src.const_view().metadata().size(), threads_per_flatblock);
+    uint32_t blocks_per_flatgrid = cms::alpakatools::divide_up_by(npf, threads_per_flatblock);
     auto flatgrid = cms::alpakatools::make_workdiv<Acc1D>(blocks_per_flatgrid, threads_per_flatblock);
 
-    auto jets = ClusterObjDeviceCollection(src.const_view().metadata().size(), queue);
-    jets.zeroInitialise(queue);
+    auto jetsNonZS = ClusterObjDeviceCollection(npf, queue);
+    jetsNonZS.zeroInitialise(queue);
 
+    auto jetBxLookup = BxLookupDeviceCollection({{int(nbx), int(nbx + 1)}}, queue);
+    jetBxLookup.zeroInitialise(queue);
+
+    // buffer for the number of jets per BX
+    auto nJetsTotalDevice = CounterDevice(queue);
+    nJetsTotalDevice.zeroInitialise(queue);
+
+    // copy input to work buffer
     alpaka::exec<Acc1D>(
         queue,
         flatgrid,
@@ -767,21 +818,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         work.view(),
         clusters.view());
 
+    // iterative clustering
     alpaka::exec<Acc1D>(queue,
                         grid,
                         JetIterKernel{},
                         work.view(),
-                        bx_lookup.const_view<OffsetsSoA>(),
+                        bxLookup.const_view<OffsetsSoA>(),
+                        bxLookup.const_view<BxIndexSoA>(),
                         R2,
                         nJets,
                         clusters.view(),
                         h_tag_device.data(),
                         work2.view(),
-                        jets.view());
+                        jetsNonZS.view(),
+                        jetBxLookup.view<OffsetsSoA>(),
+                        jetBxLookup.view<BxIndexSoA>(),
+                        nJetsTotalDevice.data());
 
-    auto map = AssociationMapDevice({{1, 1}}, queue);
-    auto jetBxLookup = BxLookupDeviceCollection({{0, 1}}, queue);
-    return std::make_tuple(std::move(jetBxLookup), std::move(jets), std::move(map));
+    return finalize(queue, bxLookup, clusters, nJetsTotalDevice, jetsNonZS, jetBxLookup);
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels
