@@ -19,13 +19,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   PuppiDeviceCollection::ConstView puppi,
                                   OffsetsSoA::ConstView bx_lookup,
+                                  BxIndexSoA::ConstView bx_index,
                                   float R,
                                   float R2,
                                   uint16_t* uieta,
                                   uint16_t* idx,
                                   ClusterObjDeviceCollection::View work,
                                   ClustersDeviceCollection::View clusters,
-                                  ClusterObjDeviceCollection::View jets) const {
+                                  ClusterObjDeviceCollection::View jets,
+                                  OffsetsSoA::View jetBxLookup,
+                                  BxIndexSoA::View jetBxIndex,
+                                  unsigned int* nJetsTotal) const {
+      if (cms::alpakatools::once_per_grid(acc))
+        jetBxLookup.offsets()[0] = 0;
       uint32_t grid_dim = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0];
       // step-0: sort by eta in blocks
       for (uint32_t block_idx : independent_groups(acc, grid_dim)) {
@@ -148,7 +154,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           }
 #ifdef L1TSC_VERBOSE_DEBUG
           if (block_idx <= 2)
-            printf("Cluster %u at index %u pt %7.2f eta %+6.3f phi %+6.3f, %s not a seed\n",
+            printf("Cluster %u at index %u pt %7.2f eta %+6.3f phi %+6.3f, %s a seed\n",
                    icluster,
                    iseed,
                    seed_pt,
@@ -159,11 +165,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           sum_eta = seed_eta + sum_eta / sum_pt;
           sum_phi = cms::alpakatools::reducePhiRange(acc, seed_phi + sum_phi / sum_pt);
           if (is_seed) {
-            auto ijet = alpaka::atomicAdd(acc, &nseeds, 1u, alpaka::hierarchy::Blocks{}) + begin;
+            auto ijet = alpaka::atomicAdd(acc, &nseeds, 1u, alpaka::hierarchy::Threads{}) + begin;
             jets.pt()[ijet] = sum_pt;
             jets.eta()[ijet] = sum_eta;
             jets.phi()[ijet] = sum_phi;
-            jets.cluster()[ijet] = icluster;
+            jets.cluster()[ijet] = ijet - begin;
+            jets.numberOfDaughters()[ijet] = 0;
             clusters.is_seed()[icluster] = 1;
 #ifdef L1TSC_VERBOSE_DEBUG
             if (block_idx <= 2)
@@ -189,19 +196,192 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           auto ipart = tid + begin;                   // global index
           uint32_t icluster = work.cluster()[ipart];  // original index of the item
           float nearest = R2;
-          clusters.cluster()[icluster] = -1;
+          int jcluster = -1;
           for (uint32_t j = 0; j < nseeds; ++j) {
             auto jseed = j + begin;  // global index
             float deta = work.eta()[ipart] - jets.eta()[jseed];
             float dphi = cms::alpakatools::deltaPhi(acc, work.phi()[ipart], jets.phi()[jseed]);
             float dr2 = deta * deta + dphi * dphi;
             if (dr2 < nearest) {
-              clusters.cluster()[icluster] = jets.cluster()[jseed];
+              jcluster = jets.cluster()[jseed];
               nearest = dr2;
             }
           }
+          if (jcluster != -1) {
+            alpaka::atomicAdd(acc, &jets.numberOfDaughters()[jcluster + begin], 1u, alpaka::hierarchy::Threads{});
+#ifdef L1TSC_VERBOSE_DEBUG
+            if (block_idx <= 2)
+              printf("Particle %3u (globally %3u) assigned to jet %3u (globally %u) with deltaR %.5f\n",
+                     tid,
+                     ipart,
+                     jcluster,
+                     jcluster + begin,
+                     std::sqrt(nearest));
+#endif
+          }
+          clusters.cluster()[icluster] = jcluster;
         }
+
+        if (once_per_block(acc)) {
+          jetBxIndex.bx()[block_idx] = bx_index.bx()[block_idx];
+          jetBxLookup.offsets()[block_idx + 1] = nseeds;
+          alpaka::atomicAdd(acc, nJetsTotal, nseeds, alpaka::hierarchy::Blocks{});
+        }
+        alpaka::syncBlockThreads(acc);
       }  // block
+    }  // operator()
+  };  // class
+
+  class JetZSKernel {
+  public:
+    template <typename TAcc, typename = std::enable_if_t<alpaka::isAccelerator<TAcc>>>
+    ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                  OffsetsSoA::ConstView bxLookup,
+                                  ClusterObjDeviceCollection::ConstView jetsNonZS,
+                                  OffsetsSoA::ConstView jetBxLookup,
+                                  ClusterObjDeviceCollection::View jets,
+                                  unsigned int* nClustered) const {
+      uint32_t grid_dim = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0];
+      for (uint32_t block_idx : independent_groups(acc, grid_dim)) {
+        // get event range
+        uint32_t beginSrc = bxLookup.offsets()[block_idx];
+        uint32_t beginDst = jetBxLookup.offsets()[block_idx];
+        uint32_t endDst = jetBxLookup.offsets()[block_idx + 1];
+        if (endDst <= beginDst)
+          continue;
+#ifdef L1TSC_VERBOSE_DEBUG
+        if (once_per_block(acc) && block_idx <= 2)
+          printf("In BX %u jet range %u - %u, ZS range %u - %u\n",
+                 block_idx + 1,
+                 beginSrc,
+                 bxLookup.offsets()[block_idx + 1],
+                 beginDst,
+                 endDst);
+#endif
+        for (uint32_t tid : independent_group_elements(acc, endDst - beginDst)) {
+          uint32_t ijetDst = tid + beginDst;
+          uint32_t ijetSrc = tid + beginSrc;
+          jets.pt()[ijetDst] = jetsNonZS.pt()[ijetSrc];
+          jets.eta()[ijetDst] = jetsNonZS.eta()[ijetSrc];
+          jets.phi()[ijetDst] = jetsNonZS.phi()[ijetSrc];
+          jets.cluster()[ijetDst] = jetsNonZS.cluster()[ijetSrc];
+          jets.numberOfDaughters()[ijetDst] = jetsNonZS.numberOfDaughters()[ijetSrc];
+#ifdef L1TSC_VERBOSE_DEBUG
+          if (block_idx <= 2)
+            printf("In BX %u jet %u/%u daughters %u nonZS index %u --> ZS index %u\n",
+                   block_idx + 1,
+                   tid,
+                   endDst - beginDst,
+                   jets.numberOfDaughters()[ijetDst],
+                   ijetSrc,
+                   ijetDst);
+#endif
+        }
+        alpaka::syncBlockThreads(acc);
+        if (once_per_block(acc)) {
+          // simpler to do it on a single thread
+          unsigned int nClusteredBlock = 0;
+          for (uint32_t iJet = beginDst; iJet < endDst; ++iJet) {
+            nClusteredBlock += jets.numberOfDaughters()[iJet];
+          }
+          alpaka::atomicAdd(acc, nClustered, nClusteredBlock, alpaka::hierarchy::Blocks{});
+        }  // once per block
+      }  // block loop
+    }  // operator()
+  };  // class
+
+  class JetToAssociationMapKernel {
+  public:
+    template <typename TAcc, typename = std::enable_if_t<alpaka::isAccelerator<TAcc>>>
+    ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                  OffsetsSoA::ConstView bxLookup,
+                                  OffsetsSoA::ConstView jetBxLookup,
+                                  OffsetsSoA::ConstView clusterdParticleOffsets,
+                                  ClustersDeviceCollection::ConstView clusters,
+                                  const unsigned int njets,
+                                  const unsigned int nclustered,
+                                  uint16_t* key,
+                                  uint16_t* idx,
+                                  IndexSoA::View map) const {
+      uint32_t grid_dim = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0];
+      unsigned int nparticles = clusters.metadata().size();
+      for (uint32_t block_idx : independent_groups(acc, grid_dim)) {
+        // get event range
+        uint32_t begin = bxLookup.offsets()[block_idx];
+        uint32_t end = bxLookup.offsets()[block_idx + 1];
+        if (end <= begin)
+          continue;
+        for (uint32_t tid : independent_group_elements(acc, end - begin)) {
+          uint32_t i = tid + begin;
+          assert(i < nparticles);
+          assert(clusters.cluster()[i] == -1 || clusters.cluster()[i] < int(end - begin));
+          key[i] = static_cast<uint16_t>(clusters.cluster()[i]);
+          idx[i] = tid;
+#ifdef L1TSC_VERBOSE_DEBUG
+          if (block_idx <= 2)
+            printf(
+                "In BX %u cand %3u/%3u assigned to cluster key %u\n", block_idx + 1, tid, end - begin, unsigned(key[i]));
+#endif
+        }
+      }
+      alpaka::syncBlockThreads(acc);
+      // sort
+      radixSortMulti(acc, key, idx, bxLookup.offsets().data(), nullptr);
+      // rearrange jet constituents
+      for (uint32_t block_idx : independent_groups(acc, grid_dim)) {
+        // get range of particles in this BX
+        uint32_t begin = bxLookup.offsets()[block_idx];
+        uint32_t end = bxLookup.offsets()[block_idx + 1];
+        if (end <= begin)
+          continue;
+        // get the offset, i.e. global index, of the first and one-past-the-last jet in this BX
+        uint32_t jetsBegin = jetBxLookup.offsets()[block_idx];
+        uint32_t jetsEnd = jetBxLookup.offsets()[block_idx + 1];
+        assert(jetsEnd >= jetsBegin);
+        assert(jetsEnd <= njets);
+        assert(jetBxLookup.offsets()[grid_dim] == njets);
+        assert(clusterdParticleOffsets.metadata().size() == int(njets + 1));
+        assert(clusterdParticleOffsets.offsets()[njets] == nclustered);
+        // get the offset of the consitutents of the first jet in this BX
+        uint32_t clusteredBegin = clusterdParticleOffsets.offsets()[jetsBegin];
+        uint32_t clusteredEnd = clusterdParticleOffsets.offsets()[jetsEnd];
+#ifdef L1TSC_VERBOSE_DEBUG
+        if (once_per_block(acc) && block_idx <= 2000)
+          printf("In BX %u, particle offsets %u - %u (%u), jets %u - %u (%u), clustered particles %u - %u (%u) \n",
+                 block_idx + 1,
+                 begin,
+                 end,
+                 end - begin,
+                 jetsBegin,
+                 jetsEnd,
+                 jetsEnd - jetsBegin,
+                 clusteredBegin,
+                 clusteredEnd,
+                 clusteredEnd - clusteredBegin);
+#endif
+        assert(clusteredEnd >= clusteredBegin);
+        assert((clusteredEnd - clusteredBegin) <= (end - begin));
+        for (uint32_t tid : independent_group_elements(acc, clusteredEnd - clusteredBegin)) {
+          // tid is the index of the constituent within this BX, which is also the order of the constituent across the whole list of clustered particles in this BX
+          uint32_t i = tid + begin;
+          uint32_t icand = idx[i] + begin;
+          map.indexes()[clusteredBegin + tid] = icand;
+          assert(clusteredBegin + tid < nclustered);
+          assert(map.metadata().size() == int(nclustered));
+#ifdef L1TSC_VERBOSE_DEBUG
+          uint32_t ijet = key[icand];
+          if (block_idx <= 2)
+            printf("In BX %u index %u/%u is cand %3u/%3u of index %u assigned to jet %u (local)\n",
+                   block_idx + 1,
+                   tid,
+                   clusteredEnd - clusteredBegin,
+                   idx[i],
+                   end - begin,
+                   icand,
+                   ijet);
+#endif
+        }  // elements
+      }  // blocks
     }  // operator()
   };  // class
 
@@ -319,9 +499,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
               clusters.is_seed()[cluster[ipart]] = (ipart == seed_i ? 1 : 0);
               clusters.cluster()[cluster[ipart]] = iter;
               tag[ipart] = 0;
-              alpaka::atomicAdd(acc, &sum_pt, pt[ipart], alpaka::hierarchy::Blocks{});
-              alpaka::atomicAdd(acc, &sum_eta, deta * pt[ipart], alpaka::hierarchy::Blocks{});
-              alpaka::atomicAdd(acc, &sum_phi, dphi * pt[ipart], alpaka::hierarchy::Blocks{});
+              alpaka::atomicAdd(acc, &sum_pt, pt[ipart], alpaka::hierarchy::Threads{});
+              alpaka::atomicAdd(acc, &sum_eta, deta * pt[ipart], alpaka::hierarchy::Threads{});
+              alpaka::atomicAdd(acc, &sum_phi, dphi * pt[ipart], alpaka::hierarchy::Threads{});
 #ifdef L1TSC_VERBOSE_DEBUG
               if (block_idx <= 2 && single_thread)
                 printf("  %4u: pt %7.2f eta %+6.3f phi %+6.3f  cluster %7d <<= selected (dr %7.4f)\n",
@@ -398,48 +578,153 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   L1TScPhase2SCJetsKernels::L1TScPhase2SCJetsKernels() {}
 
-  void L1TScPhase2SCJetsKernels::run(Queue& queue,
-                                     const PuppiDeviceCollection& src,
-                                     const BxLookupDeviceCollection& bx_lookup,
-                                     float R2,
-                                     ClustersDeviceCollection& clusters,
-                                     ClusterObjDeviceCollection& jets) const {
+  std::tuple<BxLookupDeviceCollection, ClusterObjDeviceCollection, AssociationMapDevice> L1TScPhase2SCJetsKernels::run(
+      Queue& queue,
+      const PuppiDeviceCollection& src,
+      const BxLookupDeviceCollection& bx_lookup,
+      float R2,
+      ClustersDeviceCollection& clusters) const {
+    unsigned int nbx = bx_lookup.const_view<OffsetsSoA>().metadata().size() - 1;
+
     uint32_t threads_per_block = 256;
-    uint32_t blocks_per_grid = bx_lookup.const_view<OffsetsSoA>().metadata().size() - 1;
+    uint32_t blocks_per_grid = nbx;
     auto grid = make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
 
-    clusters.zeroInitialise(queue);
-    jets.zeroInitialise(queue);
-
     // index buffer for reordering
-    auto partExtent = Vec1D(src.const_view().metadata().size());
-    auto h_key_device = alpaka::allocAsyncBuf<uint16_t, Idx>(queue, partExtent);
-    auto h_idx_device = alpaka::allocAsyncBuf<uint16_t, Idx>(queue, partExtent);
+    unsigned int npart = src.const_view().metadata().size();
+    auto h_key_device = alpaka::allocAsyncBuf<uint16_t, Idx>(queue, Vec1D(npart));
+    auto h_idx_device = alpaka::allocAsyncBuf<uint16_t, Idx>(queue, Vec1D(npart));
     alpaka::memset(queue, h_idx_device, 0x00);
 
-    auto work = ClusterObjDeviceCollection(src.const_view().metadata().size(), queue);
+    // buffer for the number of jets per BX
+    auto nJetsTotalDevice = CounterDevice(queue);
+    nJetsTotalDevice.zeroInitialise(queue);
+
+    auto work = ClusterObjDeviceCollection(npart, queue);
+    auto jetsNonZS = ClusterObjDeviceCollection(npart, queue);
+    clusters.zeroInitialise(queue);
+    jetsNonZS.zeroInitialise(queue);
+
+    auto jetBxLookup = BxLookupDeviceCollection({{int(nbx), int(nbx + 1)}}, queue);
+    jetBxLookup.zeroInitialise(queue);
 
     alpaka::exec<Acc1D>(queue,
                         grid,
                         JetKernel{},
                         src.const_view(),
                         bx_lookup.const_view<OffsetsSoA>(),
+                        bx_lookup.const_view<BxIndexSoA>(),
                         std::sqrt(R2),
                         R2,
                         h_key_device.data(),
                         h_idx_device.data(),
                         work.view(),
                         clusters.view(),
-                        jets.view());
+                        jetsNonZS.view(),
+                        jetBxLookup.view<OffsetsSoA>(),
+                        jetBxLookup.view<BxIndexSoA>(),
+                        nJetsTotalDevice.data());
+
+    auto nJetsTotalHost = CounterHost(queue);
+    alpaka::memcpy(queue, nJetsTotalHost.buffer(), nJetsTotalDevice.buffer());
+    alpaka::wait(queue);
+
+    auto njets = nJetsTotalHost.value();
+
+    auto jets = ClusterObjDeviceCollection(njets, queue);
+
+    // prefix sum to build jet offsets
+    auto pc = alpaka::allocAsyncBuf<int32_t, Idx>(queue, Vec1D{1});
+    alpaka::memset(queue, pc, 0x00);
+    uint32_t jet_threads_per_block = 1024;
+    uint32_t jet_blocks_per_grid =
+        cms::alpakatools::divide_up_by(jetBxLookup.view<OffsetsSoA>().metadata().size(), jet_threads_per_block);
+    auto jet_grid = cms::alpakatools::make_workdiv<Acc1D>(jet_blocks_per_grid, jet_threads_per_block);
+    alpaka::exec<Acc1D>(queue,
+                        jet_grid,
+                        cms::alpakatools::multiBlockPrefixScan<uint32_t>{},
+                        jetBxLookup.view<OffsetsSoA>().offsets().data(),
+                        jetBxLookup.view<OffsetsSoA>().offsets().data(),
+                        jetBxLookup.view<OffsetsSoA>().metadata().size(),
+                        jet_blocks_per_grid,
+                        pc.data(),
+                        alpaka::getPreferredWarpSize(alpaka::getDev(queue)));
+
+    // copy jets to final collection; compute running sum of total clustered particles
+    auto nClusteredDevice = CounterDevice(queue);
+    nClusteredDevice.zeroInitialise(queue);
+    alpaka::exec<Acc1D>(queue,
+                        grid,
+                        JetZSKernel{},
+                        bx_lookup.const_view<OffsetsSoA>(),
+                        jetsNonZS.const_view(),
+                        jetBxLookup.const_view<OffsetsSoA>(),
+                        jets.view(),
+                        nClusteredDevice.data());
+
+    auto nClusteredHost = CounterHost(queue);
+    alpaka::memcpy(queue, nClusteredHost.buffer(), nClusteredDevice.buffer());
+    alpaka::wait(queue);
+    unsigned int nclustered = nClusteredHost.value();
+
+    // finally, build the association map
+    auto map = AssociationMapDevice({{int(nclustered), int(njets + 1)}}, queue);
+    map.zeroInitialise(queue);
+
+    // let's first do the stupid thing and just copy the offsets
+    uint32_t constit_threads_per_block = 1024;
+    uint32_t constit_blocks_per_grid = cms::alpakatools::divide_up_by(njets, constit_threads_per_block);
+    auto constit_grid = cms::alpakatools::make_workdiv<Acc1D>(constit_blocks_per_grid, constit_threads_per_block);
+    uint32_t constit_blocks_per_grid1 = cms::alpakatools::divide_up_by(njets + 1, constit_threads_per_block);
+    auto constit_grid1 = cms::alpakatools::make_workdiv<Acc1D>(constit_blocks_per_grid1, constit_threads_per_block);
+    alpaka::exec<Acc1D>(
+        queue,
+        constit_grid,
+        [] ALPAKA_FN_ACC(Acc1D const& acc, ClusterObjDeviceCollection::ConstView jets, OffsetsSoA::View offsets) {
+          if (cms::alpakatools::once_per_grid(acc))
+            offsets.offsets()[0] = 0;
+          for (int32_t idx : cms::alpakatools::uniform_elements(acc, offsets.metadata().size() - 1)) {
+            offsets.offsets()[idx + 1] = jets.numberOfDaughters()[idx];
+          }
+        },
+        jets.const_view(),
+        map.view<OffsetsSoA>());
+
+    // prefix sum for jet constituent offsets
+    alpaka::memset(queue, pc, 0x00);
+    alpaka::exec<Acc1D>(queue,
+                        constit_grid1,
+                        cms::alpakatools::multiBlockPrefixScan<uint32_t>{},
+                        map.view<OffsetsSoA>().offsets().data(),
+                        map.view<OffsetsSoA>().offsets().data(),
+                        njets + 1,
+                        constit_blocks_per_grid1,
+                        pc.data(),
+                        alpaka::getPreferredWarpSize(alpaka::getDev(queue)));
+
+    // indices of the clustered particles within each jet
+    alpaka::exec<Acc1D>(queue,
+                        grid,
+                        JetToAssociationMapKernel{},
+                        bx_lookup.const_view<OffsetsSoA>(),
+                        jetBxLookup.const_view<OffsetsSoA>(),
+                        map.const_view<OffsetsSoA>(),
+                        clusters.const_view(),
+                        njets,
+                        nclustered,
+                        h_key_device.data(),
+                        h_idx_device.data(),
+                        map.view<IndexSoA>());
+    return std::make_tuple(std::move(jetBxLookup), std::move(jets), std::move(map));
   }
 
-  void L1TScPhase2SCJetsKernels::run(Queue& queue,
-                                     const PuppiDeviceCollection& src,
-                                     const BxLookupDeviceCollection& bx_lookup,
-                                     float R2,
-                                     unsigned int nJets,
-                                     ClustersDeviceCollection& clusters,
-                                     ClusterObjDeviceCollection& jets) const {
+  std::tuple<BxLookupDeviceCollection, ClusterObjDeviceCollection, AssociationMapDevice> L1TScPhase2SCJetsKernels::run(
+      Queue& queue,
+      const PuppiDeviceCollection& src,
+      const BxLookupDeviceCollection& bx_lookup,
+      float R2,
+      unsigned int nJets,
+      ClustersDeviceCollection& clusters) const {
     // one grid per particles in blocks per BX
     uint32_t threads_per_block = 256;
     uint32_t blocks_per_grid = bx_lookup.const_view<OffsetsSoA>().metadata().size() - 1;
@@ -460,6 +745,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         cms::alpakatools::divide_up_by(src.const_view().metadata().size(), threads_per_flatblock);
     auto flatgrid = cms::alpakatools::make_workdiv<Acc1D>(blocks_per_flatgrid, threads_per_flatblock);
 
+    auto jets = ClusterObjDeviceCollection(src.const_view().metadata().size(), queue);
     jets.zeroInitialise(queue);
 
     alpaka::exec<Acc1D>(
@@ -492,5 +778,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                         h_tag_device.data(),
                         work2.view(),
                         jets.view());
+
+    auto map = AssociationMapDevice({{1, 1}}, queue);
+    auto jetBxLookup = BxLookupDeviceCollection({{0, 1}}, queue);
+    return std::make_tuple(std::move(jetBxLookup), std::move(jets), std::move(map));
   }
+
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels

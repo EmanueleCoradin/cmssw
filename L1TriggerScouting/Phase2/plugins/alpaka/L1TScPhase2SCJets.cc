@@ -24,7 +24,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           src_candidates_token_{consumes(params.getParameter<edm::InputTag>("src"))},
           bx_lookup_token_{consumes(params.getParameter<edm::InputTag>("src"))},
           clusters_token_{produces()},
+          jetBXs_token_{produces()},
           jets_token_{produces()},
+          map_token_{produces()},
           R2_{std::pow(params.getParameter<double>("rParam"), 2)},
           nJets_{params.getParameter<unsigned int>("nJets")} {}
 
@@ -36,18 +38,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       // allocate buffer
       const auto nsrc = src.const_view().metadata().size();
       auto clusters = ClustersDeviceCollection(nsrc, event.queue());
-      auto jets = ClusterObjDeviceCollection(nsrc, event.queue());
 
       // run
       if (nJets_ == 0) {
-        kernels_.run(event.queue(), src, bx_lookup, R2_, clusters, jets);
+        auto [jetBXs, jets, map] = kernels_.run(event.queue(), src, bx_lookup, R2_, clusters);
+        event.emplace(jetBXs_token_, std::move(jetBXs));
+        event.emplace(jets_token_, std::move(jets));
+        event.emplace(map_token_, std::move(map));
       } else {
-        kernels_.run(event.queue(), src, bx_lookup, R2_, nJets_, clusters, jets);
+        auto [jetBXs, jets, map] = kernels_.run(event.queue(), src, bx_lookup, R2_, nJets_, clusters);
+        event.emplace(jetBXs_token_, std::move(jetBXs));
+        event.emplace(jets_token_, std::move(jets));
+        event.emplace(map_token_, std::move(map));
       }
 
       // move clustering results to event storage
       event.emplace(clusters_token_, std::move(clusters));
-      event.emplace(jets_token_, std::move(jets));
     };
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
@@ -65,7 +71,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     const device::EDGetToken<BxLookupDeviceCollection> bx_lookup_token_;
     // put device clustering data
     const device::EDPutToken<ClustersDeviceCollection> clusters_token_;
+    const device::EDPutToken<BxLookupDeviceCollection> jetBXs_token_;
     const device::EDPutToken<ClusterObjDeviceCollection> jets_token_;
+    const device::EDPutToken<AssociationMapDevice> map_token_;
 
     // kernel
     kernels::L1TScPhase2SCJetsKernels kernels_;
