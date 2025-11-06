@@ -31,7 +31,7 @@ if options.buNumStreams == []:
 analyses = options.analyses if options.analyses else ["w3pi", "hphijpsi", "h2rho", "h2phi"]
 print(f"Analyses set to {analyses}")
 
-if options.run not in ("unpack", "ak4", "sc4", "unpackAlpaka", "clueAlpaka", "sc4Alpaka"):
+if options.run not in ("unpack", "ak4", "sc4", "unpackAlpaka", "clueAlpaka", "sc4Alpaka", "sc4AlpakaTaus"):
     raise RuntimeError("Unsupported run mode %r" % options.run)
 
 process = cms.Process("SCPU")
@@ -129,6 +129,7 @@ if "alpaka" in options.run.lower():
   )
   from L1TriggerScouting.TauTagging.modules import (
       l1sc_CLUETaus_alpaka,
+      l1sc_SoftTauIdML_alpaka,
   )
   process.scPhase2PFRawToDigiAlpaka = l1sc_L1TScPhase2PuppiRawToDigi_alpaka(
       alpaka = cms.untracked.PSet( backend = cms.untracked.string(options.backend) ),
@@ -154,6 +155,15 @@ if "alpaka" in options.run.lower():
       rParam = cms.double(options.jetR),
       nJets = cms.uint32(options.njets),
   )
+
+  process.SoftTauIdSC4 = l1sc_SoftTauIdML_alpaka(
+      alpaka = cms.untracked.PSet( backend = cms.untracked.string(options.backend) ),
+      pf = 'scPhase2PFRawToDigiAlpaka',
+      clusters = 'scPhase2SC4PFAlpaka',
+      model = cms.FileInPath("L1TriggerScouting/TauTagging/data/softtauid_sigmoid.pt"),
+      run_scout = cms.bool(False), # should work 
+  )
+
   process.goodOrbitsByNBX.unpackersAlpaka = [ "scPhase2PFRawToDigiAlpaka" ]
   process.goodOrbitsByNBX.unpackers = []
 
@@ -170,6 +180,12 @@ if "alpaka" in options.run.lower():
     process.scPhase2PFRawToDigiAlpaka +
     process.goodOrbitsByNBX +
     process.scPhase2SC4PFAlpaka
+  )
+  process.p_sc4AlpakaTaus = cms.Path(
+    process.scPhase2PFRawToDigiAlpaka +
+    process.goodOrbitsByNBX +
+    process.scPhase2SC4PFAlpaka +
+    process.SoftTauIdSC4 
   )
 
 
@@ -214,7 +230,7 @@ if options.run not in ("both","inclusive","selected"):
           doc = cms.string("")
       )
       process.dumpJets = cms.EDProducer("ClusterObjSoAToOrbitFlatTable",
-          srcBx = cms.InputTag("scPhase2PFRawToDigiAlpaka"),
+          srcBx = cms.InputTag("scPhase2SC4PFAlpaka"),
           srcClusters = cms.InputTag("scPhase2SC4PFAlpaka"),
           name = cms.string("SC4AlpakaJets"),
           doc = cms.string(""),
