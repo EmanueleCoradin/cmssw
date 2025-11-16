@@ -107,9 +107,9 @@ void ClusterToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm::Ev
   
   auto out = std::make_unique<l1ScoutingRun3::OrbitFlatTable>(bxOffsets, name_);
   out->setDoc(doc_);
-  out->addColumn<float>("pt", pts, "cluster pt (GeV)");
-  out->addColumn<float>("eta", etas, "cluster eta (GeV)");
-  out->addColumn<float>("phi", phis, "cluster phi (GeV)");
+  out->addColumn<float>("pt", pts, "candidate pt (GeV)");
+  out->addColumn<float>("eta", etas, "candidate eta (GeV)");
+  out->addColumn<float>("phi", phis, "candidate phi (GeV)");
   out->addColumn<int32_t>("cluster", clusters, "cluster index");
   iEvent.put(std::move(out));
 }
