@@ -26,8 +26,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     inline static std::once_flag init_flag_;
   };
 
-  void decode(Queue& queue, data_t* p_data, PuppiDeviceCollection& puppi);
-  void decode(Queue& queue, data_t* h_data, BxLookupDeviceCollection& bx_lookup);
+  void decode_candidates(Queue& queue, data_t* p_data, PuppiDeviceCollection& puppi);
+  void decode_headers_to_map(Queue& queue, data_t* h_data, BxLookupDeviceCollection& bx_lookup);
+  void decode_headers_to_sizes(Queue& queue, data_t* h_data, BxLookupDeviceCollection& bx_sizes);
   void fillBxLookupPadded(Queue& queue, BxLookupDeviceCollection& bx_lookup_padded, unsigned int nele);
   void fillCandsPadded(Queue& queue, BxLookupDeviceCollection& bx_lookup, 
                       PuppiDeviceCollection& puppi_padded, 

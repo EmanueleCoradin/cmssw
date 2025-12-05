@@ -112,8 +112,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     }
   };
 
-
-  void decode(Queue& queue, data_t* p_data, PuppiDeviceCollection& puppi) {
+  void decode_candidates(Queue& queue, data_t* p_data, PuppiDeviceCollection& puppi) {
     // move host residing data to device memory space
     auto extent = Vec1D{puppi.const_view().metadata().size()};
     auto p_data_device = alpaka::allocAsyncBuf<data_t, Idx>(queue, extent);
@@ -128,7 +127,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     alpaka::exec<Acc1D>(queue, grid, RawToDigiKernel{}, p_data_device.data(), puppi.view());
   }
 
-  void decode(Queue& queue, data_t* h_data, BxLookupDeviceCollection& bx_lookup) {
+  void decode_headers_to_map(Queue& queue, data_t* h_data, BxLookupDeviceCollection& bx_lookup) {
     // move host residing data to device memory space
     auto extent = Vec1D(bx_lookup.const_view().metadata().size());
     auto h_data_device = alpaka::allocAsyncBuf<data_t, Idx>(queue, extent);
@@ -170,6 +169,34 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                         blocks_per_grid,
                         pc.data(),
                         alpaka::getPreferredWarpSize(alpaka::getDev(queue)));
+  }
+
+  void decode_headers_to_sizes(Queue& queue, data_t* h_data, BxLookupDeviceCollection& bx_sizes) {
+    // move host residing data to device memory space
+    auto extent = Vec1D(bx_sizes.const_view().metadata().size());
+    auto h_data_device = alpaka::allocAsyncBuf<data_t, Idx>(queue, extent);
+    alpaka::memcpy(queue, h_data_device, createView(cms::alpakatools::host(), h_data, extent));
+
+    // grid dims can be tuned for performance
+    uint32_t threads_per_block = 1024;
+    uint32_t blocks_per_grid =
+        cms::alpakatools::divide_up_by(bx_sizes.const_view().metadata().size(), threads_per_block);
+    auto grid = cms::alpakatools::make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
+
+    // accumulate buffer with events sizes
+    alpaka::exec<Acc1D>(
+        queue,
+        grid,
+        [] ALPAKA_FN_ACC(Acc1D const& acc, data_t* data, BxIndexSoA::View bx_index, OffsetsSoA::View offsets) {
+          for (int32_t idx : cms::alpakatools::uniform_elements(acc, offsets.metadata().size())) {
+            auto range = decodeBits<uint32_t, 0, 12>(data[idx]);
+            bx_index.bx()[idx] = decodeBits<uint32_t, 12, 12>(data[idx]);
+            offsets.offsets()[idx] = range;
+          }
+        },
+        h_data_device.data(),
+        bx_sizes.view<BxIndexSoA>(),
+        bx_sizes.view<OffsetsSoA>());
   }
 
   void fillBxLookupPadded(Queue& queue, BxLookupDeviceCollection& bx_lookup_padded, unsigned int nele) {
