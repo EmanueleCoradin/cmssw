@@ -28,6 +28,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   void decode(Queue& queue, data_t* p_data, PuppiDeviceCollection& puppi);
   void decode(Queue& queue, data_t* h_data, BxLookupDeviceCollection& bx_lookup);
+  void fillBxLookupPadded(Queue& queue, BxLookupDeviceCollection& bx_lookup_padded, unsigned int nele);
+  void fillCandsPadded(Queue& queue, BxLookupDeviceCollection& bx_lookup, 
+                      PuppiDeviceCollection& puppi_padded, 
+                      PuppiDeviceCollection& puppi, 
+                      unsigned int nele);
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels
 

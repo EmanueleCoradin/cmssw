@@ -81,6 +81,7 @@ if args.runScouting:
         streams = cms.vuint32(*list(range(sum(args.buNumStreams))) if args.streams == [] else args.streams),
         splitFactor = cms.uint32(sum(args.buNumStreams) if args.streams == [] else len(args.streams)),
         src = cms.InputTag('rawDataCollector'),
+        padding = cms.uint32(320),
         environment = cms.untracked.int32(args.environment),
     )
     process.path += process.PFCandidatesProducer
@@ -88,8 +89,8 @@ if args.runScouting:
     if "candidates" in args.dump or "all" in args.dump:
         from L1TriggerScouting.Phase2.modules import PFSoAToOrbitFlatTable
         process.PFToOrbit = PFSoAToOrbitFlatTable(
-            srcBx = "PFCandidatesProducer", 
-            srcPF = "PFCandidatesProducer", 
+            srcBx = cms.InputTag("PFCandidatesProducer", "padded"), 
+            srcPF = cms.InputTag("PFCandidatesProducer", "padded"),
             name = "L1PF"
         )
         process.path += process.PFToOrbit

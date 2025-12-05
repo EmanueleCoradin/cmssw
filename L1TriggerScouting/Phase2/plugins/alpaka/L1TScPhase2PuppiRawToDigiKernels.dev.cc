@@ -65,6 +65,54 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     }
   };
 
+  class PadPuppiPerBxKernel {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
+                                  PuppiDeviceCollection::ConstView inPuppi,
+                                  OffsetsSoA::ConstView offsets,
+                                  PuppiDeviceCollection::View outPuppi,
+                                  unsigned int maxCandsPerBx) const {
+
+      const auto nBx = offsets.metadata().size() - 1;
+
+      // one independent group for each BX
+      for (auto bx : cms::alpakatools::independent_groups(acc, nBx)) {
+        const auto begin = offsets.offsets()[bx];
+        const auto end = offsets.offsets()[bx + 1];
+        const auto nCand = end - begin;
+
+        const auto outBase = bx * maxCandsPerBx;
+        for (auto tid : cms::alpakatools::independent_group_elements(acc, maxCandsPerBx)) {
+          const auto outIdx = outBase + tid;
+
+          if (tid < nCand && tid < maxCandsPerBx) {
+            const auto srcIdx = begin + tid;
+
+            outPuppi.pt()[outIdx]      = inPuppi.pt()[srcIdx];
+            outPuppi.eta()[outIdx]     = inPuppi.eta()[srcIdx];
+            outPuppi.phi()[outIdx]     = inPuppi.phi()[srcIdx];
+            outPuppi.z0()[outIdx]      = inPuppi.z0()[srcIdx];
+            outPuppi.dxy()[outIdx]     = inPuppi.dxy()[srcIdx];
+            outPuppi.puppiw()[outIdx]  = inPuppi.puppiw()[srcIdx];
+            outPuppi.quality()[outIdx] = inPuppi.quality()[srcIdx];
+            outPuppi.pdgid()[outIdx]   = inPuppi.pdgid()[srcIdx];
+
+          } else if (tid < maxCandsPerBx) {
+            outPuppi.pt()[outIdx]      = std::numeric_limits<float>::max();
+            outPuppi.eta()[outIdx]     = std::numeric_limits<float>::max();
+            outPuppi.phi()[outIdx]     = std::numeric_limits<float>::max();
+            outPuppi.z0()[outIdx]      = std::numeric_limits<float>::max();
+            outPuppi.dxy()[outIdx]     = std::numeric_limits<float>::max();
+            outPuppi.puppiw()[outIdx]  = std::numeric_limits<float>::max();
+            outPuppi.quality()[outIdx] = std::numeric_limits<uint8_t>::max();
+            outPuppi.pdgid()[outIdx]   = std::numeric_limits<int16_t>::max();
+          }
+        }
+      }
+    }
+  };
+
+
   void decode(Queue& queue, data_t* p_data, PuppiDeviceCollection& puppi) {
     // move host residing data to device memory space
     auto extent = Vec1D{puppi.const_view().metadata().size()};
@@ -124,4 +172,45 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                         alpaka::getPreferredWarpSize(alpaka::getDev(queue)));
   }
 
+  void fillBxLookupPadded(Queue& queue, BxLookupDeviceCollection& bx_lookup_padded, unsigned int nele) {
+    // create host-side bx indexes
+    auto nindexes = static_cast<unsigned int>(bx_lookup_padded.const_view<BxIndexSoA>().metadata().size());
+    std::vector<uint32_t> indexes(nindexes);
+    std::iota(indexes.begin(), indexes.end(), 0);
+
+    // copy indexes from host to device
+    auto dstBxIndex = alpaka::createView(alpaka::getDev(queue), 
+                                    bx_lookup_padded.view<BxIndexSoA>().bx().data(), 
+                                    Vec1D{nindexes});
+    alpaka::memcpy(queue, dstBxIndex, indexes, Vec1D{indexes.size()});
+
+    // create host-side fixed offsets
+    auto noffsets = static_cast<unsigned int>(bx_lookup_padded.const_view<OffsetsSoA>().metadata().size());
+    std::vector<uint32_t> offsets_padded(noffsets);
+    for (unsigned int i = 0; i < noffsets; ++i) {
+      offsets_padded[i] = i * nele;
+    }
+
+    // copy fixed offsets from host to device
+    auto dstOffsets = alpaka::createView(alpaka::getDev(queue), 
+                                    bx_lookup_padded.view<OffsetsSoA>().offsets().data(), 
+                                    Vec1D{noffsets});
+    alpaka::memcpy(queue, dstOffsets, offsets_padded, Vec1D{offsets_padded.size()});
+  }
+
+  void fillCandsPadded(Queue& queue, BxLookupDeviceCollection& bx_lookup, 
+                      PuppiDeviceCollection& puppi_padded, 
+                      PuppiDeviceCollection& puppi, 
+                      unsigned int nele) {
+    auto nbx = bx_lookup.const_view<BxIndexSoA>().metadata().size();
+    auto grid = cms::alpakatools::make_workdiv<Acc1D>(nbx, nele);
+
+    alpaka::exec<Acc1D>(queue,
+                        grid,
+                        PadPuppiPerBxKernel{},
+                        puppi.const_view(),
+                        bx_lookup.const_view<OffsetsSoA>(),
+                        puppi_padded.view(),
+                        nele);
+  } 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels

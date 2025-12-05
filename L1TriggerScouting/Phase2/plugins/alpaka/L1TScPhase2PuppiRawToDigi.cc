@@ -37,9 +37,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           raw_data_token_{consumes(params.getParameter<edm::InputTag>("src"))},
           puppi_token_{produces()},
           bx_lookup_token_{produces()},
+          puppi_padded_token_{produces("padded")},
+          bx_lookup_padded_token_{produces("padded")},
           nbx_token_{produces("nbx")},
           streams_(params.getParameter<std::vector<uint32_t>>("streams")),
           splitFactor_(params.getParameter<unsigned int>("splitFactor")),
+          padding_(params.getParameter<unsigned int>("padding")),
           environment_{static_cast<Environment>(params.getUntrackedParameter<int>("environment"))} {}
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
@@ -61,9 +64,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       kernels::decode(event.queue(), h_data_.data(), bx_lookup);
       kernels::decode(event.queue(), p_data_.data(), puppi);
 
+      // allocate memory for padded collections
+      auto bx_lookup_padded = BxLookupDeviceCollection({{nbx, nbx + 1}}, event.queue());
+      auto puppi_padded = PuppiDeviceCollection(nbx * padding_, event.queue());
+
+      // fill padded collections
+      kernels::fillBxLookupPadded(event.queue(), bx_lookup_padded, padding_);
+      kernels::fillCandsPadded(event.queue(), bx_lookup, puppi_padded, puppi, padding_);
+
       // store data in the event (device-side products)
       event.emplace(bx_lookup_token_, std::move(bx_lookup));
       event.emplace(puppi_token_, std::move(puppi));
+      event.emplace(bx_lookup_padded_token_, std::move(bx_lookup_padded));
+      event.emplace(puppi_padded_token_, std::move(puppi_padded));
 
       // store nbx
       auto nbx_portable = CounterHost(event.queue(), static_cast<unsigned int>(ngoodbx));
@@ -75,6 +88,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       desc.add<std::vector<uint32_t>>("streams");
       desc.add<unsigned int>("splitFactor", 1)->setComment("Number of streams per BX");
       desc.add<edm::InputTag>("src");
+      desc.add<unsigned int>("padding")->setComment("Number of candidates per BX after padding");
       desc.addUntracked<int>("environment", static_cast<int>(Environment::kProduction));
       descriptions.addWithDefaultLabel(desc);
     };
@@ -147,6 +161,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     // produce device-side products
     const device::EDPutToken<PuppiDeviceCollection> puppi_token_;
     const device::EDPutToken<BxLookupDeviceCollection> bx_lookup_token_;
+    const device::EDPutToken<PuppiDeviceCollection> puppi_padded_token_;
+    const device::EDPutToken<BxLookupDeviceCollection> bx_lookup_padded_token_;
 
     // produce host-side products
     const edm::EDPutTokenT<CounterHost> nbx_token_;
@@ -154,6 +170,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     // utility members
     const std::vector<uint32_t> streams_;
     const unsigned int splitFactor_;  // number of streams per BX
+    const unsigned int padding_; // fixed number of candidates per BX 
     const Environment environment_;
 
     // temporary storage
