@@ -67,6 +67,10 @@ void HLTTracksRecHitsTableProducer::produce(edm::Event& iEvent, const edm::Event
   std::vector<float> globalErrY(maxRecHits * nTracks, default_value);
   std::vector<float> globalErrZ(maxRecHits * nTracks, default_value);
 
+  std::vector<float> globalR(maxRecHits * nTracks, default_value);
+  std::vector<float> globalEta(maxRecHits * nTracks, default_value);
+  std::vector<float> globalPhi(maxRecHits * nTracks, default_value);
+
   if (tracksIn.isValid() || !(this->skipNonExistingSrc_)) {
     const auto& tracks = *tracksIn;
     for (size_t tkIndex = 0; tkIndex < nTracks; ++tkIndex) {
@@ -88,6 +92,10 @@ void HLTTracksRecHitsTableProducer::produce(edm::Event& iEvent, const edm::Event
         globalErrX[tkIndex * maxRecHits + hitIndex] = globalError.cxx();
         globalErrY[tkIndex * maxRecHits + hitIndex] = globalError.cyy();
         globalErrZ[tkIndex * maxRecHits + hitIndex] = globalError.czz();
+        
+        globalR[tkIndex * maxRecHits + hitIndex] = globalPoint.perp();
+        globalEta[tkIndex * maxRecHits + hitIndex] = globalPoint.eta();
+        globalPhi[tkIndex * maxRecHits + hitIndex] = globalPoint.phi();
       }
     }
   } else {
@@ -95,8 +103,9 @@ void HLTTracksRecHitsTableProducer::produce(edm::Event& iEvent, const edm::Event
         << " Invalid handle for " << tableName_ << " in tracks input collection";
   }
 
-  assert(globalX.size() == globalY.size() && globalX.size() == globalZ.size() && globalX.size() == globalErrX.size() &&
-         globalX.size() == globalErrY.size() && globalX.size() == globalErrZ.size());
+  assert(globalX.size() == globalY.size() && globalX.size() == globalZ.size() && 
+         globalX.size() == globalErrX.size() && globalX.size() == globalErrY.size() && globalX.size() == globalErrZ.size() && 
+         globalX.size() == globalR.size() && globalX.size() == globalEta.size() && globalX.size() == globalPhi.size());
 
   //table for all primary vertices
   auto tracksTable =
@@ -107,7 +116,9 @@ void HLTTracksRecHitsTableProducer::produce(edm::Event& iEvent, const edm::Event
   tracksTable->addColumn<float>("globalErrX", globalErrX, "RecHits global x error", precision_);
   tracksTable->addColumn<float>("globalErrY", globalErrY, "RecHits global y error", precision_);
   tracksTable->addColumn<float>("globalErrZ", globalErrZ, "RecHits global z error", precision_);
-
+  tracksTable->addColumn<float>("globalR", globalR, "RecHits global r coordinate", precision_);
+  tracksTable->addColumn<float>("globalEta", globalEta, "RecHits global eta coordinate", precision_);
+  tracksTable->addColumn<float>("globalPhi", globalPhi, "RecHits global phi coordinate", precision_);
   iEvent.put(std::move(tracksTable), tableName_);
 }
 
