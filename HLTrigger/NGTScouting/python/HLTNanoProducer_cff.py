@@ -116,7 +116,7 @@ hltNanoFlavour = cms.Sequence(
 )
 
 hltNanoProducerPixelOnly = cms.Sequence(
-    NanoGenTable
+    NanoGenTables
     + pixelTrackAssoc
     + hltPixelTrackTable
     + hltPixelTrackExtTable
@@ -125,7 +125,7 @@ hltNanoProducerPixelOnly = cms.Sequence(
 
 
 dstNanoProducer = cms.Sequence(
-    NanoGenTable
+    NanoGenTables
     + dstTriggerAcceptFilter
     + hltVertexTable
     + pixelTrackAssoc
