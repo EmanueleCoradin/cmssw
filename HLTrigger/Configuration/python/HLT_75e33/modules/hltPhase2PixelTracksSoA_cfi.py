@@ -164,72 +164,61 @@ for i, lp in enumerate(layerPairsCAExtension):
     if lp[2]:
         startingPairsCAExtension.append(i)
 
-hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2OT@alpaka',
-    pixelRecHitSrc = cms.InputTag('hltPhase2PixelRecHitsExtendedSoA'),
+hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2@alpaka',
+    pixelRecHitSrc = cms.InputTag('hltPhase2SiPixelRecHitsSoA'),
     ptmin = cms.double(0.9),
     hardCurvCut = cms.double(0.01425), # corresponds to 800 MeV in 3.8T.
     earlyFishbone = cms.bool(True),
     lateFishbone = cms.bool(False),
     fillStatistics = cms.bool(False),
     minHitsPerNtuplet = cms.uint32(4),
-    maxNumberOfDoublets = cms.string(str(12*512*1024)),
-    maxNumberOfTuples = cms.string(str(2*60*1024)),
+    maxNumberOfDoublets = cms.string(str(6*512*1024)),
+    maxNumberOfTuples = cms.string(str(60*1024)),
     cellZ0Cut = cms.double(12.5), # it's half the BS width! It has nothing to do with the sample!!
     minYsizeB1 = cms.int32(20),
     minYsizeB2 = cms.int32(18),
     maxDYsize12 = cms.int32(12),
     maxDYsize = cms.int32(10),
     maxDYPred = cms.int32(24),
-    avgHitsPerTrack = cms.double(8.0),
-    avgCellsPerHit = cms.double(17),
-    avgCellsPerCell = cms.double(0.5),
-    avgTracksPerCell = cms.double(0.09),
+    avgHitsPerTrack = cms.double(7.0),
+    avgCellsPerHit = cms.double(12),
+    avgCellsPerCell = cms.double(0.151),
+    avgTracksPerCell = cms.double(0.040),
     minHitsForSharingCut = cms.uint32(10),
     fitNas4 = cms.bool(False),
     useRiemannFit = cms.bool(False),
     doSharedHitCut = cms.bool(True),
     dupPassThrough = cms.bool(False),
     useSimpleTripletCleaner = cms.bool(True),
+    disableTripletCleaner = cms.bool(False),
+    disableFastDuplicateRemover = cms.bool(False),
+    disableEarlyDuplicateRemover = cms.bool(False),
     trackQualityCuts = cms.PSet(
-        maxChi2TripletsOrQuadruplets = cms.double(1.0),
-        maxChi2Quintuplets = cms.double(3.0),
+        maxChi2TripletsOrQuadruplets = cms.double(5.0),
+        maxChi2Quintuplets = cms.double(5.0),
         maxChi2 = cms.double(5.0),
         minPt   = cms.double(0.9),
         maxTip  = cms.double(0.3),
         maxZip  = cms.double(12),
     ),
     geometry = cms.PSet(
-        # This cut also uses the hardCurvCut parameters inside the
-        # Kernel_connect "function". This is used to cut connections that have
-        # either a too low p_t or that do not intersect the BS+tolerance
-        # region. Internally, this cut is compared against the circle.dca0() in
-        # natural units divided by circle.curvature(), where circle is the
-        # circle passing through the 3 points of the triplet under
-        # investigation. Therefore the cut represent the compatibility of the
-        # circle in the transverse plane and the units are meant to be cm.
-        caDCACuts   = cms.vdouble([l[2] for l in layers]),
-        # caThetaCut is used in the areAlignedRZ function to check if two
-        # sibling cell are compatible in the R-Z plane. In that same function,
-        # we also use ptmin variable. The caThetaCut is assigned to the SoA of
-        # the layers, and is percolated into this compatibility function via
-        # the SoA itself.
-        caThetaCuts = cms.vdouble([l[3] for l in layers]),
-        startingPairs = cms.vuint32(startingPairsCAExtension),
-        pairGraph = cms.vuint32(sum([[lp[0], lp[1]] for lp in layerPairsCAExtension], [])),
-        phiCuts   = cms.vint32( [lp[ 3] for lp in layerPairsCAExtension]),
-        minInner  = cms.vdouble([lp[ 4] for lp in layerPairsCAExtension]),
-        maxInner  = cms.vdouble([lp[ 5] for lp in layerPairsCAExtension]),
-        minOuter  = cms.vdouble([lp[ 6] for lp in layerPairsCAExtension]),
-        maxOuter  = cms.vdouble([lp[ 7] for lp in layerPairsCAExtension]),
-        maxDR     = cms.vdouble([lp[ 8] for lp in layerPairsCAExtension]),
-        minDZ     = cms.vdouble([lp[ 9] for lp in layerPairsCAExtension]),
-        maxDZ     = cms.vdouble([lp[10] for lp in layerPairsCAExtension]),
-        ptCuts    = cms.vdouble([lp[11] for lp in layerPairsCAExtension]),
-    ),
+        caDCACuts   = cms.vdouble([l[2] for l in layers[:28]]),
+        caThetaCuts = cms.vdouble([l[3] for l in layers[:28]]),
+        startingPairs = cms.vuint32(startingPairsAlpaka),
+        pairGraph = cms.vuint32(sum([[lp[0], lp[1]] for lp in layerPairsAlpaka], [])),
+        phiCuts   = cms.vint32( [lp[ 3] for lp in layerPairsAlpaka]),
+        minInner  = cms.vdouble([lp[ 4] for lp in layerPairsAlpaka]),
+        maxInner  = cms.vdouble([lp[ 5] for lp in layerPairsAlpaka]),
+        minOuter  = cms.vdouble([lp[ 6] for lp in layerPairsAlpaka]),
+        maxOuter  = cms.vdouble([lp[ 7] for lp in layerPairsAlpaka]),
+        maxDR     = cms.vdouble([lp[ 8] for lp in layerPairsAlpaka]),
+        minDZ     = cms.vdouble([lp[ 9] for lp in layerPairsAlpaka]),
+        maxDZ     = cms.vdouble([lp[10] for lp in layerPairsAlpaka]),
+        ptCuts    = cms.vdouble([lp[11] for lp in layerPairsAlpaka]),
+  ),
     # autoselect the alpaka backend
     alpaka = cms.untracked.PSet(backend = cms.untracked.string(''))
 )
-
 
 _hltPhase2PixelTracksSoANonCAExtended = cms.EDProducer('CAHitNtupletAlpakaPhase2@alpaka',
     pixelRecHitSrc = cms.InputTag('hltPhase2SiPixelRecHitsSoA'),
