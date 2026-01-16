@@ -1,4 +1,5 @@
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/AssociationMapDevice.h"
+#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PFCandidateDeviceCollection.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -19,8 +20,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
   public:
     explicit CLUETaus(const edm::ParameterSet &params)
         : EDProducer<>(params),
-          pf_candidates_token_{consumes(params.getParameter<edm::InputTag>("src"))},
-          bx_lookup_token_{consumes(params.getParameter<edm::InputTag>("src"))},
+          pf_candidates_token_{consumes(params.getParameter<edm::InputTag>("candidates"))},
+          bx_sizes_token_{consumes(params.getParameter<edm::InputTag>("bxSizes"))},
           cluestering_token_{produces()},
           bx_clusters_map_token_{produces()},
           cluster_cands_map_token_{produces()},
@@ -38,8 +39,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       auto clusters = ClustersDeviceCollection(n_points, event.queue());
 
       // run CLUEstering algo
-      const auto &bx_lookup = event.get(bx_lookup_token_);
-      auto [bx_clusters_map, cluster_cands_map] = clustering_.run(event.queue(), pf, bx_lookup, clusters);
+      const auto &bx_sizes = event.get(bx_sizes_token_);
+      auto [bx_clusters_map, cluster_cands_map] = clustering_.run(event.queue(), pf, bx_sizes, clusters);
       event.emplace(bx_clusters_map_token_, std::move(bx_clusters_map));
       event.emplace(cluster_cands_map_token_, std::move(cluster_cands_map));
 
@@ -49,7 +50,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
-      desc.add<edm::InputTag>("src");
+      desc.add<edm::InputTag>("candidates");
+      desc.add<edm::InputTag>("bxSizes");
       desc.add<double>("dc");
       desc.add<double>("rhoc");
       desc.add<double>("dm");
@@ -61,7 +63,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     // get device pf data
     const device::EDGetToken<PFCandidateDeviceCollection> pf_candidates_token_;
     // get association map if runScouting=True
-    const device::EDGetToken<BxLookupDeviceCollection> bx_lookup_token_;
+    const device::EDGetToken<BxLookupDeviceCollection> bx_sizes_token_;
     // put device clustering data
     const device::EDPutToken<ClustersDeviceCollection> cluestering_token_;
     const device::EDPutToken<BxLookupDeviceCollection> bx_clusters_map_token_;

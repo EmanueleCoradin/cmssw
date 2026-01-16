@@ -27,7 +27,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
     return_type run(Queue& queue,
                     const PFCandidateDeviceCollection& pf,
-                    const BxLookupDeviceCollection& bx_lookup,
+                    const BxLookupDeviceCollection& bx_sizes,
                     ClustersDeviceCollection& clusters) const;
 
   private:

@@ -20,7 +20,7 @@ process.load("Configuration.StandardSequences.Accelerators_cff")
 
 # logging configuration
 process.load("FWCore.MessageService.MessageLogger_cfi")
-process.MessageLogger.cerr.FwkReport.reportEvery = 1
+process.MessageLogger.cerr.FwkReport.reportEvery = 10
 
 process.path = cms.Path()
 # process a limited number of events
@@ -81,7 +81,6 @@ if args.runScouting:
         streams = cms.vuint32(*list(range(sum(args.buNumStreams))) if args.streams == [] else args.streams),
         splitFactor = cms.uint32(sum(args.buNumStreams) if args.streams == [] else len(args.streams)),
         src = cms.InputTag('rawDataCollector'),
-        padding = cms.uint32(320),
         environment = cms.untracked.int32(args.environment),
     )
     process.path += process.PFCandidatesProducer
@@ -103,7 +102,7 @@ else:
         ),
         src = cms.InputTag("l1tLayer1Extended", "PF", "L1Dump"),
     )
-process.path += process.PFCandidatesProducer
+    process.path += process.PFCandidatesProducer
 
 # CLUEstering
 if "clustering" in args.only or "tagging_pre" in args.only or "tagging_inf" in args.only:
@@ -112,7 +111,8 @@ if "clustering" in args.only or "tagging_pre" in args.only or "tagging_inf" in a
         alpaka = cms.untracked.PSet(
             backend = cms.untracked.string(args.backend)
         ),
-        src = 'PFCandidatesProducer',
+        candidates = cms.InputTag("PFCandidatesProducer", "candidates"),
+        bxSizes = cms.InputTag("PFCandidatesProducer", "bxSizes"),
         dc = cms.double(args.dc),
         rhoc = cms.double(args.rhoc),
         dm = cms.double(args.dm),

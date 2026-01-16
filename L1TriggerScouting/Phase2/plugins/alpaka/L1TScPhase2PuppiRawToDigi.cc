@@ -35,9 +35,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     L1TScPhase2PuppiRawToDigi(const edm::ParameterSet &params)
         : EDProducer<>(params),
           raw_data_token_{consumes(params.getParameter<edm::InputTag>("src"))},
-          puppi_token_{produces()},
-          bx_lookup_token_{produces("map")},
-          bx_sizes_token_{produces("sizes")},
+          puppi_token_{produces("candidates")},
+          bx_lookup_token_{produces("bxLookup")},
+          bx_sizes_token_{produces("bxSizes")},
           nbx_token_{produces("nbx")},
           streams_(params.getParameter<std::vector<uint32_t>>("streams")),
           splitFactor_(params.getParameter<unsigned int>("splitFactor")),
