@@ -15,7 +15,7 @@
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
-
+#include "DataFormats/TrackSoA/interface/TracksHost.h"
 #include "CAHitNtupletGenerator.h"
 #include "CAHitNtupletGeneratorKernels.h"
 #include "CAPixelDoublets.h"

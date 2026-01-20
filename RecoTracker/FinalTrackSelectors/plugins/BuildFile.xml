@@ -14,27 +14,60 @@
 <use name="DataFormats/TrackingRecHit"/>
 <use name="DataFormats/TrajectorySeed"/>
 <use name="DataFormats/VertexReco"/>
+
 <use name="FWCore/Framework"/>
 <use name="FWCore/MessageLogger"/>
 <use name="FWCore/ParameterSet"/>
 <use name="FWCore/PluginManager"/>
+
 <use name="Geometry/CommonDetUnit" source_only="1"/>
 <use name="Geometry/Records"/>
 <use name="Geometry/TrackerGeometryBuilder"/>
+
 <use name="MagneticField/Engine"/>
 <use name="MagneticField/Records"/>
+
 <use name="PhysicsTools/TensorFlow"/>
+
 <use name="RecoLocalTracker/SiStripClusterizer"/>
 <use name="RecoTracker/FinalTrackSelectors"/>
 <use name="RecoTracker/Record"/>
+
 <use name="TrackingTools/GeomPropagators"/>
 <use name="TrackingTools/KalmanUpdators"/>
 <use name="TrackingTools/PatternTools"/>
 <use name="TrackingTools/Records"/>
 <use name="TrackingTools/TransientTrack"/>
+
 <use name="clhep"/>
 <use name="roottmva"/>
 <use name="lwtnn"/>
+
 <library file="*.cc" name="RecoTrackerFinalTrackSelectorsPlugins">
   <flags EDM_PLUGIN="1"/>
+</library>
+
+<library file="alpaka/*.cc" name="RecoTrackerFinalTrackSelectorsAlpakaPlugins">
+  <use name="alpaka"/>
+  <use name="xtd"/>
+  <use name="DataFormats/BeamSpot"/>
+  <use name="DataFormats/Portable"/>
+  <use name="DataFormats/SoATemplate"/>
+  <use name="DataFormats/TrackSoA"/>
+  <use name="DataFormats/TrackingRecHitSoA"/>
+  <use name="HeterogeneousCore/AlpakaCore"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="PhysicsTools/PyTorchAlpaka"/>
+  <use name="pytorch"/>
+  <use name="pytorch-cuda"/>
+
+  <!-- work around for cms-sw/cmssw#45179 -->
+  <use name="no-array-bounds-flag" for="alpaka/serial"/>
+
+  <flags ALPAKA_BACKENDS="cuda"/>
+  <flags ALPAKA_BACKENDS="serial"/>
+  <!-- ROCm backend not yet supported, see: https://github.com/pytorch/pytorch/blob/main/aten/CMakeLists.txt#L75 -->
+  <!-- <flags ALPAKA_BACKENDS="rocm"/> -->
+  <flags EDM_PLUGIN="1"/>
+  <flags remove="1">ofast-flag</flags>
 </library>

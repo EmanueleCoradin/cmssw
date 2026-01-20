@@ -44,6 +44,8 @@ from ..modules.hltPhase2PixelRecHitsExtendedSoA_cfi import hltPhase2PixelRecHits
 from ..modules.hltPhase2OtRecHitsSoA_cfi import hltPhase2OtRecHitsSoA
 from ..modules.hltPhase2PixelTracksCAExtension_cfi import hltPhase2PixelTracksCAExtension
 from ..modules.hltPhase2PixelTracksCutClassifier_cfi import hltPhase2PixelTracksCutClassifier
+from ..modules.hltPhase2PixelTrackFeatureExtractor_cfi import hltPhase2PixelTrackFeatureExtractor
+
 _HLTPhase2PixelTracksAndVerticesSequenceCAExtension = cms.Sequence(
    HLTBeamSpotSequence
   +hltPhase2PixelTracksAndHighPtStepTrackingRegions # needed by highPtTripletStep iteration
@@ -52,6 +54,7 @@ _HLTPhase2PixelTracksAndVerticesSequenceCAExtension = cms.Sequence(
   +hltPhase2OtRecHitsSoA
   +hltPhase2PixelRecHitsExtendedSoA
   +hltPhase2PixelTracksSoA
+  +hltPhase2PixelTrackFeatureExtractor
   +hltPhase2PixelTracksCAExtension
   +HLTPhase2PixelVertexingSequence
   +hltPhase2PixelTracksCutClassifier
