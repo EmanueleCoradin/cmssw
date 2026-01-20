@@ -1,6 +1,7 @@
 #ifndef DataFormats_HGCalReco_MtdSoA_h
 #define DataFormats_HGCalReco_MtdSoA_h
 
+#include <Eigen/Core>
 #include "DataFormats/SoATemplate/interface/SoALayout.h"
 
 GENERATE_SOA_LAYOUT(MtdSoALayout,
