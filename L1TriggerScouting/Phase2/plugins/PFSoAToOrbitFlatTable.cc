@@ -16,6 +16,8 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/MessageLogger/interface/MessageDrop.h"
 
+#include "L1TriggerScouting/Utilities/interface/BxOffsetsFiller.h"
+
 #include "DataFormats/NanoAOD/interface/OrbitFlatTable.h"
 #include "DataFormats/L1ScoutingSoA/interface/BxLookupHostCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/PFCandidateHostCollection.h"
@@ -58,11 +60,25 @@ void PFSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm::Even
   edm::Handle<l1sc::PFCandidateHostCollection> srcPF;
   iEvent.getByToken(srcPF_, srcPF);
 
-  const auto *offsets = srcBx->const_view<l1sc::OffsetsSoA>().offsets().data();
-  const unsigned int noff = srcBx->const_view<l1sc::OffsetsSoA>().metadata().size();
-  std::vector<unsigned int> bxOffsets{0u};
-  bxOffsets.insert(bxOffsets.end(), offsets, offsets + noff);
+  const unsigned int nbx = srcBx->const_view<l1sc::OffsetsSoA>().metadata().size() - 1;
+  const auto *bx_offsets = srcBx->const_view<l1sc::OffsetsSoA>().offsets().data();
 
+  // fill Offsets
+  l1ScoutingRun3::BxOffsetsFillter bxOffsetsFiller;
+  bxOffsetsFiller.start();
+
+  for (unsigned int bx_idx = 1; bx_idx <= nbx; ++bx_idx) {
+    auto bx_start = bx_offsets[bx_idx - 1];
+    auto bx_end = bx_offsets[bx_idx];
+    auto bx_size = bx_end - bx_start;
+    bxOffsetsFiller.addBx(bx_idx, bx_size);
+  }
+
+  auto bxOffsets = bxOffsetsFiller.done();
+
+  std::cout << "bxOFfsetFiller DONE!" << std::endl;
+
+  // fill Candidates
   const auto *pt = srcPF->const_view().pt().data();
   const auto *eta = srcPF->const_view().eta().data();
   const auto *phi = srcPF->const_view().phi().data();

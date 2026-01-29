@@ -88,8 +88,8 @@ if args.runScouting:
     if "candidates" in args.dump or "all" in args.dump:
         from L1TriggerScouting.Phase2.modules import PFSoAToOrbitFlatTable
         process.PFToOrbit = PFSoAToOrbitFlatTable(
-            srcBx = cms.InputTag("PFCandidatesProducer", "padded"), 
-            srcPF = cms.InputTag("PFCandidatesProducer", "padded"),
+            srcBx = cms.InputTag("PFCandidatesProducer", "bxLookup"), 
+            srcPF = cms.InputTag("PFCandidatesProducer", "candidates"),
             name = "L1PF"
         )
         process.path += process.PFToOrbit
@@ -123,8 +123,9 @@ if "clustering" in args.only or "tagging_pre" in args.only or "tagging_inf" in a
     if "clusters" in args.dump or "all" in args.dump or "all_nocands" in args.dump:
         from L1TriggerScouting.Phase2.modules import ClusterToOrbitFlatTable
         process.CLUEToOrbit = ClusterToOrbitFlatTable(
-            srcClusters = "CLUETaus", 
-            srcCandidates = "PFCandidatesProducer", 
+            srcBxClustersMap = cms.InputTag("CLUETaus", "bxClustersMap"), 
+            srcClustersCandsMap = cms.InputTag("CLUETaus", "clustersCandsMap"), 
+            srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"),
             name = "CLUETaus", 
             doc = ""
         )
@@ -164,7 +165,7 @@ if "tagging_pre" in args.only or "tagging_inf" in args.only:
 
 if args.dump != "none":
     process.out = cms.OutputModule("OrbitNanoAODOutputModule",
-        fileName = cms.untracked.string("orbitNanoClusters.root"),
+        fileName = cms.untracked.string("pf_candidates.root"),
         SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),  # keep all events
         outputCommands = cms.untracked.vstring(
             "drop *",

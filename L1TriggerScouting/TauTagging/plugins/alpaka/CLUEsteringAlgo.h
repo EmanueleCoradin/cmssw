@@ -2,17 +2,19 @@
 #define L1TriggerScouting_TauTagging_plugins_alpaka_CLUEsteringAlgo_h
 
 #include <alpaka/alpaka.hpp>
-#include <vector>
+#include <fmt/core.h> 
 
 #include "CLUEstering/CLUEstering.hpp"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/AssociationMapDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PFCandidateDeviceCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/PFCandidateHostCollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
+#include <fstream>
 
-// #define __DEBUGLITE__
-// #define __DEBUG__
+#define __DEBUG_CLUE__
+#define __DEBUG_DUMP__
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
