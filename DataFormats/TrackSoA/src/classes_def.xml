@@ -16,6 +16,9 @@
   <!-- Recursive templates implementing the association of indices and layouts, and containing the data -->
   <class name="portablecollection::CollectionLeaf<0, reco::TrackLayout<128, false>>"/>
   <class name="portablecollection::CollectionLeaf<1, reco::TrackHitsLayout<128, false>>"/>
-
+  
+  <class name="PixelTrackSoATab"/>
+  <class name="std::vector<PixelTrackSoATab>"/>
+  <class name="edm::Wrapper<std::vector<PixelTrackSoATab>>" splitLevel="0"/>
 </lcgdict>
 
