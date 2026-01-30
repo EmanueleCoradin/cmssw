@@ -45,6 +45,7 @@ from ..modules.hltPhase2OtRecHitsSoA_cfi import hltPhase2OtRecHitsSoA
 from ..modules.hltPhase2PixelTracksCAExtension_cfi import hltPhase2PixelTracksCAExtension
 from ..modules.hltPhase2PixelTracksCutClassifier_cfi import hltPhase2PixelTracksCutClassifier
 from ..modules.hltPhase2PixelTrackFeatureExtractor_cfi import hltPhase2PixelTrackFeatureExtractor
+from ..modules.hltPhase2PixelTrackSoATableProducer_cfi import hltPhase2PixelTrackSoATableProducer
 
 _HLTPhase2PixelTracksAndVerticesSequenceCAExtension = cms.Sequence(
    HLTBeamSpotSequence
@@ -55,6 +56,7 @@ _HLTPhase2PixelTracksAndVerticesSequenceCAExtension = cms.Sequence(
   +hltPhase2PixelRecHitsExtendedSoA
   +hltPhase2PixelTracksSoA
   +hltPhase2PixelTrackFeatureExtractor
+  +hltPhase2PixelTrackSoATableProducer
   +hltPhase2PixelTracksCAExtension
   +HLTPhase2PixelVertexingSequence
   +hltPhase2PixelTracksCutClassifier

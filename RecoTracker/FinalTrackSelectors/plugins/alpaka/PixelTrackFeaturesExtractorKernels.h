@@ -20,26 +20,34 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     void launchCAPreselectionKernel(
         Queue& queue,
-        const int maxTracks,
-        const int maxTracksPreselection,
+        const int maxNumberOfTracks,
+        const int maxPreselectedTracks,
         const int minNumberOfHits,
-        const ::pixelTrack::Quality minQuality,
+        const ::pixelTrack::Quality minimumTrackQuality,
         const ::reco::TrackSoAConstView tracks,
         int* nKeptTracks,
         int* nKeptHits,
-        int* oldIndex
+        int* originalTrackIndex
     );
 
     void launchFeaturesExtractorKernel(
         Queue& queue,
-        const int maxTracksPreselection,
+        const int maxPreselectedTracks,
         const ::reco::TrackSoAConstView tracks,
         const ::reco::TrackHitSoAConstView track_hits,
         const ::reco::TrackingRecHitConstView hits,
         PixelTrackFeaturesSoA::View trackFeatures,
         RecHitFeatures::PixelRecHitFeaturesSoA::View hitFeatures,
-        int* nKeptTracks,
-        int* oldIndex
+        const int* nKeptTracks,
+        int* originalTrackIndex
+    );
+
+    void launchScoreFilterKernel(
+        Queue& queue,
+        const int maxPreselectedTracks,
+        const double scoreThreshold,
+        int* originalTrackIndex,
+        const PixelTrackScoresSoA::View trackScores
     );
 
     void launchPixelTrackFilterKernel(
@@ -47,40 +55,30 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         const int maxTracksPreselection,
         const ::reco::TrackSoAConstView tracks,
         const ::reco::TrackHitSoAConstView track_hits,
-        int* oldIndex,
+        int* originalTrackIndex,
         const int* nKeptTracks,
         const int* nKeptHits,
         ::reco::TrackSoAView tracks_out,
         ::reco::TrackHitSoAView track_hits_out
     );
 
-    reco::TracksSoACollection launchProduceOutputTracks(
-        Queue& queue,
-        const int maxTracksPreselection,
-        const int avgHitsPerTrack,
-        const ::reco::TrackSoAConstView tracks,
-        const ::reco::TrackHitSoAConstView track_hits,
-        int* oldIndex,
-        const int* nKeptTracks,
-        const int* nKeptHits
-    );
-
     void launchHitOffsetCompactKernel(
         Queue& queue,
-        const int maxTracksPreselection,
-        int* oldIndex,
+        const int maxPreselectedTracks,
+        int* originalTrackIndex,
         int* nKeptTracks,
         int* nKeptHits
     );
 
-    void launchScoreFilterKernel(
+    reco::TracksSoACollection launchProduceOutputTracks(
         Queue& queue,
-        const int maxTracksPreselection,
-        const double scoreThreshold,
-        int* nKeptTracks,
-        int* nKeptHits,
-        int* oldIndex,
-        const PixelTrackScoresSoA::View trackScores
+        const int maxPreselectedTracks,
+        const int avgHitsPerTrack,
+        const ::reco::TrackSoAConstView tracks,
+        const ::reco::TrackHitSoAConstView track_hits,
+        int* originalTrackIndex,
+        const int* nKeptTracks,
+        const int* nKeptHits
     );
 }
 
