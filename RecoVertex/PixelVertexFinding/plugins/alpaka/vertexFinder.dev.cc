@@ -36,7 +36,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                     float ptMin,
                                     float ptMax) const {
         auto const quality = tracks_view.quality();
-                             
         for (auto idx : cms::alpakatools::uniform_elements(acc, tracks_view.nTracks())) {
           [[maybe_unused]] auto nHits = ::reco::nHits(tracks_view, idx);
           ALPAKA_ASSERT_ACC(nHits >= 3);

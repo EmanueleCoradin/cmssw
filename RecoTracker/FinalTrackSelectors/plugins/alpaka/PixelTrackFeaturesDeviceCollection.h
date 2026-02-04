@@ -10,9 +10,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using PixelTrackScoresOnDevice      = PortableCollection<PixelTrackScoresSoA>;
   using PixelRecHitFeaturesOnDevice   = PortableCollection<RecHitFeatures::PixelRecHitFeaturesSoA>;
   using PixelTrackFeaturesOnDevice   = PortableCollection<PixelTrackFeaturesSoA>;
-  
-  using PixelTrackDNNFeaturesOnDevice = PortableCollection2<RecHitFeatures::PixelRecHitFeaturesSoA, PixelTrackFeaturesSoA>;
- 
-} 
+}
 
 #endif
