@@ -42,9 +42,8 @@ phase2_hlt_vertexTrimming.toReplaceWith(
 
 from ..modules.hltPhase2PixelRecHitsExtendedSoA_cfi import hltPhase2PixelRecHitsExtendedSoA
 from ..modules.hltPhase2OtRecHitsSoA_cfi import hltPhase2OtRecHitsSoA
-from ..modules.hltPhase2PixelTracksCAExtension_cfi import hltPhase2PixelTracksCAExtension
 from ..modules.hltPhase2PixelTracksCutClassifier_cfi import hltPhase2PixelTracksCutClassifier
-from ..modules.hltPhase2PixelTrackFeatureExtractor_cfi import hltPhase2PixelTrackFeatureExtractor
+from ..modules.hltPhase2PixelTrackTorchHighPuritySelector_cfi import hltPhase2PixelTrackTorchHighPuritySelector
 from ..modules.hltPhase2PixelTrackSoATableProducer_cfi import hltPhase2PixelTrackSoATableProducer
 
 _HLTPhase2PixelTracksAndVerticesSequenceCAExtension = cms.Sequence(
@@ -55,12 +54,10 @@ _HLTPhase2PixelTracksAndVerticesSequenceCAExtension = cms.Sequence(
   +hltPhase2OtRecHitsSoA
   +hltPhase2PixelRecHitsExtendedSoA
   +hltPhase2PixelTracksSoA
-  +hltPhase2PixelTrackFeatureExtractor
+  +hltPhase2PixelTrackTorchHighPuritySelector
   +hltPhase2PixelTrackSoATableProducer
-  +hltPhase2PixelTracksCAExtension
-  +HLTPhase2PixelVertexingSequence
-  +hltPhase2PixelTracksCutClassifier
   +hltPhase2PixelTracks
+  +HLTPhase2PixelVertexingSequence
 )
 
 from Configuration.ProcessModifiers.phase2CAExtension_cff import phase2CAExtension

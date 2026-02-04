@@ -19,5 +19,5 @@ hltPhase2PixelVertices = cms.EDProducer("PixelVertexProducer",
 
 from Configuration.ProcessModifiers.phase2CAExtension_cff import phase2CAExtension
 phase2CAExtension.toModify(hltPhase2PixelVertices,
-    TrackCollection = "hltPhase2PixelTracksCAExtension"
+    TrackCollection = "hltPhase2PixelTracks"
 )

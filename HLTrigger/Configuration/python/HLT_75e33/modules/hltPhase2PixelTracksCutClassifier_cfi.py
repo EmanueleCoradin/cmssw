@@ -27,7 +27,7 @@ hltPhase2PixelTracksCutClassifier = cms.EDProducer("TrackCutClassifier",
         minNVtxTrk = cms.int32(3),
         minNdof = cms.vdouble(1e-05, 1e-05, 1e-05),
         minPixelHits = cms.vint32(0, 0, 3),
-        passThroughForAll = cms.bool(True),
+        passThroughForAll = cms.bool(False),
         passThroughForDisplaced = cms.bool(False),
         minLayersForDisplaced = cms.int32(4)
     ),

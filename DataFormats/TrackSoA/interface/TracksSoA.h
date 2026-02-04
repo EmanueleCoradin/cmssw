@@ -1,9 +1,9 @@
 #ifndef DataFormats_TrackSoA_interface_TracksSoA_h
 #define DataFormats_TrackSoA_interface_TracksSoA_h
 
-#include <Eigen/Core>
-
 #include <alpaka/alpaka.hpp>
+
+#include <Eigen/Core>
 
 #include "HeterogeneousCore/AlpakaInterface/interface/OneToManyAssoc.h"
 #include "Geometry/CommonTopologies/interface/SimplePixelTopology.h"
