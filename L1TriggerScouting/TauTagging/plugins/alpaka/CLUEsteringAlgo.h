@@ -13,8 +13,8 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include <fstream>
 
-#define __DEBUG_CLUE__
-#define __DEBUG_DUMP__
+// #define __DEBUG_CLUE__
+// #define __DEBUG_DUMP__
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
@@ -25,7 +25,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   class CLUEsteringAlgo {
   public:
     explicit CLUEsteringAlgo(float dc, float rhoc, float dm, bool wrap_coords);
-    typedef std::tuple<BxLookupDeviceCollection, AssociationMapDevice> return_type;
+    typedef std::tuple<AssociationMapDevice, AssociationMapDevice> return_type;
 
     return_type run(Queue& queue,
                     const PFCandidateDeviceCollection& pf,

@@ -62,11 +62,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
   private:
     // get device pf data
     const device::EDGetToken<PFCandidateDeviceCollection> pf_candidates_token_;
-    // get association map if runScouting=True
     const device::EDGetToken<BxLookupDeviceCollection> bx_sizes_token_;
     // put device clustering data
     const device::EDPutToken<ClustersDeviceCollection> cluestering_token_;
-    const device::EDPutToken<BxLookupDeviceCollection> bx_clusters_map_token_;
+    const device::EDPutToken<AssociationMapDevice> bx_clusters_map_token_;
     const device::EDPutToken<AssociationMapDevice> cluster_cands_map_token_;
     // algorithm
     const kernels::CLUEsteringAlgo clustering_;

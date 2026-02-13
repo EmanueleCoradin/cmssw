@@ -76,8 +76,6 @@ void PFSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm::Even
 
   auto bxOffsets = bxOffsetsFiller.done();
 
-  std::cout << "bxOFfsetFiller DONE!" << std::endl;
-
   // fill Candidates
   const auto *pt = srcPF->const_view().pt().data();
   const auto *eta = srcPF->const_view().eta().data();

@@ -7,7 +7,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   CLUEsteringAlgo::CLUEsteringAlgo(float dc, float rhoc, float dm, bool wrap_coords)
       : dc_(dc), rhoc_(rhoc), dm_(dm), wrap_coords_(wrap_coords) {}
 
-  std::tuple<BxLookupDeviceCollection, AssociationMapDevice>
+  std::tuple<AssociationMapDevice, AssociationMapDevice>
   CLUEsteringAlgo::run(Queue& queue,
                       const PFCandidateDeviceCollection& pf,
                       const BxLookupDeviceCollection& bx_sizes,
@@ -28,7 +28,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     // create points
     const auto n_points = pf.const_view().metadata().size();
     auto points_device =
-        clue::PointsDevice<kDims, Device>(queue, n_points, eta_coord_ptr, phi_coord_ptr, weights_ptr, clusters_ptr);
+        clue::PointsDevice<kDims, float, Device>(queue, n_points, eta_coord_ptr, phi_coord_ptr, weights_ptr, clusters_ptr);
     auto clue_algo = clue::Clusterer<kDims>(queue, dc_, rhoc_, dm_);
     
     // call the clustering function
@@ -42,11 +42,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       auto h_points = clue::PointsHost<kDims>(queue, n_points);
       clue::copyToHost(queue, h_points, points_device);
       alpaka::wait(queue);
-
+      
+      // get host Clusters -> Candidates association map
       auto clusters_ = clue::get_clusters(h_points);
       
       // dump the content to csv
-      std::ofstream cc_map_host("cc_map_host.csv", std::ios::out);
+      std::ofstream cc_map_host("cc_map_host_cuda.csv", std::ios::out);
       cc_map_host << "key,value\n";
       for (std::size_t clu_idx = 0; clu_idx < clusters_.size(); ++clu_idx) {
         for (auto it = clusters_.lower_bound(clu_idx); it != clusters_.upper_bound(clu_idx); ++it) {
@@ -76,11 +77,41 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       cc_offsets_host.resize(max_size, std::numeric_limits<uint32_t>::max());
 
       // dump the content to csv
-      std::ofstream cc_buffers_host("cc_buffers_host.csv", std::ios::out);
+      std::ofstream cc_buffers_host("cc_buffers_host_cuda.csv", std::ios::out);
       cc_buffers_host << "ClusterCandIdx,ClusterCandOff\n";
       for (int i = 0; i < max_size; ++i) 
         cc_buffers_host << fmt::format("{},{}\n", cc_indexes_host[i], cc_offsets_host[i]);
       cc_buffers_host.close();
+
+      // get host Bx -> Clusters association map
+      auto samplassoc_ = clue_algo.getSampleAssociations(queue, h_points);
+
+      // create view of the internal buffers
+      auto srcIndexesSamplassoc_ = alpaka::createView(cms::alpakatools::host(),
+                                      reinterpret_cast<const uint32_t *>(samplassoc_.extract().values.data()), 
+                                      Vec1D{samplassoc_.extents().values});
+      auto srcOffsetsSamplassoc_ = alpaka::createView(cms::alpakatools::host(),
+                                      reinterpret_cast<const uint32_t *>(samplassoc_.extract().keys.data()), 
+                                      Vec1D{samplassoc_.extents().keys + 1});
+
+      // create vectors to copy the content of the host buffers
+      std::vector<uint32_t> bxc_indexes_host(static_cast<size_t>(samplassoc_.extents().values));
+      std::vector<uint32_t> bxc_offsets_host(static_cast<size_t>(samplassoc_.extents().keys + 1));
+      alpaka::memcpy(queue, bxc_indexes_host, srcIndexesSamplassoc_);
+      alpaka::memcpy(queue, bxc_offsets_host, srcOffsetsSamplassoc_);
+      alpaka::wait(queue);
+
+      // resize vectors to the same length
+      max_size = std::max({bxc_indexes_host.size(), bxc_offsets_host.size()});
+      bxc_indexes_host.resize(max_size, std::numeric_limits<uint32_t>::max());
+      bxc_offsets_host.resize(max_size, std::numeric_limits<uint32_t>::max());
+
+      // dump the content to csv
+      std::ofstream bxc_buffers_host("bxc_buffers_host_cuda.csv", std::ios::out);
+      bxc_buffers_host << "BxClusterIdx,BxClusterOff\n";
+      for (int i = 0; i < max_size; ++i) 
+        bxc_buffers_host << fmt::format("{},{}\n", bxc_indexes_host[i], bxc_offsets_host[i]);
+      bxc_buffers_host.close();
     #endif
 
     AssociationMapDevice clusters_cands_map({{static_cast<int>(clusters_cands_map_clue.extents().values), 
@@ -104,11 +135,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     // get bx -> clusters association map and copy the buffer to 
     // a portable collection
     auto bx_clusters_map_clue = clue_algo.getSampleAssociations(queue, points_device);
-    BxLookupDeviceCollection bx_clusters_map({{static_cast<int>(bx_clusters_map_clue.extents().values), 
+    AssociationMapDevice bx_clusters_map({{static_cast<int>(bx_clusters_map_clue.extents().values), 
                                               static_cast<int>(bx_clusters_map_clue.extents().keys + 1)}}, queue);
     auto dstIndexesBxClusters = alpaka::createView(alpaka::getDev(queue), 
-                                        bx_clusters_map.view<BxIndexSoA>().bx().data(),
-                                        Vec1D{bx_clusters_map.view<BxIndexSoA>().bx().size()});
+                                        bx_clusters_map.view<IndexSoA>().indexes().data(),
+                                        Vec1D{bx_clusters_map.view<IndexSoA>().indexes().size()});
     auto dstOffsetsBxClusters = alpaka::createView(alpaka::getDev(queue), 
                                         bx_clusters_map.view<OffsetsSoA>().offsets().data(),
                                         Vec1D{bx_clusters_map.view<OffsetsSoA>().metadata().size()});
@@ -123,30 +154,37 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     alpaka::memcpy(queue, dstOffsetsBxClusters, srcOffsetsBxClusters); // here the actual dimension of the buffer is extents + 1
 
     #if defined(__DEBUG_DUMP__)
-      std::vector<uint32_t> cc_indexes(static_cast<size_t>(clusters_cands_map_clue.extents().values));
-      std::vector<uint32_t> cc_offsets(static_cast<size_t>(clusters_cands_map_clue.extents().keys + 1));
-      alpaka::memcpy(queue, cc_indexes, srcIndexesClustersCands);
-      alpaka::memcpy(queue, cc_offsets, srcOffsetsClustersCands);
-      alpaka::wait(queue);
-
       std::vector<uint32_t> bxc_indexes(static_cast<size_t>(bx_clusters_map_clue.extents().values));
       std::vector<uint32_t> bxc_offsets(static_cast<size_t>(bx_clusters_map_clue.extents().keys + 1));
       alpaka::memcpy(queue, bxc_indexes, srcIndexesBxClusters);
       alpaka::memcpy(queue, bxc_offsets, srcOffsetsBxClusters);
       alpaka::wait(queue);
 
-      // resize vectors to same shape
-      max_size = std::max({cc_indexes.size(), cc_offsets.size(), bxc_indexes.size(), bxc_offsets.size()});
-      cc_indexes.resize(max_size, std::numeric_limits<uint32_t>::max());
-      cc_offsets.resize(max_size, std::numeric_limits<uint32_t>::max());
+      auto max_size = std::max({bxc_indexes.size(), bxc_offsets.size()});
       bxc_indexes.resize(max_size, std::numeric_limits<uint32_t>::max());
       bxc_offsets.resize(max_size, std::numeric_limits<uint32_t>::max());
-
-      std::ofstream bxc_cc_buffers_device("bxc_cc_buffers_device.csv", std::ios::out);
-      bxc_cc_buffers_device << "BxClusterIdx,BxClusterOff,ClusterCandIdx,ClusterCandOff\n";
+      
+      std::ofstream bxc_buffers_device("bxc_buffers_device_cuda.csv", std::ios::out);
+      bxc_buffers_device << "BxClusterIdx,BxClusterOff\n";
       for (int i = 0; i < max_size; ++i) 
-        bxc_cc_buffers_device << fmt::format("{},{},{},{}\n", bxc_indexes[i], bxc_offsets[i], cc_indexes[i], cc_offsets[i]);
-      bxc_cc_buffers_device.close();
+        bxc_buffers_device << fmt::format("{},{}\n", bxc_indexes[i], bxc_offsets[i]);
+      bxc_buffers_device.close();
+
+      std::vector<uint32_t> cc_indexes(static_cast<size_t>(clusters_cands_map_clue.extents().values));
+      std::vector<uint32_t> cc_offsets(static_cast<size_t>(clusters_cands_map_clue.extents().keys + 1));
+      alpaka::memcpy(queue, cc_indexes, srcIndexesClustersCands);
+      alpaka::memcpy(queue, cc_offsets, srcOffsetsClustersCands);
+      alpaka::wait(queue);
+
+      max_size = std::max({cc_indexes.size(), cc_offsets.size()});
+      cc_indexes.resize(max_size, std::numeric_limits<uint32_t>::max());
+      cc_offsets.resize(max_size, std::numeric_limits<uint32_t>::max());
+
+      std::ofstream cc_buffers_device("cc_buffers_device_cuda.csv", std::ios::out);
+      cc_buffers_device << "ClusterCandIdx,ClusterCandOff\n";
+      for (int i = 0; i < max_size; ++i) 
+        cc_buffers_device << fmt::format("{},{}\n", cc_indexes[i], cc_offsets[i]);
+      cc_buffers_device.close();
     #endif
 
     return std::make_tuple(std::move(bx_clusters_map), std::move(clusters_cands_map));

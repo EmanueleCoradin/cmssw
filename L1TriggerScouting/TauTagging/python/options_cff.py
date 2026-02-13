@@ -37,7 +37,7 @@ def parse_args():
         "-d", "--dump",
         nargs="+",
         default=["none"],
-        choices=["none", "candidates", "clusters", "inference", "all_no_cands", "all"],
+        choices=["none", "candidates", "clusters", "inference", "all"],
         help="Select which artifacts to dump on NanoAOD file"
     )
 
