@@ -56,7 +56,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     using TmpTuple = cms::alpakatools::VecArray<uint32_t, TrackerTraits::maxDepth>;
     using HitContainer = caStructures::SequentialContainer;
-    using CellToCell = caStructures::GenericContainer;
+    using CellToCell = caStructures::NeighborCellContainer;
     using CellToTracks = caStructures::GenericContainer;
     using CAPairSoAView = caStructures::CAPairSoAView;
 
@@ -137,7 +137,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       return tan_12_13_half_mul_distance_13_squared * pMin <= thetaCut * distance_13_squared * radius_diff;
     }
 
-    ALPAKA_FN_ACC ALPAKA_FN_INLINE bool dcaCut(const HitsConstView& hh,
+    ALPAKA_FN_ACC ALPAKA_FN_INLINE auto dcaCut(const HitsConstView& hh,
                                                CACell const& otherCell,
                                                const float region_origin_radius_plus_tolerance,
                                                const float maxCurv) const {
@@ -152,10 +152,39 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       CircleEq<float> eq(x1, y1, x2, y2, x3, y3);
 
-      if (std::abs(eq.curvature()) > maxCurv)
-        return false;
+      auto curvature = eq.curvature();
 
-      return std::abs(eq.dca0()) < region_origin_radius_plus_tolerance * std::abs(eq.curvature());
+      struct result {
+        bool passes;
+        float curvature;
+      };
+
+      if (std::abs(curvature) > maxCurv)
+        return result{false, curvature};
+
+      return result{std::abs(eq.dca0()) < region_origin_radius_plus_tolerance * std::abs(curvature), curvature};
+    }
+
+    ALPAKA_FN_ACC ALPAKA_FN_INLINE auto quadrupletCut(const float innerCurvature,
+                                                      const float outerCurvature,
+                                                      const ::reco::CALayersSoAConstView& ll) const {
+      auto maxDCurv = ll[theOuterLayer_].caDCurvCut();
+      auto dCurv0 = ll[theOuterLayer_].caDCurv0();
+
+#ifdef CA_DEBUG
+      printf("quadCut: layer=%d, dCurv=%f, curv0=%f, Co=%f, Ci=%f",
+             theOuterLayer_,
+             maxDCurv,
+             dCurv0,
+             outerCurvature,
+             innerCurvature);
+#endif
+      // linear cut
+      return std::abs(outerCurvature - innerCurvature) >
+             maxDCurv * (std::abs(innerCurvature + outerCurvature)) + dCurv0;
+      // sqrt cut
+      // return (outerCurvature - innerCurvature) * (outerCurvature - innerCurvature) >
+      //        maxDCurv * (std::abs(innerCurvature + outerCurvature)) + dCurv0;
     }
 
     // trying to free the track building process from hardcoded layers, leaving
@@ -163,7 +192,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     template <int DEPTH>
     ALPAKA_FN_ACC ALPAKA_FN_INLINE void find_ntuplets(Acc1D const& acc,
-                                                      const ::reco::CAGraphSoAConstView& cc,
+                                                      const ::reco::CALayersSoAConstView& ll,
                                                       CACell* __restrict__ cells,
                                                       HitContainer& foundNtuplets,
                                                       CellToCell const* __restrict__ cellNeighborsHisto,
@@ -173,7 +202,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                       cms::alpakatools::AtomicPairCounter& apc,
                                                       Quality* __restrict__ quality,
                                                       TmpTuple& tmpNtuplet,
-                                                      const unsigned int minHitsPerNtuplet) const {
+                                                      const unsigned int minHitsPerNtuplet,
+                                                      const float preCurvature = 0.) const {
       // the building process for a track ends if:
       // it has no right neighbor
       // it has no compatible neighbor
@@ -193,8 +223,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         for (auto idx = 0u; idx < nInBin; idx++) {
           // FIXME implement alpaka::ldg and use it here? or is it const* __restrict__ enough?
-          unsigned int otherCell = bin[idx];
+          auto [otherCell, thisCurvature] = bin[idx];
           if (cells[otherCell].isKilled())
+            continue;
+
+          // check compatiblity of triplets
+          if (((unsigned int)(tmpNtuplet.size()) > 1) &&
+              cells[otherCell].quadrupletCut(preCurvature, thisCurvature, ll))
             continue;
 #ifdef CA_DEBUG
           printf("Doublet no. %d %d doubletId: %ld -> %d (isKilled %d) (%d,%d) -> (%d,%d) %d %d\n",
@@ -213,7 +248,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
           last = false;
           cells[otherCell].template find_ntuplets<DEPTH - 1>(acc,
-                                                             cc,
+                                                             ll,
                                                              cells,
                                                              foundNtuplets,
                                                              cellNeighborsHisto,
@@ -223,7 +258,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                              apc,
                                                              quality,
                                                              tmpNtuplet,
-                                                             minHitsPerNtuplet);
+                                                             minHitsPerNtuplet,
+                                                             thisCurvature);
         }
         if (last) {  // if long enough save...
           if ((unsigned int)(tmpNtuplet.size()) >= minHitsPerNtuplet - 1) {
