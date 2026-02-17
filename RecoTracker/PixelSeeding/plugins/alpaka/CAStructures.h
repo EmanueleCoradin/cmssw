@@ -4,6 +4,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/SimpleVector.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/VecArray.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/HistoContainer.h"
+#include "RecoTracker/PixelSeeding/interface/NeighborCell.h"
 
 namespace caStructures {
 
@@ -37,10 +38,14 @@ namespace caStructures {
     bool fitNas4_;
     bool earlyFishbone_;
     bool lateFishbone_;
+    bool onlySameLayersFishbone_;
     bool doStats_;
     bool doSharedHitCut_;
     bool dupPassThrough_;
     bool useSimpleTripletCleaner_;
+    bool disableTripletCleaner_;
+    bool disableFastDuplicateRemover_;
+    bool disableEarlyDuplicateRemover_;
   };
 
   // Hits data formats
@@ -48,15 +53,21 @@ namespace caStructures {
   using HitModulesConstView = ::reco::HitModuleSoAConstView;
   using HitsConstView = ::reco::TrackingRecHitConstView;
 
-  //Tracks data formats
+  // Tracks data formats
   using TkSoAView = ::reco::TrackSoAView;
   using TkHitsSoAView = ::reco::TrackHitSoAView;
   using TkSoABlocksView = ::reco::TrackBlocksView;
 
-  //Indices for hits, tracks and cells
+  // Indices for hits, tracks and cells
   using hindex_type = uint32_t;
   using tindex_type = uint32_t;
   using cindex_type = uint32_t;
+
+  using NeighborCellContainer = cms::alpakatools::
+      OneToManyAssocRandomAccess<NeighborCell, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
+  using NeighborCellContainerStorage = typename NeighborCellContainer::value_type;
+  using NeighborCellContainerOffsets = typename NeighborCellContainer::Counter;
+  using NeighborCellContainerView = typename NeighborCellContainer::View;
 
   using GenericContainer = cms::alpakatools::
       OneToManyAssocRandomAccess<hindex_type, cms::alpakatools::kDynamicSize, cms::alpakatools::kDynamicSize>;
