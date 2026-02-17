@@ -118,8 +118,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     using HitContainer = caStructures::SequentialContainer;
     using TupleMultiplicity = caStructures::GenericContainer;
     using HitToCell = caStructures::GenericContainer;
-    using CellToCell = caStructures::GenericContainer;
+    using CellToCell = caStructures::NeighborCellContainer;
     using CellToTrack = caStructures::GenericContainer;
+
+    using NeighborCellContainer = caStructures::NeighborCellContainer;
+    using NeighborCellContainerStorage = typename NeighborCellContainer::value_type;
+    using NeighborCellContainerView = typename NeighborCellContainer::View;
+    using DeviceNeighborCellContainerBuffer =
+        std::optional<cms::alpakatools::device_buffer<Device, NeighborCellContainer>>;
+    using DeviceNeighborCellStorageBuffer =
+        std::optional<cms::alpakatools::device_buffer<Device, NeighborCellContainerStorage[]>>;
+    using DeviceNeighborCellOffsetsBuffer =
+        std::optional<cms::alpakatools::device_buffer<Device, NeighborCellContainerOffsets[]>>;
 
     using GenericContainer = caStructures::GenericContainer;
     using GenericContainerStorage = typename GenericContainer::value_type;
@@ -202,10 +212,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     std::optional<cms::alpakatools::device_buffer<Device, hindex_type[]>> device_layerStarts_;
 
     // Cells-> Neighbor Cells
-    DeviceGenericContainerBuffer device_cellToNeighbors_;
-    DeviceGenericStorageBuffer device_cellToNeighborsStorage_;
-    DeviceGenericOffsetsBuffer device_cellToNeighborsOffsets_;
-    GenericContainerView device_cellToNeighborsView_;
+    DeviceNeighborCellContainerBuffer device_cellToNeighbors_;
+    DeviceNeighborCellStorageBuffer device_cellToNeighborsStorage_;
+    DeviceNeighborCellOffsetsBuffer device_cellToNeighborsOffsets_;
+    NeighborCellContainerView device_cellToNeighborsView_;
 
     // Cells-> Tracks
     DeviceGenericContainerBuffer device_cellToTracks_;
@@ -234,7 +244,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     std::optional<cms::alpakatools::device_view<Device, uint32_t>> device_nTriplets_;
     std::optional<cms::alpakatools::device_view<Device, uint32_t>> device_nCellTracks_;
 
-    std::optional<CAPairSoACollection> deviceTriplets_;
+    std::optional<CACellPairSoACollection> deviceTriplets_;
     std::optional<CAPairSoACollection> deviceTracksCells_;
 
     // this could be inferred from the above buffers
