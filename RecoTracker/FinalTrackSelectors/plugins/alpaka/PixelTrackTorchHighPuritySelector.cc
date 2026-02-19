@@ -59,6 +59,7 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/EDProducer.h"
 
 #include <memory>
+#include <nvtx3/nvtx3.hpp>
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -154,27 +155,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       4. Score-based filtering
       5. Track compaction and output production
 */
+  nvtx3::scoped_range range{"PixelTrackTorchHP"};
 
     // Retrieve tokens
     auto&       queue  = iEvent.queue();
     const auto& hits   = iEvent.get(recHitToken_);
     const auto& tracks = iEvent.get(pixelTrackToken_);
-
-    // Instantiate the necessary objects in memory
-    //  - Temporary storage for filtering
     auto d_nPreselectedTracks      = cms::alpakatools::make_device_buffer<int>(queue);
     auto d_nSelectedTracks         = cms::alpakatools::make_device_buffer<int>(queue);
     auto d_preselectedTrackIndices = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks_);
     auto d_selectedTrackIndices    = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
     auto d_nKeptHits               = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
     auto d_preselectionOffsets     = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks_);
-    
-    alpaka::memset(queue, d_nPreselectedTracks, 0);
-    alpaka::memset(queue, d_nSelectedTracks, 0);
-    alpaka::memset(queue, d_nKeptHits, 0);
-    alpaka::memset(queue, d_preselectedTrackIndices, 0xFF);
-    alpaka::memset(queue, d_selectedTrackIndices, 0xFF);
-    alpaka::memset(queue, d_preselectionOffsets, 0);
 
     //  - Features and scores containers
     PixelTrackFeaturesOnDevice  trackFeatures(maxPreselectedTracks_, queue);
@@ -184,6 +176,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // - Tensor collections for DNN inference
     cms::torch::alpakatools::TensorCollection<Queue> inputs(maxPreselectedTracks_);
     cms::torch::alpakatools::TensorCollection<Queue> outputs(maxPreselectedTracks_);
+{
+    nvtx3::scoped_range range0{"Allocating buffers"};
+    // Instantiate the necessary objects in memory
+    //  - Temporary storage for filtering    
+    alpaka::memset(queue, d_nPreselectedTracks, 0);
+    alpaka::memset(queue, d_nSelectedTracks, 0);
+    alpaka::memset(queue, d_nKeptHits, 0);
+    alpaka::memset(queue, d_preselectedTrackIndices, 0xFF);
+    alpaka::memset(queue, d_selectedTrackIndices, 0xFF);
+    alpaka::memset(queue, d_preselectionOffsets, 0);
 
     // Optional debug definitions
 #ifdef PIXEL_TRACK_HP_DEBUG
@@ -203,10 +205,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       return *h_nSelectedTracks;
     };
 #endif
-
+}
     // 1. CA-based preselection of tracks
     //  Launch first kernel to look which tracks need to be filtered out
     //  based on quality criteria from the CA
+{
+    nvtx3::scoped_range range1{"Track Preselection"};
     launchCAPreselection(
       queue,
       maxNumberOfTracks_,
@@ -217,12 +221,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       alpaka::getPtrNative(d_preselectionOffsets),
       alpaka::getPtrNative(d_nPreselectedTracks)
     );
-
+}
 #ifdef PIXEL_TRACK_HP_DEBUG
     nPreselectedTracks = fetchnPreselectedTracks();
     std::cout << "PixelTrackTorchHighPuritySelector::Prefiltered tracks=" << nPreselectedTracks << "\n";
 #endif
 
+{
+    nvtx3::scoped_range range2{"Features extraction"};
     // 2. Feature extraction (track + hit SoA)
     launchFeaturesExtractor(
       queue, 
@@ -236,7 +242,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       hitFeatures.view(),
       alpaka::getPtrNative(d_nKeptHits)
     );
+}
 
+{
+    nvtx3::scoped_range range3{"Preparing tensor collections"};
     // 3. DNN inference
     //  Prepare TensorCollection inputs and outputs for the model
     auto track_record = trackFeatures.view().records();
@@ -266,11 +275,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     outputs.add<PixelTrackScoresSoA>("track_scores",
       score_record.score()
     );
-
+}
+{
+    nvtx3::scoped_range range4{"DNN Inference"};
     //  Launch inference
     model_.forward(queue, inputs, outputs);
-
+}
     // 4. Score-based filtering
+{
+    nvtx3::scoped_range range5{"Score-based filtering"};    
+
     launchScoreFilter(
       queue,
       maxPreselectedTracks_,
@@ -282,12 +296,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       alpaka::getPtrNative(d_nSelectedTracks),
       alpaka::getPtrNative(d_nKeptHits)
     );
-
+}
 
 #ifdef PIXEL_TRACK_HP_DEBUG    
     nSelectedTracks = fetchnSelectedTracks();
     std::cout << "PixelTrackTorchHighPuritySelector::Filtered tracks=" << nSelectedTracks << "\n";
 #endif
+{
+    nvtx3::scoped_range range5{"Output compactation"};    
 
     auto tracks_out = launchProduceOutputTracks (
         queue,
@@ -301,6 +317,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       );
 
     iEvent.emplace(tokenTrackOut_, std::move(tracks_out));
+}
+
   }
 
   void PixelTrackTorchHighPuritySelector::fillDescriptions(
