@@ -24,7 +24,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     PFCandidateAoSToSoA(const edm::ParameterSet &params)
         : EDProducer<>(params),
           pf_candidates_aos_token_{consumes(params.getParameter<edm::InputTag>("src"))},
-          pf_candidates_soa_token_{produces()},
+          pf_candidates_soa_token_{produces("candidates")},
           environment_{static_cast<Environment>(params.getUntrackedParameter<int>("environment"))} {}
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
