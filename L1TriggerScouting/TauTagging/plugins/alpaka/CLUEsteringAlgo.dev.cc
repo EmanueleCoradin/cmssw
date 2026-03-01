@@ -33,7 +33,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     
     // call the clustering function
     clue_algo.make_clusters(queue, points_device, bx_sizes_host.const_view<OffsetsSoA>().offsets()); // here give bx_sizes as inputs
-    
+    alpaka::wait(queue); // this is very important
     // get clusters -> candidates (clue) association map and copy the buffer to 
     // a portable collection
     auto clusters_cands_map_clue = clue_algo.getClusters(queue, points_device);
@@ -131,7 +131,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                       Vec1D{clusters_cands_map_clue.extents().keys + 1});
     alpaka::memcpy(queue, dstIndexesClustersCands, srcIndexesClustersCands);
     alpaka::memcpy(queue, dstOffsetsClustersCands, srcOffsetsClustersCands); // here the actual dimension of the buffer is extents + 1
-    
+    alpaka::wait(queue);
+
     // get bx -> clusters association map and copy the buffer to 
     // a portable collection
     auto bx_clusters_map_clue = clue_algo.getSampleAssociations(queue, points_device);
@@ -152,6 +153,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
     alpaka::memcpy(queue, dstIndexesBxClusters, srcIndexesBxClusters);
     alpaka::memcpy(queue, dstOffsetsBxClusters, srcOffsetsBxClusters); // here the actual dimension of the buffer is extents + 1
+    alpaka::wait(queue);
 
     #if defined(__DEBUG_DUMP__)
       std::vector<uint32_t> bxc_indexes(static_cast<size_t>(bx_clusters_map_clue.extents().values));
