@@ -205,6 +205,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                       cms::alpakatools::AtomicPairCounter& apc,
                                                       Quality* __restrict__ quality,
                                                       int8_t* __restrict__ nLayers,
+                                                      float* __restrict__ pt,
                                                       TmpTuple& tmpNtuplet,
                                                       const unsigned int minHitsPerNtuplet,
                                                       const float preCurvature = 0.) const {
@@ -268,6 +269,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                              apc,
                                                              quality,
                                                              nLayers,
+                                                             pt,
                                                              tmpNtuplet,
                                                              minHitsPerNtuplet,
                                                              thisCurvature);
@@ -319,7 +321,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 #endif
                 // set number of layers in the TrackSoA (if not done here, one would need to recalculate it from the hits later)
                 nLayers[it] = int8_t(nl);
-                quality[it] = bad;  // initialize to bad
+                quality[it] = bad;      // initialize to bad
+                pt[it] = preCurvature;  // fill the curvature as an early (pre-fit) reference for pt comparisons in duplicate removers
               }
             }
           }
