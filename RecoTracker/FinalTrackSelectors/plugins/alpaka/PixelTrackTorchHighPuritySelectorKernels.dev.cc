@@ -133,27 +133,30 @@ struct FeaturesExtractorKernel{
 #ifdef KERNELS_DEBUG
                     if (inputTrackIdx<0) printf("PixelTrackTorchHighPuritySelectorKernels: Invalid preselectedTrackIndices for preselected inputTrackIdx %d\n", i);
 #endif
-                    // Idices to the 5-dimensional track state vector (CMS convention)
-                    constexpr int sPhi   = 0;
-                    constexpr int sTip   = 1;
-                    constexpr int sInvPt = 2;
-                    constexpr int sZip   = 4;
+
+                    // Indices to the 5-dimensional track state vector (CMS convention)
+                    static constexpr int kStatePhi        = 0;
+                    static constexpr int kStateDxy        = 1;
+                    static constexpr int kStateQOverPt    = 2;// Packed covariance indices
+                    static constexpr int kStateCotTheta   = 3;
+                    static constexpr int kStateDz         = 4;
 
                     // Indices into the 5x5 track covariance matrix (CMS convention)
-                    constexpr int cPhi   = 0;
-                    constexpr int cTip   = 5;
-                    constexpr int cInvPt = 9;
-                    constexpr int cZip   = 14;
+                    static constexpr int kCovPhiPhi           = 0;   // (0,0)
+                    static constexpr int kCovPhiDxy           = 1;   // (0,1)
+                    static constexpr int kCovPhiQOverPt	      = 2;   // (0,2)
+                    static constexpr int kCovDxyDxy           = 5;   // (1,1)
+                    static constexpr int kCovDxyQOverPt	      = 6;   // (1,2)
+                    static constexpr int kCovQOverPtQOverPt   = 9;   // (2,2)
+                    static constexpr int kCovCotThetaCotTheta = 12;  // (3,3)
+                    static constexpr int kCovCotThetaDz	      = 13;  // (3,4)
+                    static constexpr int kCovDzDz             = 14;  // (4,4)
 
                     // Access the track
-                    // TODO: try to use the reference, currently I am copying!
                     const auto& track   = tracks[inputTrackIdx];
                     const auto& cov     = track.covariance();
                     const auto& state   = track.state();
-                    const float pt      = track.pt();
                     const int numHits   = nHits(tracks, inputTrackIdx);
-                    const int ndof      = numHits * 2 - 5;
-                    const float ptError = xtd::sqrt(cov(cInvPt)) * pt * pt;
 
                     nKeptHits[i] = numHits;
 
@@ -161,18 +164,23 @@ struct FeaturesExtractorKernel{
                     if(numHits>RecHitFeatures::MaxHitsPerTrack) printf("PixelTrackTorchHighPuritySelectorKernels: Number of hits (%d) exceeds MaxHitsPerTrack (%d)\n", numHits, RecHitFeatures::MaxHitsPerTrack);
 #endif
                     // Fill per-track features
-                    trackFeatures.chi2(i)     = track.chi2() * ndof; // in the SoA chi2 is stored as chi2/ndof
-                    trackFeatures.dzError(i)  = xtd::sqrt(cov(cZip));
-                    trackFeatures.dxyError(i) = xtd::sqrt(cov(cTip));
-                    trackFeatures.eta(i)      = track.eta();
-                    trackFeatures.ndof(i)     = ndof;
-                    trackFeatures.phi(i)      = state(sPhi);
-                    trackFeatures.phiError(i) = xtd::sqrt(cov(cPhi));
-                    trackFeatures.pt(i)       = pt;
-                    trackFeatures.ptError(i)  = ptError;
-                    trackFeatures.qoverp(i)   = state(sInvPt);
-                    trackFeatures.dzBS(i)     = state(sZip);
-                    trackFeatures.dxyBS(i)    = state(sTip);
+                    trackFeatures.chi2(i)           = track.chi2(); // in the SoA chi2 is stored as chi2/ndof
+                    trackFeatures.dzError(i)        = xtd::sqrt(cov(kCovDzDz));
+                    trackFeatures.dxyError(i)       = xtd::sqrt(cov(kCovDxyDxy));
+                    trackFeatures.eta(i)            = track.eta();
+                    trackFeatures.nHits(i)          = numHits;
+                    trackFeatures.phi(i)            = state(kStatePhi);
+                    trackFeatures.phiError(i)       = xtd::sqrt(cov(kCovPhiPhi));
+                    trackFeatures.pt(i)             = track.pt();
+                    trackFeatures.qOverPtError(i)   = xtd::sqrt(cov(kCovQOverPtQOverPt));
+                    trackFeatures.dzBS(i)           = state(kStateDz);
+                    trackFeatures.dxyBS(i)          = state(kStateDxy);
+                    trackFeatures.nLayers(i)        = track.nLayers();
+                    trackFeatures.cotThetaError(i)  = xtd::sqrt(cov(kCovCotThetaCotTheta));
+                    trackFeatures.covCotThetaDz(i)  = cov(kCovCotThetaDz);   
+                    trackFeatures.covDxyQOverPt(i)  = cov(kCovDxyQOverPt);
+                    trackFeatures.covPhiDxy(i)      = cov(kCovPhiDxy);
+                    trackFeatures.covPhiQOverPt(i)  = cov(kCovPhiQOverPt);
 
                     //Prefill hit features:
                     auto hitMatrix = hitFeatures.hits(i);
@@ -206,25 +214,28 @@ struct FeaturesExtractorKernel{
                             (r > 0.f) ? xtd::asinh(z / r) : 0.f;
                         
                         hitMatrix(h, HitFeaturesIDX::phi)  = xtd::atan2(y, x);
-                        hitMatrix(h, HitFeaturesIDX::xErr) = hit.xerrLocal();
-                        hitMatrix(h, HitFeaturesIDX::yErr) = hit.yerrLocal();
                     }
                 }
                 // Case 2: padding entries --> fill with NaNs for inference
                 else if (i < (uint32_t) maxPreselectedTracks)
                 {
-                    trackFeatures.chi2(i)     = NaN;
-                    trackFeatures.dzError(i)  = NaN;
-                    trackFeatures.dxyError(i) = NaN;
-                    trackFeatures.eta(i)      = NaN;
-                    trackFeatures.ndof(i)     = -1;
-                    trackFeatures.phi(i)      = NaN;
-                    trackFeatures.phiError(i) = NaN;
-                    trackFeatures.pt(i)       = NaN;
-                    trackFeatures.ptError(i)  = NaN;
-                    trackFeatures.qoverp(i)   = NaN;
-                    trackFeatures.dzBS(i)     = NaN;
-                    trackFeatures.dxyBS(i)    = NaN;
+                    trackFeatures.chi2(i)           = NaN;
+                    trackFeatures.dzError(i)        = NaN;
+                    trackFeatures.dxyError(i)       = NaN;
+                    trackFeatures.eta(i)            = NaN;
+                    trackFeatures.nHits(i)          = NaN; 
+                    trackFeatures.phi(i)            = NaN;
+                    trackFeatures.phiError(i)       = NaN;
+                    trackFeatures.pt(i)             = NaN;
+                    trackFeatures.qOverPtError(i)   = NaN;
+                    trackFeatures.dzBS(i)           = NaN;
+                    trackFeatures.dxyBS(i)          = NaN;
+                    trackFeatures.nLayers(i)        = NaN;
+                    trackFeatures.cotThetaError(i)  = NaN;
+                    trackFeatures.covCotThetaDz(i)  = NaN;   
+                    trackFeatures.covDxyQOverPt(i)  = NaN;
+                    trackFeatures.covPhiDxy(i)      = NaN;
+                    trackFeatures.covPhiQOverPt(i)  = NaN;
 
                     auto hitMatrix = hitFeatures.hits(i);
                     for (int h = 0; h < RecHitFeatures::MaxHitsPerTrack; ++h) {
