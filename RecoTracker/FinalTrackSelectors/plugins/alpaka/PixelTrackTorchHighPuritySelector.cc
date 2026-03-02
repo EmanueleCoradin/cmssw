@@ -58,7 +58,14 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/EDProducer.h"
 
+#include <deque>
 #include <memory>
+#include <mutex>
+#include <optional>
+
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+#include <c10/cuda/CUDAStream.h>
+#endif
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -80,12 +87,9 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
-
-//#define PIXEL_TRACK_HP_DEBUG
-
-// ------------------------------------------------------------------------------
-
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
+
+
   class PixelTrackTorchHighPuritySelector : public stream::EDProducer<> {
     using TkSoADevice  = reco::TracksSoACollection;
     using HitsOnDevice = reco::TrackingRecHitsSoACollection;
@@ -106,12 +110,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const int32_t minNumberOfHits_;
     const int32_t avgHitsPerTrack_;
     const pixelTrack::Quality minimumTrackQuality_;
-
-    torch::AlpakaModel model_;
     const double scoreThreshold_;
-
+    torch::AlpakaModel model_;
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
+
+    #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+      std::optional<Queue> torchQueue_;
+      std::optional<Event> featuresReadyEvent_;
+      std::optional<Event> inferenceDoneEvent_;
+    #endif  
   };
+
 
   PixelTrackTorchHighPuritySelector::PixelTrackTorchHighPuritySelector(
       const edm::ParameterSet& iConfig)
@@ -124,8 +133,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         minNumberOfHits_(iConfig.getParameter<int>("minNumberOfHits")),
         avgHitsPerTrack_(iConfig.getParameter<int>("avgHitsPerTrack")),
         minimumTrackQuality_(pixelTrack::qualityByName(iConfig.getParameter<std::string>("minimumTrackQuality"))),
-        model_(iConfig.getParameter<edm::FileInPath>("model").fullPath()),
         scoreThreshold_(iConfig.getParameter<double>("scoreThreshold")),
+        model_(iConfig.getParameter<edm::FileInPath>("model").fullPath()),
         tokenTrackOut_(produces())
   {
     if (minimumTrackQuality_ == pixelTrack::Quality::notQuality) {
@@ -159,6 +168,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto&       queue  = iEvent.queue();
     const auto& hits   = iEvent.get(recHitToken_);
     const auto& tracks = iEvent.get(pixelTrackToken_);
+
+    // If not create yet, create an alpaka queue for Torch and associate it with the current device
+    #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+      if (!torchQueue_) {
+        torchQueue_.emplace(alpaka::getDev(queue));
+        featuresReadyEvent_.emplace(alpaka::getDev(queue));
+        inferenceDoneEvent_.emplace(alpaka::getDev(queue));
+      }
+    #endif  
 
     // Instantiate the necessary objects in memory
     //  - Temporary storage for filtering
@@ -253,22 +271,45 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       track_record.dzError(),
       track_record.dxyError(),
       track_record.eta(),
-      track_record.ndof(),
+      track_record.nHits(),
       track_record.phi(),
       track_record.phiError(),
       track_record.pt(),
-      track_record.ptError(),
-      track_record.qoverp(),
+      track_record.qOverPtError(),
       track_record.dzBS(),
-      track_record.dxyBS()
+      track_record.dxyBS(),
+      track_record.nLayers(),
+      track_record.cotThetaError(),
+      track_record.covCotThetaDz(),   
+      track_record.covDxyQOverPt(),
+      track_record.covPhiDxy(),
+      track_record.covPhiQOverPt()
     );
 
     outputs.add<PixelTrackScoresSoA>("track_scores",
       score_record.score()
     );
-
+    //
     //  Launch inference
-    model_.forward(queue, inputs, outputs);
+    // 
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+      
+      // Record that features are ready on the Alpaka stream
+      alpaka::enqueue(queue, *featuresReadyEvent_);
+      // Make the Torch stream wait until features are ready
+      alpaka::wait(*torchQueue_, *featuresReadyEvent_);
+
+      // Run inference on the Torch stream
+      model_.forward(*torchQueue_, inputs, outputs);
+
+      // Record that inference is done on the Torch stream
+      alpaka::enqueue(*torchQueue_, *inferenceDoneEvent_);
+      // Make the Alpaka stream wait until inference is done
+      alpaka::wait(queue, *inferenceDoneEvent_);
+      
+#else      
+      model_.forward(queue, inputs, outputs);
+#endif
 
     // 4. Score-based filtering
     launchScoreFilter(
