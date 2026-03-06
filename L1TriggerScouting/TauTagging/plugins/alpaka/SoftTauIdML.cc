@@ -23,8 +23,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
   public:
     SoftTauIdML(const edm::ParameterSet &params)
         : EDProducer<>(params),
-          pf_token_(consumes(params.getParameter<edm::InputTag>("pf"))),
-          association_map_token_{consumes(params.getParameter<edm::InputTag>("clusters"))},
+          pf_candidates_token_(consumes(params.getParameter<edm::InputTag>("srcCandidates"))),
+          cluster_cands_map_token_{consumes(params.getParameter<edm::InputTag>("srcClustersCandsMap"))},
           soft_tau_token_{produces()},
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
           do_inference_{params.getParameter<bool>("do_inference")},
@@ -32,22 +32,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
+      desc.add<edm::InputTag>("srcCandidates");
+      desc.add<edm::InputTag>("srcClustersCandsMap");
       desc.add<edm::FileInPath>("model");
-      desc.add<edm::InputTag>("pf");
-      desc.add<edm::InputTag>("clusters");
       desc.add<bool>("do_inference");
       desc.add<uint32_t>("maxBatchSize", std::numeric_limits<uint32_t>::max());
       descriptions.addWithDefaultLabel(desc);
     }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
-      // in/out collections
-      const auto &pf = event.get(pf_token_);
-      const auto &association_map = event.get(association_map_token_);
-      SoftTauInputDeviceTensor input_tensor = kernels::transform(event.queue(), pf, association_map);
+      const auto &pf = event.get(pf_candidates_token_); // pf collection
+      const auto &cluster_cands_map = event.get(cluster_cands_map_token_); // clusters->candidates map
 
-      // prepare output and initialize to zero
-      const auto job_size = input_tensor.view().metadata().size();
+      // SoftTauInputDeviceTensor input_tensor = kernels::transform(event.queue(), pf, cluster_cands_map);
+      auto input_tensor = SoftTauInputDeviceTensor(10, event.queue());
+      input_tensor.zeroInitialise(event.queue());
+
+      // sort the clusters->candidates association map by pt
+      auto cluster_cands_map_sorted = kernels::sortClustersCandsMap(event.queue(), pf, cluster_cands_map);
+
+      // // prepare output and initialize to zero
+      // const auto job_size = input_tensor.view().metadata().size();
+
+      const auto job_size = 10;
       auto output_tensor = SoftTauOutputDeviceTensor(job_size, event.queue());
       output_tensor.zeroInitialise(event.queue());
 
@@ -82,9 +89,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
   private:
     // event query tokens
-    const device::EDGetToken<PFCandidateDeviceCollection> pf_token_;
-    // clustering output
-    const device::EDGetToken<AssociationMapDevice> association_map_token_;
+    const device::EDGetToken<PFCandidateDeviceCollection> pf_candidates_token_;
+    // non-const clusters -> candidates map: must be sorted by pt
+    device::EDGetToken<AssociationMapDevice> cluster_cands_map_token_;
     // put ml output into event
     const device::EDPutToken<SoftTauOutputDeviceTensor> soft_tau_token_;
     // model

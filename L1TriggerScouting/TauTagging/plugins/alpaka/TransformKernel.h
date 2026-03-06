@@ -4,6 +4,7 @@
 #include <alpaka/alpaka.hpp>
 
 #include <cstdio>
+#include <limits>
 
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
 #include "DataFormats/Portable/interface/PortableHostObject.h"
@@ -40,6 +41,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   using namespace ::l1sc;
+
+  AssociationMapDevice sortClustersCandsMap(Queue& queue,
+                            const PFCandidateDeviceCollection& pf,
+                            const AssociationMapDevice& clusterCandsMap);
 
   SoftTauInputDeviceTensor transform(Queue& queue, 
                  const PFCandidateDeviceCollection& pf, 

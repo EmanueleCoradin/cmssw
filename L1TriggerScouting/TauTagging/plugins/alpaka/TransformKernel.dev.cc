@@ -4,6 +4,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/radixSort.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
+#include "DataFormats/L1ScoutingSoA/interface/AssociationMapHost.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
@@ -59,6 +60,45 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     return charge;
   }
 
+  struct BuildKeysKernel {
+    ALPAKA_FN_ACC void operator() (
+      Acc1D const& acc,
+      PFCandidateDeviceCollection::ConstView pf,
+      IndexSoA::ConstView indexes, // const indexes of the input map
+      uint32_t* keys) const {
+        for (auto ii : uniform_elements(acc, indexes.metadata().size())) {
+          auto pidx = indexes.indexes()[ii];
+          auto pt_rescaled = pf.pt()[pidx] * 4.0f; // divide by 0.25
+          pt_rescaled = alpaka::math::max(acc, pt_rescaled, 0.0f);
+          pt_rescaled = alpaka::math::min(acc, pt_rescaled, 4294967295.0f);
+          auto key = static_cast<uint32_t>(pt_rescaled);
+          keys[ii] = 0xFFFFFFFFu - key; // max(uint32_t) - key in order to sort by descending value
+        }
+      }
+  };
+  
+  struct ApplyPermKernel {
+    ALPAKA_FN_ACC void operator() (
+      Acc1D const& acc, 
+      IndexSoA::ConstView indexes, 
+      OffsetsSoA::ConstView offsets,
+      IndexSoA::View indexes_perm, 
+      uint16_t* perm) const {
+        for (auto ii : independent_groups(acc, offsets.metadata().size() - 1)) {
+          auto begin = offsets.offsets()[ii];
+          auto end = offsets.offsets()[ii + 1];
+          auto block_size = end - begin;
+          if (block_size == 0)
+            continue;
+          
+          for (auto jj : independent_group_elements(acc, block_size)) {
+            auto new_local_idx = static_cast<uint32_t>(perm[begin + jj]);
+            indexes_perm.indexes()[begin + jj] = indexes.indexes()[begin + new_local_idx];
+          }
+        }
+      }
+  };
+
   class ComputeClueTauFeaturesKernel {
   public:
     ALPAKA_FN_ACC void operator()(
@@ -73,10 +113,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         auto block_dim = end - begin;
         if (block_dim == 0)
           continue;
-
-#if defined(__DEBUG__)
-        printf("[ComputeClueTauFeaturesKernel] Cluster %u, block_dim = %u\n", block_idx, block_dim);
-#endif        
+      
         auto E = 0.0f;
         auto Px = 0.0f;
         auto Py = 0.0f;
@@ -88,19 +125,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         // auto mass = 0.0f;
         if (once_per_block(acc)) {
           for (auto i = 0; i < block_dim; i++) {
-#if defined(__DEBUG__)
-            if (i + begin > indexes.metadata().size()) {
-              printf("\t[ComputeClueTauFeaturesKernel] WARNING! i + begin = %u exceeds pf.metadata().size() = %u\n", i + begin, indexes.metadata().size());
-            }
-#endif
-
             auto idx = indexes.indexes()[i+begin];
-
-#if defined(__DEBUG__)
-            if (idx > pf.metadata().size()) {
-              printf("\t[ComputeClueTauFeaturesKernel] WARNING! idx = %u exceeds pf.metadata().size() = %u\n", idx, pf.metadata().size());
-            }
-#endif
             auto px_v = px(acc, pf.pt()[idx], pf.phi()[idx]);
             auto py_v = py(acc, pf.pt()[idx], pf.phi()[idx]);
             auto pz_v = pz(acc, pf.pt()[idx], pf.eta()[idx]);
@@ -116,29 +141,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           Phi = jet_phi(acc, Py, Px);
         }
 
-#if defined(__DEBUG__)
-        printf("[ComputeClueTauFeaturesKernel] Pt = %f, Eta = %f, Phi = %f\n", Pt, Eta, Phi);
-#endif
-
         auto clue_tau = clue_taus[block_idx];
         auto cluster_size = (block_dim > JetFeatures::RowsAtCompileTime) ? JetFeatures::RowsAtCompileTime : block_dim;
         for (auto tid : independent_group_elements(acc, cluster_size)) {
           auto thread_idx = tid + begin; 
-
-#if defined(__DEBUG__)    
-          if (thread_idx > indexes.metadata().size()) {
-            printf("\t[ComputeClueTauFeaturesKernel] WARNING! thread_idx = %u exceeds indexes.metadata().size() = %u\n", thread_idx, indexes.metadata().size());
-          }
-#endif
-
           auto index = indexes.indexes()[thread_idx];
-
-#if defined(__DEBUG__)
-          if (index > pf.metadata().size()) {
-            printf("\t[ComputeClueTauFeaturesKernel] WARNING! index = %u exceeds pf.metadata().size() = %u\n", index, pf.metadata().size());
-          }
-#endif
-          
           auto pdgid_abs = alpaka::math::abs(acc, static_cast<int>(pf.pdgid()[index]));
           // features
           clue_tau.features()(tid, 0) = pf.pt()[index];
@@ -155,14 +162,127 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           
           // pad mask
           clue_tau.pad_mask()(tid) = 1.0f;
-
-#if defined(__DEBUG__)
-          printf("\t[ComputeClueTauFeaturesKernel] Updated input features for candidate %u\n", index);
-#endif
         }
       }
     }
   };
+
+  AssociationMapDevice sortClustersCandsMap(Queue& queue, 
+                        const PFCandidateDeviceCollection& pf, 
+                        const AssociationMapDevice& clusterCandsMap) {
+    const auto num_clusters = clusterCandsMap.const_view<OffsetsSoA>().metadata().size() - 1;
+    const auto num_clustered = clusterCandsMap.const_view<IndexSoA>().metadata().size();
+    
+    // device buffers needed for the radixSort to work
+    auto keys = cms::alpakatools::make_device_buffer<uint32_t[]>(queue, num_clustered);
+    auto perm = cms::alpakatools::make_device_buffer<uint16_t[]>(queue, num_clustered);
+    auto permWork = cms::alpakatools::make_device_buffer<uint16_t[]>(queue, num_clustered);
+
+    alpaka::memset(queue, keys, 0u);
+    alpaka::memset(queue, perm, 0u);
+    alpaka::memset(queue, permWork, 0u);
+
+    // define workdiv
+    auto threadsPerBlock = 256;
+    auto workDiv = make_workdiv<Acc1D>(num_clusters, threadsPerBlock);
+    
+    // generate uint32_t keys that are accepted by radixSort
+    alpaka::exec<Acc1D>(
+      queue, 
+      workDiv, 
+      BuildKeysKernel{}, 
+      pf.const_view(), // global pf collection
+      clusterCandsMap.const_view<IndexSoA>(), // indexes to retrieve pt of clustered candidates 
+      alpaka::getPtrNative(keys) // get pointers to keys device buffer
+    );
+    
+    // run radix sort
+    alpaka::exec<Acc1D>(
+      queue,
+      workDiv, 
+      radixSortMultiWrapper2<uint32_t, 4>{}, 
+      alpaka::getPtrNative(keys), 
+      alpaka::getPtrNative(perm),
+      clusterCandsMap.const_view<OffsetsSoA>().offsets().data(),
+      alpaka::getPtrNative(permWork)
+    );
+    
+    // instantiate new sorted association map
+    AssociationMapDevice clusterCandsMapSorted({{clusterCandsMap.const_view<IndexSoA>().metadata().size(),
+                                                clusterCandsMap.const_view<OffsetsSoA>().metadata().size()}}, 
+                                                queue); 
+    alpaka::wait(queue);
+      
+    // apply permutation returned by radix sort
+    alpaka::exec<Acc1D>(
+      queue, 
+      workDiv, 
+      ApplyPermKernel{}, 
+      clusterCandsMap.const_view<IndexSoA>(), 
+      clusterCandsMap.const_view<OffsetsSoA>(), 
+      clusterCandsMapSorted.view<IndexSoA>(),
+      alpaka::getPtrNative(perm)
+    );
+    alpaka::wait(queue);
+
+    // copy also the offsets column to the new sorted map
+    auto srcOffsets = alpaka::createView(alpaka::getDev(queue),
+                                        clusterCandsMap.const_view<OffsetsSoA>().offsets().data(), 
+                                        Vec1D{clusterCandsMap.const_view<OffsetsSoA>().metadata().size()});
+    auto dstOffsets = alpaka::createView(alpaka::getDev(queue),
+                                        clusterCandsMapSorted.view<OffsetsSoA>().offsets().data(), 
+                                        Vec1D{clusterCandsMapSorted.view<OffsetsSoA>().metadata().size()});
+    alpaka::memcpy(queue, dstOffsets, srcOffsets);
+    alpaka::wait(queue);
+
+    #if defined(__DEBUG__)
+      AssociationMapHost debugMap({{clusterCandsMap.const_view<IndexSoA>().metadata().size(),
+                                    clusterCandsMap.const_view<OffsetsSoA>().metadata().size()}}, 
+                                    queue);
+      auto srcOffsetsDevice = alpaka::createView(alpaka::getDev(queue),
+                                                clusterCandsMapSorted.const_view<OffsetsSoA>().offsets().data(), 
+                                                Vec1D{clusterCandsMapSorted.const_view<OffsetsSoA>().metadata().size()});
+      auto srcIndexesDevice = alpaka::createView(alpaka::getDev(queue),
+                                                clusterCandsMapSorted.const_view<IndexSoA>().indexes().data(), 
+                                                Vec1D{clusterCandsMapSorted.const_view<IndexSoA>().metadata().size()});
+      auto dstOffsetsHost = alpaka::createView(alpaka::getDev(queue),
+                                                debugMap.view<OffsetsSoA>().offsets().data(), 
+                                                Vec1D{debugMap.view<OffsetsSoA>().metadata().size()});
+      auto dstIndexesHost = alpaka::createView(alpaka::getDev(queue),
+                                                debugMap.view<IndexSoA>().indexes().data(), 
+                                                Vec1D{debugMap.view<IndexSoA>().metadata().size()});
+      alpaka::memcpy(queue, dstOffsetsHost, srcOffsetsDevice);
+      alpaka::memcpy(queue, dstIndexesHost, srcIndexesDevice);
+      alpaka::wait(queue);
+
+      std::vector<float> pt_vec(pf.const_view().metadata().size());
+      auto srcPtDevice = alpaka::createView(alpaka::getDev(queue),
+                                            pf.const_view().pt().data(), 
+                                            Vec1D{pf.const_view().metadata().size()});
+      alpaka::memcpy(queue, pt_vec, srcPtDevice);
+      alpaka::wait(queue);
+      
+      auto num_clusters_new = debugMap.const_view<OffsetsSoA>().metadata().size() - 1;
+      auto num_clustered_new = debugMap.const_view<IndexSoA>().metadata().size();
+      
+      for (auto ii = 0; ii < debugMap.const_view<OffsetsSoA>().metadata().size() - 1; ++ii) {
+        std::cout << "------------------------------" << std::endl;
+        auto begin = debugMap.const_view<OffsetsSoA>().offsets()[ii];
+        auto end = debugMap.const_view<OffsetsSoA>().offsets()[ii + 1];
+        std::cout << "ii = " << ii << ", begin = " << begin << ", end = " << end << ", size = " << end - begin << std::endl;
+        
+        for (auto jj = begin; jj < end; ++jj) {
+          auto p = debugMap.const_view<IndexSoA>().indexes()[jj];
+          std::cout << "p = " << p << ", pt[p] = " << pt_vec[p] << std::endl;
+        }
+      }
+      
+      std::cout << "Original num clusters = " << num_clusters << ", New num clusters = " << num_clusters_new << std::endl;
+      std::cout << "Original num clustered = " << num_clustered << ", New num clusters = " << num_clustered_new << std::endl;
+    #endif
+
+    return clusterCandsMapSorted;
+  }
 
   SoftTauInputDeviceTensor transform(Queue& queue, 
                  const PFCandidateDeviceCollection& pf,

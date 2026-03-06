@@ -218,8 +218,8 @@ if "tagging_pre" in args.only or "tagging_inf" in args.only:
         alpaka = cms.untracked.PSet(
             backend = cms.untracked.string(args.backend)
         ),
-        pf = 'PFCandidatesProducer',
-        clusters = 'CLUETaus',
+        srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"),
+        srcClustersCandsMap = cms.InputTag("CLUETaus", "clustersCandsMap"),
         model = cms.FileInPath(args.model),
         do_inference = do_inference,
         maxBatchSize = cms.uint32(150)
