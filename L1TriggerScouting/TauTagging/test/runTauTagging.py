@@ -131,7 +131,7 @@ if args.runScouting:
     )
     process.path += process.PFCandidatesProducer
 
-    if "candidates" in args.dump in args.dump:
+    if "candidates" in args.dump:
         from L1TriggerScouting.Phase2.modules import PFSoAToOrbitFlatTable
         process.PFToOrbit = PFSoAToOrbitFlatTable(
             srcBx = cms.InputTag("PFCandidatesProducer", "bxLookup"), 
@@ -167,7 +167,7 @@ if args.runScouting:
         )
         process.path += process.CLUETaus
 
-        if "clusters" in args.dump or "all" in args.dump:
+        if "clusters" in args.dump:
             from L1TriggerScouting.Phase2.modules import ClusterToOrbitFlatTable
             process.CLUEToOrbitTable = ClusterToOrbitFlatTable(
                 srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"),
@@ -194,7 +194,7 @@ else:
         )
         process.path += process.CLUETaus
 
-        if "clusters" in args.dump or "all" in args.dump:
+        if "clusters" in args.dump:
             from L1TriggerScouting.Phase2.modules import ClusterToFlatTable
             process.CLUEToTable = ClusterToFlatTable(
                 srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"),
@@ -222,17 +222,21 @@ if "tagging_pre" in args.only or "tagging_inf" in args.only:
         srcClustersCandsMap = cms.InputTag("CLUETaus", "clustersCandsMap"),
         model = cms.FileInPath(args.model),
         do_inference = do_inference,
-        maxBatchSize = cms.uint32(150)
+        maxBatchSize = cms.uint32(324)
     )
     process.path += process.SoftTauId
 
-    if "tagging_inf" in args.dump or "all" in args.dump or "all_nocands" in args.dump:
+    if "tagging" in args.dump and "tagging_inf" in args.only:
         from L1TriggerScouting.Phase2.modules import TaggerOutToOrbitFlatTable
         process.TaggerOutToOrbit = TaggerOutToOrbitFlatTable(
-            srcClusters = "CLUETaus", 
-            srcCandidates = "PFCandidatesProducer", 
-            srcOut = "SoftTauId", 
-            name = "TaggerOut", 
+            srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"), 
+            srcBxCandidatesMap = cms.InputTag("PFCandidatesProducer", "bxLookup"),
+            srcBxClustersMap = cms.InputTag("CLUETaus", "bxClustersMap"),
+            srcClustersCandsMap = cms.InputTag("SoftTauId", "clusterCandsMapSorted"), # attention here to select the sorted  clusters->candidates to check the correctness!
+            srcOut = cms.InputTag("SoftTauId", "outputTensor"), 
+            nameCandidates = "L1PF", 
+            nameClusters = "CLUEClusters", 
+            nameTaggerOut = "TaggerOut", 
             doc = ""
         )
         process.path += process.TaggerOutToOrbit
@@ -240,7 +244,7 @@ if "tagging_pre" in args.only or "tagging_inf" in args.only:
 if args.dump != "none":
     if args.runScouting:
         process.out = cms.OutputModule("OrbitNanoAODOutputModule",
-            fileName = cms.untracked.string("ScoutCLUETaus_run000043.root"),
+            fileName = cms.untracked.string(f"ScoutCLUETaus_total_run0000{args.runNumber}.root"),
             SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),  # keep all events
             outputCommands = cms.untracked.vstring(
                 "drop *",

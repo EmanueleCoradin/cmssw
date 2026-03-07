@@ -102,69 +102,68 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   class ComputeClueTauFeaturesKernel {
   public:
     ALPAKA_FN_ACC void operator()(
-        Acc1D const& acc,
-        PFCandidateDeviceCollection::ConstView pf,
-        IndexSoA::ConstView indexes, 
-        OffsetsSoA::ConstView offsets,
-        SoftTauInputDeviceTensor::View clue_taus) const {
-      for (auto block_idx: independent_groups(acc, offsets.metadata().size() - 1)) {
-        auto begin = offsets.offsets()[block_idx];
-        auto end = offsets.offsets()[block_idx + 1];
-        auto block_dim = end - begin;
-        if (block_dim == 0)
-          continue;
-      
-        auto E = 0.0f;
-        auto Px = 0.0f;
-        auto Py = 0.0f;
-        auto Pz = 0.0f;
-        // jet kinematics
-        auto Pt = 0.0f;
-        auto Eta = 0.0f;
-        auto Phi = 0.0f;
-        // auto mass = 0.0f;
-        if (once_per_block(acc)) {
-          for (auto i = 0; i < block_dim; i++) {
-            auto idx = indexes.indexes()[i+begin];
-            auto px_v = px(acc, pf.pt()[idx], pf.phi()[idx]);
-            auto py_v = py(acc, pf.pt()[idx], pf.phi()[idx]);
-            auto pz_v = pz(acc, pf.pt()[idx], pf.eta()[idx]);
-            auto e_v = energy(acc, px_v, py_v, pz_v);
-            Px += px_v;
-            Py += py_v;
-            Pz += pz_v;
-            E += e_v;
+      Acc1D const& acc,
+      PFCandidateDeviceCollection::ConstView pf,
+      IndexSoA::ConstView indexes, 
+      OffsetsSoA::ConstView offsets,
+      SoftTauInputDeviceTensor::View input_tensors) const {
+        for (auto block_idx: independent_groups(acc, offsets.metadata().size() - 1)) {
+          auto begin = offsets.offsets()[block_idx];
+          auto end = offsets.offsets()[block_idx + 1];
+          auto block_size = end - begin;
+          if (block_size == 0)
+            continue;
+        
+          auto E = 0.0f;
+          auto Px = 0.0f;
+          auto Py = 0.0f;
+          auto Pz = 0.0f;
+          auto Pt = 0.0f;
+          auto Eta = 0.0f;
+          auto Phi = 0.0f;
+          
+          // build jet axis
+          if (once_per_block(acc)) {
+            for (auto ii = 0; ii < block_size; ii++) {
+              auto p = indexes.indexes()[ii + begin];
+              auto px_v = px(acc, pf.pt()[p], pf.phi()[p]);
+              auto py_v = py(acc, pf.pt()[p], pf.phi()[p]);
+              auto pz_v = pz(acc, pf.pt()[p], pf.eta()[p]);
+              auto e_v = energy(acc, px_v, py_v, pz_v);
+              Px += px_v;
+              Py += py_v;
+              Pz += pz_v;
+              E += e_v;
+            }
+            
+            Pt = jet_pt(acc, Px, Py);
+            Eta = jet_eta(acc, Pt, Pz);
+            Phi = jet_phi(acc, Py, Px);
           }
-          
-          Pt = jet_pt(acc, Px, Py);
-          Eta = jet_eta(acc, Pt, Pz);
-          Phi = jet_phi(acc, Py, Px);
-        }
 
-        auto clue_tau = clue_taus[block_idx];
-        auto cluster_size = (block_dim > JetFeatures::RowsAtCompileTime) ? JetFeatures::RowsAtCompileTime : block_dim;
-        for (auto tid : independent_group_elements(acc, cluster_size)) {
-          auto thread_idx = tid + begin; 
-          auto index = indexes.indexes()[thread_idx];
-          auto pdgid_abs = alpaka::math::abs(acc, static_cast<int>(pf.pdgid()[index]));
-          // features
-          clue_tau.features()(tid, 0) = pf.pt()[index];
-          clue_tau.features()(tid, 1) = pf.eta()[index] - Eta;
-          clue_tau.features()(tid, 2) = phi(acc, pf.phi()[index], Phi);
-          clue_tau.features()(tid, 3) = charge(acc, pf.pdgid()[index]);
-          clue_tau.features()(tid, 4) = pf.z0()[index];
-          // one hot-encoding from pdgid
-          clue_tau.features()(tid, 5) = (pdgid_abs == 211) ? 1.0f : 0.0f;
-          clue_tau.features()(tid, 6) = (pdgid_abs == 130) ? 1.0f : 0.0f;
-          clue_tau.features()(tid, 7) = (pdgid_abs == 11) ? 1.0f : 0.0f;
-          clue_tau.features()(tid, 8) = (pdgid_abs == 13) ? 1.0f : 0.0f;
-          clue_tau.features()(tid, 9) = (pdgid_abs == 22) ? 1.0f : 0.0f;
-          
-          // pad mask
-          clue_tau.pad_mask()(tid) = 1.0f;
+          // fill input tensor corresponding to the current cluster
+          auto input_tensor = input_tensors[block_idx];
+          auto input_size = (block_size > JetFeatures::RowsAtCompileTime) ? JetFeatures::RowsAtCompileTime : block_size;
+          for (auto tid : independent_group_elements(acc, input_size)) {
+            auto p = indexes.indexes()[begin + tid]; // global candidate index
+            auto pdgid_abs = alpaka::math::abs(acc, static_cast<int>(pf.pdgid()[p]));
+            // features
+            input_tensor.features()(tid, 0) = pf.pt()[p];
+            input_tensor.features()(tid, 1) = pf.eta()[p] - Eta;
+            input_tensor.features()(tid, 2) = phi(acc, pf.phi()[p], Phi);
+            input_tensor.features()(tid, 3) = charge(acc, pf.pdgid()[p]);
+            input_tensor.features()(tid, 4) = pf.z0()[p];
+            // one hot-encoding for pdgid
+            input_tensor.features()(tid, 5) = (pdgid_abs == 211) ? 1.0f : 0.0f;
+            input_tensor.features()(tid, 6) = (pdgid_abs == 130) ? 1.0f : 0.0f;
+            input_tensor.features()(tid, 7) = (pdgid_abs == 11) ? 1.0f : 0.0f;
+            input_tensor.features()(tid, 8) = (pdgid_abs == 13) ? 1.0f : 0.0f;
+            input_tensor.features()(tid, 9) = (pdgid_abs == 22) ? 1.0f : 0.0f;
+            // pad mask
+            input_tensor.pad_mask()(tid) = 1.0f;
+          }
         }
       }
-    }
   };
 
   AssociationMapDevice sortClustersCandsMap(Queue& queue, 
@@ -233,9 +232,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                         clusterCandsMapSorted.view<OffsetsSoA>().offsets().data(), 
                                         Vec1D{clusterCandsMapSorted.view<OffsetsSoA>().metadata().size()});
     alpaka::memcpy(queue, dstOffsets, srcOffsets);
-    alpaka::wait(queue);
-
+    
     #if defined(__DEBUG__)
+      alpaka::wait(queue);
       AssociationMapHost debugMap({{clusterCandsMap.const_view<IndexSoA>().metadata().size(),
                                     clusterCandsMap.const_view<OffsetsSoA>().metadata().size()}}, 
                                     queue);
@@ -285,31 +284,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   }
 
   SoftTauInputDeviceTensor transform(Queue& queue, 
-                 const PFCandidateDeviceCollection& pf,
-                 const AssociationMapDevice& clusterCandsMap) {
-    const auto nOffsets = clusterCandsMap.const_view<OffsetsSoA>().metadata().size();
-    
-    uint32_t kNumClusters = 0;
-    if (nOffsets > 0) {
-      kNumClusters = nOffsets - 1;
-    }
+                                      const PFCandidateDeviceCollection& pf,
+                                      const AssociationMapDevice& clusterCandsMap) {
+    // initialize input tensor
+    const auto num_clusters = clusterCandsMap.const_view<OffsetsSoA>().metadata().size() - 1;
+    auto input_tensors = SoftTauInputDeviceTensor(num_clusters, queue);
+    input_tensors.zeroInitialise(queue);
 
-    auto input_tensor = SoftTauInputDeviceTensor(kNumClusters, queue);
-    input_tensor.zeroInitialise(queue);
-
-    if (kNumClusters == 0) {
-      return input_tensor;
-    }
+    // work division
+    auto threadsPerBlock = 256;
+    auto workDiv = make_workdiv<Acc1D>(num_clusters, threadsPerBlock);
 
     alpaka::exec<Acc1D>(queue, 
-      make_workdiv<Acc1D>(kNumClusters, 128), 
+      workDiv, 
       ComputeClueTauFeaturesKernel{}, 
       pf.const_view(),
-      clusterCandsMap.view<IndexSoA>(),
-      clusterCandsMap.view<OffsetsSoA>(),
-      input_tensor.view());
+      clusterCandsMap.const_view<IndexSoA>(),
+      clusterCandsMap.const_view<OffsetsSoA>(),
+      input_tensors.view());
       
-    return input_tensor;
+    return input_tensors;
   }
-
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels

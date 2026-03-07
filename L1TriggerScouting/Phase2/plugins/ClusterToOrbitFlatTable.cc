@@ -143,7 +143,7 @@ void ClusterToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm::Ev
   pf_table->addColumn<int32_t>("cluster", point_to_cluster, "Cluster Index");
   iEvent.put(std::move(pf_table), "cands");
 
-  // clusters constituents
+  // clusters features
   std::vector<float> pt_clu, eta_clu, phi_clu, mass_clu;
 
   bxOffsetsFiller.start();
@@ -175,7 +175,7 @@ void ClusterToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm::Ev
   }
   bxOffsets = bxOffsetsFiller.done();
 
-  // table with cluster
+  // table with cluster features
   auto clu_table = std::make_unique<l1ScoutingRun3::OrbitFlatTable>(bxOffsets, name_clusters_);
   clu_table->setDoc(doc_);
   clu_table->addColumn<float>("pt", pt_clu, "CLUECluster pt");
