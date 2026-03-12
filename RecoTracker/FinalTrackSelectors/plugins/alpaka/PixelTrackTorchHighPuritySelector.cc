@@ -166,8 +166,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     // Retrieve tokens
     auto&       queue  = iEvent.queue();
-    const auto& hits   = iEvent.get(recHitToken_);
-    const auto& tracks = iEvent.get(pixelTrackToken_);
+    const auto& hits   = iEvent.get(recHitToken_).view();
+    const auto& tracks = iEvent.get(pixelTrackToken_).view();
 
     // If not create yet, create an alpaka queue for Torch and associate it with the current device
     #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
@@ -195,9 +195,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::memset(queue, d_preselectionOffsets, 0);
 
     //  - Features and scores containers
-    PixelTrackFeaturesOnDevice  trackFeatures(maxPreselectedTracks_, queue);
-    PixelRecHitFeaturesOnDevice hitFeatures(maxPreselectedTracks_, queue);
-    PixelTrackScoresOnDevice    trackScoresOnDevice(maxPreselectedTracks_, queue);
+    PixelTrackFeaturesOnDevice  trackFeatures(queue, maxPreselectedTracks_);
+    PixelRecHitFeaturesOnDevice hitFeatures(queue, maxPreselectedTracks_);
+    PixelTrackScoresOnDevice    trackScoresOnDevice(queue, maxPreselectedTracks_);
 
     // - Tensor collections for DNN inference
     cms::torch::alpakatools::TensorCollection<Queue> inputs(maxPreselectedTracks_);
@@ -230,7 +230,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       maxNumberOfTracks_,
       minNumberOfHits_,
       minimumTrackQuality_,
-      tracks.view(),
+      tracks.tracks(),
       alpaka::getPtrNative(d_preselectedTrackIndices),
       alpaka::getPtrNative(d_preselectionOffsets),
       alpaka::getPtrNative(d_nPreselectedTracks)
@@ -245,9 +245,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     launchFeaturesExtractor(
       queue, 
       maxPreselectedTracks_, 
-      tracks.view(),
-      tracks.view<TrackHitSoA>(), 
-      hits.view(),
+      tracks.tracks(),
+      tracks.trackHits(), 
+      hits.trackingHits(),
       alpaka::getPtrNative(d_preselectedTrackIndices),
       alpaka::getPtrNative(d_nPreselectedTracks),
       trackFeatures.view(),
@@ -334,8 +334,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         queue,
         maxPreselectedTracks_,
         avgHitsPerTrack_,
-        tracks.view(),
-        tracks.view<TrackHitSoA>(), 
+        tracks.tracks(),
+        tracks.trackHits(), 
         alpaka::getPtrNative(d_selectedTrackIndices),
         alpaka::getPtrNative(d_nSelectedTracks),
         alpaka::getPtrNative(d_nKeptHits)

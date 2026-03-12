@@ -123,8 +123,6 @@ TrackingAssocValueMapsProducer::TrackingAssocValueMapsProducer(const edm::Parame
 void TrackingAssocValueMapsProducer::produce(edm::Event& iEvent, const edm::EventSetup&) {
   edm::Handle<edm::View<reco::Track>> tracksH;
   iEvent.getByToken(tracksToken_, tracksH);
-
-<<<<<<< HEAD
   edm::Handle<TrackingParticleCollection> tpH;
   iEvent.getByToken(tpToken_, tpH);
 

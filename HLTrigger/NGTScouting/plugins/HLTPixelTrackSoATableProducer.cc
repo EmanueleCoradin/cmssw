@@ -43,10 +43,10 @@ void HLTPixelTrackSoATableProducer::produce(
     const auto  view       = tracksHost.const_view();
 
     auto out = std::make_unique<std::vector<PixelTrackSoATab>>();
-    out->reserve(view.nTracks());
+    out->reserve(view.tracks().nTracks());
 
-    for (int i = 0; i < view.nTracks(); ++i)
-        out->emplace_back(view, i);
+    for (int i = 0; i < view.tracks().nTracks(); ++i)
+        out->emplace_back(view.tracks(), i);
 
     iEvent.put(std::move(out));
 }

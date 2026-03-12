@@ -140,7 +140,6 @@ void HLTTracksRecHitsTableProducer::fillDescriptions(edm::ConfigurationDescripti
       ->setComment("whether or not to skip producing the table on absent input product");
   desc.add<std::string>("tableName")->setComment("name of the flat table ouput");
   desc.add<edm::InputTag>("tracksSrc")->setComment("std::vector<reco::Track> input collections");
->>>>>>> 76e6a3d5269 (Added code to generate training data)
   desc.add<int>("precision", 7);
   descriptions.addWithDefaultLabel(desc);
 }

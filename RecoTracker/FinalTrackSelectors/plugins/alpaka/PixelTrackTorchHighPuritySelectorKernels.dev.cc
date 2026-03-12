@@ -624,7 +624,7 @@ struct FeaturesExtractorKernel{
         const int* nSelectedTracks,
         const int* nKeptHits)
     {
-        reco::TracksSoACollection tracks_out({{int(maxPreselectedTracks), int(maxPreselectedTracks * avgHitsPerTrack)}}, queue);
+        reco::TracksSoACollection tracks_out(queue, int(maxPreselectedTracks), int(maxPreselectedTracks * avgHitsPerTrack));
         
         constexpr uint32_t threadsPerBlock = 256;
         const uint32_t blocks = cms::alpakatools::divide_up_by(maxPreselectedTracks, threadsPerBlock);
@@ -640,8 +640,8 @@ struct FeaturesExtractorKernel{
             selectedTrackIndices,
             nSelectedTracks,
             nKeptHits,
-            tracks_out.view(),
-            tracks_out.view<TrackHitSoA>()
+            tracks_out.view().tracks(),
+            tracks_out.view().trackHits()
         );
 
         return tracks_out;
