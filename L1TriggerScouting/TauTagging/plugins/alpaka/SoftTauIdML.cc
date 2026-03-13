@@ -28,7 +28,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           cluster_cands_map_sorted_token_{produces("clusterCandsMapSorted")},
           soft_tau_token_{produces("outputTensor")},
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
-          do_inference_{params.getParameter<bool>("do_inference")},
+          step_{params.getParameter<uint32_t>("step")},
           max_batch_size_{params.getParameter<uint32_t>("maxBatchSize")} {}
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
@@ -36,7 +36,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       desc.add<edm::InputTag>("srcCandidates");
       desc.add<edm::InputTag>("srcClustersCandsMap");
       desc.add<edm::FileInPath>("model");
-      desc.add<bool>("do_inference");
+      desc.add<uint32_t>("step", 0u);
       desc.add<uint32_t>("maxBatchSize", std::numeric_limits<uint32_t>::max());
       descriptions.addWithDefaultLabel(desc);
     }
@@ -45,43 +45,45 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       const auto &pf = event.get(pf_candidates_token_); // pf collection
       const auto &cluster_cands_map = event.get(cluster_cands_map_token_); // clusters->candidates map
 
-      // sort the clusters->candidates association map by pt
-      auto cluster_cands_map_sorted = kernels::sortClustersCandsMap(event.queue(), pf, cluster_cands_map);
-
-      // get filled input tensor
-      SoftTauInputDeviceTensor input_tensor = kernels::transform(event.queue(), pf, cluster_cands_map_sorted);
-
       // initialize output tensor
-      const auto job_size = input_tensor.view().metadata().size(); // number of elements to run the inference on, which is the number of clusters
+      const auto job_size = cluster_cands_map.const_view<OffsetsSoA>().metadata().size() - 1; // number of elements to run the inference on, which is the number of clusters
       auto output_tensor = SoftTauOutputDeviceTensor(job_size, event.queue());
       output_tensor.zeroInitialise(event.queue());
 
-      if (do_inference_) {
-        // set batch size
-        const auto batch_size = std::min<uint32_t>(job_size, max_batch_size_);
-  
-        // records
-        auto input_records = input_tensor.view().records();
-        auto output_records = output_tensor.view().records();
-        // input tensor definition
-        cms::torch::alpakatools::TensorRegistry<Device> inputs(batch_size);
-        inputs.register_tensor<SoftTauInputTensorSoA>("jet_features", input_records.features());
-        inputs.register_tensor<SoftTauInputTensorSoA>("padding_mask", input_records.pad_mask());
-        // output tensor definition
-        cms::torch::alpakatools::TensorRegistry<Device> outputs(batch_size);
-        outputs.register_tensor<SoftTauOutputTensorSoA>("cls", output_records.cls());
-        outputs.register_tensor<SoftTauOutputTensorSoA>("reg_vz", output_records.vz());
-        outputs.register_tensor<SoftTauOutputTensorSoA>("reg_pt", output_records.pt());
-        outputs.register_tensor<SoftTauOutputTensorSoA>("charge", output_records.charge());
-  
-        // inference, queue guard restores stream when goes out of scope
-        {
-          cms::torch::alpakatools::QueueGuard<Queue> guard(event.queue());
-          model_.to(event.queue());
-          model_.forward(event.queue(), inputs, outputs);
+      // sort the clusters->candidates association map by pt
+      auto cluster_cands_map_sorted = kernels::sortClustersCandsMap(event.queue(), pf, cluster_cands_map);
+
+      if (step_ == 1) {
+        // get filled input tensor
+        SoftTauInputDeviceTensor input_tensor = kernels::transform(event.queue(), pf, cluster_cands_map_sorted);
+
+        if (step_ == 2) {
+          // set batch size
+          const auto batch_size = std::min<uint32_t>(job_size, max_batch_size_);
+    
+          // records
+          auto input_records = input_tensor.view().records();
+          auto output_records = output_tensor.view().records();
+          // input tensor definition
+          cms::torch::alpakatools::TensorRegistry<Device> inputs(batch_size);
+          inputs.register_tensor<SoftTauInputTensorSoA>("jet_features", input_records.features());
+          inputs.register_tensor<SoftTauInputTensorSoA>("padding_mask", input_records.pad_mask());
+          // output tensor definition
+          cms::torch::alpakatools::TensorRegistry<Device> outputs(batch_size);
+          outputs.register_tensor<SoftTauOutputTensorSoA>("cls", output_records.cls());
+          outputs.register_tensor<SoftTauOutputTensorSoA>("reg_vz", output_records.vz());
+          outputs.register_tensor<SoftTauOutputTensorSoA>("reg_pt", output_records.pt());
+          outputs.register_tensor<SoftTauOutputTensorSoA>("charge", output_records.charge());
+    
+          // inference, queue guard restores stream when goes out of scope
+          {
+            cms::torch::alpakatools::QueueGuard<Queue> guard(event.queue());
+            model_.to(event.queue());
+            model_.forward(event.queue(), inputs, outputs);
+          }
         }
       }
-      
+
       // put device-side product into event
       event.emplace(cluster_cands_map_sorted_token_, std::move(cluster_cands_map_sorted));
       event.emplace(soft_tau_token_, std::move(output_tensor));
@@ -99,7 +101,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     // model
     torch::AlpakaModel model_;
     // do inference or not
-    const bool do_inference_;
+    const uint32_t step_;
     // scouting switch
     const uint32_t max_batch_size_;
   };

@@ -28,7 +28,7 @@ def parse_args():
         "-o", "--only",
         nargs="+",
         default=["tagging_inf"],
-        choices=["unpacking", "clustering", "tagging_pre", "tagging_inf"],
+        choices=["unpacking", "clustering", "ml_sort", "ml_reshape", "ml_inf"],
         help="Run only the specified pipeline stages"
     )
 
@@ -145,6 +145,11 @@ def parse_args():
         type=int,
         default=[],
         help="Number of input streams (i.e. files) used simultaneously for each BU directory"
+    )
+    parser.add_argument(
+        "-sf", "--splitFactor",
+        type=int,
+        default=1
     )
     parser.add_argument(
         "-s", "--streams",

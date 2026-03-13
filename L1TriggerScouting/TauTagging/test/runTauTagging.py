@@ -15,6 +15,16 @@ process.options.numberOfThreads = args.numberOfThreads if args.numberOfThreads >
 process.options.numberOfStreams = args.numberOfStreams if args.numberOfStreams > 1 else 1 
 process.maxEvents.input = args.numberOfEvents if args.numberOfEvents > 1 else 1 
 
+# timing
+process.load( "HLTrigger.Timer.FastTimerService_cfi" )
+process.FastTimerService.printEventSummary = True
+process.FastTimerService.writeJSONSummary = cms.untracked.bool(True)
+streams = list(range(sum(args.buNumStreams))) if args.streams == [] else args.streams
+process.FastTimerService.jsonFileName = cms.untracked.string(f"resources_j1_t{args.numberOfThreads}_s{args.numberOfStreams}__streams:{''.join(map(str, streams))}_split{args.splitFactor}__task:{args.only[0]}.json")
+process.FastTimerService.enableTimingPaths = cms.untracked.bool(True)
+process.FastTimerService.enableTimingModules = cms.untracked.bool(True)
+process.FastTimerService.useRealTimeClock = cms.untracked.bool(True)
+
 # enable alpaka and GPU support
 process.load("Configuration.StandardSequences.Accelerators_cff")
 
@@ -54,9 +64,9 @@ if args.runScouting:
         dataMode = cms.untracked.string(args.daqSourceMode),
         verifyChecksum = cms.untracked.bool(True),
         useL1EventID = cms.untracked.bool(False),
-        eventChunkBlock = cms.untracked.uint32(2 * 1024),
-        eventChunkSize = cms.untracked.uint32(2 * 1024),
-        maxChunkSize = cms.untracked.uint32(4 * 1024),
+        eventChunkBlock = cms.untracked.uint32(4 * 1024),
+        eventChunkSize = cms.untracked.uint32(4 * 1024),
+        maxChunkSize = cms.untracked.uint32(8 * 1024),
         numBuffers = cms.untracked.uint32(4),
         maxBufferedFiles = cms.untracked.uint32(4),
         fileListMode = cms.untracked.bool(args.broker == "none"),
@@ -125,7 +135,7 @@ if args.runScouting:
             backend = cms.untracked.string(args.backend)
         ),
         streams = cms.vuint32(*list(range(sum(args.buNumStreams))) if args.streams == [] else args.streams),
-        splitFactor = cms.uint32(sum(args.buNumStreams) if args.streams == [] else len(args.streams)),
+        splitFactor = cms.uint32(args.splitFactor),
         src = cms.InputTag('rawDataCollector'),
         environment = cms.untracked.int32(args.environment),
     )
@@ -152,7 +162,7 @@ else:
 
 # CLUEstering
 if args.runScouting:
-    if "clustering" in args.only or "tagging_pre" in args.only or "tagging_inf" in args.only:
+    if "clustering" in args.only or "ml_sort" in args.only or "ml_reshape" in args.only or "ml_inf" in args.only:
         from L1TriggerScouting.TauTagging.modules import l1sc_CLUETaus_alpaka
         process.CLUETaus = l1sc_CLUETaus_alpaka(
             alpaka = cms.untracked.PSet(
@@ -206,12 +216,13 @@ else:
             process.path += process.CLUEToTable
 
 # Tagging
-if "tagging_pre" in args.only or "tagging_inf" in args.only:
-    if "tagging_pre" in args.only:
-        do_inference = cms.bool(False)
-    
-    if "tagging_inf" in args.only:
-        do_inference = cms.bool(True)
+if "ml_sort" in args.only or "ml_reshape" in args.only or "ml_inf" in args.only: # done in a bad way, have to check
+    if "ml_sort" in args.only:
+            step = 0
+    elif "ml_reshape" in args.only:
+            step = 1
+    elif "ml_inf" in args.only:
+            step = 2
 
     from L1TriggerScouting.TauTagging.modules import l1sc_SoftTauIdML_alpaka
     process.SoftTauId = l1sc_SoftTauIdML_alpaka(
@@ -221,12 +232,12 @@ if "tagging_pre" in args.only or "tagging_inf" in args.only:
         srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"),
         srcClustersCandsMap = cms.InputTag("CLUETaus", "clustersCandsMap"),
         model = cms.FileInPath(args.model),
-        do_inference = do_inference,
-        maxBatchSize = cms.uint32(324)
+        step = step,
+        maxBatchSize = cms.uint32(5000)
     )
     process.path += process.SoftTauId
 
-    if "tagging" in args.dump and "tagging_inf" in args.only:
+    if "tagging" in args.dump and "ml_inf" in args.only:
         from L1TriggerScouting.Phase2.modules import TaggerOutToOrbitFlatTable
         process.TaggerOutToOrbit = TaggerOutToOrbitFlatTable(
             srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"), 
@@ -241,7 +252,7 @@ if "tagging_pre" in args.only or "tagging_inf" in args.only:
         )
         process.path += process.TaggerOutToOrbit
 
-if args.dump != "none":
+if args.dump != ["none"]:
     if args.runScouting:
         process.out = cms.OutputModule("OrbitNanoAODOutputModule",
             fileName = cms.untracked.string(f"ScoutCLUETaus_total_run0000{args.runNumber}.root"),
