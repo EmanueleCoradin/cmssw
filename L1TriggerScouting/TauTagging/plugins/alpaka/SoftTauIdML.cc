@@ -52,12 +52,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
       // sort the clusters->candidates association map by pt
       auto cluster_cands_map_sorted = kernels::sortClustersCandsMap(event.queue(), pf, cluster_cands_map);
+      
+      if (step_ == 0u) {
+        alpaka::wait(event.queue());
+      }
 
-      if (step_ == 1) {
+      if ((step_ == 1u) || (step_ == 2u)) {
         // get filled input tensor
         SoftTauInputDeviceTensor input_tensor = kernels::transform(event.queue(), pf, cluster_cands_map_sorted);
 
-        if (step_ == 2) {
+        if (step_ == 1u) {
+          alpaka::wait(event.queue());
+        }
+
+        if (step_ == 2u) {
           // set batch size
           const auto batch_size = std::min<uint32_t>(job_size, max_batch_size_);
     
@@ -81,6 +89,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
             model_.to(event.queue());
             model_.forward(event.queue(), inputs, outputs);
           }
+
+          alpaka::wait(event.queue());
         }
       }
 

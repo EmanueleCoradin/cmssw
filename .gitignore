@@ -24,3 +24,5 @@ __init__.py
 # custom
 *.csv
 logs*
+old_timers
+old_wrong_timers

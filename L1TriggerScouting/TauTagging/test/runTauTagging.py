@@ -18,9 +18,10 @@ process.maxEvents.input = args.numberOfEvents if args.numberOfEvents > 1 else 1
 # timing
 process.load( "HLTrigger.Timer.FastTimerService_cfi" )
 process.FastTimerService.printEventSummary = True
-process.FastTimerService.writeJSONSummary = cms.untracked.bool(True)
+process.FastTimerService.printJobSummary = True
+process.FastTimerService.writeJSONSummary = cms.untracked.bool(args.timer)
 streams = list(range(sum(args.buNumStreams))) if args.streams == [] else args.streams
-process.FastTimerService.jsonFileName = cms.untracked.string(f"resources_j1_t{args.numberOfThreads}_s{args.numberOfStreams}__streams:{''.join(map(str, streams))}_split{args.splitFactor}__task:{args.only[0]}.json")
+process.FastTimerService.jsonFileName = cms.untracked.string(f"resources_j1_t{args.numberOfThreads}_s{args.numberOfStreams}__streams:{''.join(map(str, streams))}_split{args.splitFactor}__task:{args.only[0]}__backend:{args.backend}.json")
 process.FastTimerService.enableTimingPaths = cms.untracked.bool(True)
 process.FastTimerService.enableTimingModules = cms.untracked.bool(True)
 process.FastTimerService.useRealTimeClock = cms.untracked.bool(True)
@@ -64,9 +65,9 @@ if args.runScouting:
         dataMode = cms.untracked.string(args.daqSourceMode),
         verifyChecksum = cms.untracked.bool(True),
         useL1EventID = cms.untracked.bool(False),
-        eventChunkBlock = cms.untracked.uint32(4 * 1024),
-        eventChunkSize = cms.untracked.uint32(4 * 1024),
-        maxChunkSize = cms.untracked.uint32(8 * 1024),
+        eventChunkBlock = cms.untracked.uint32(8 * 1024),
+        eventChunkSize = cms.untracked.uint32(8 * 1024),
+        maxChunkSize = cms.untracked.uint32(16 * 1024),
         numBuffers = cms.untracked.uint32(4),
         maxBufferedFiles = cms.untracked.uint32(4),
         fileListMode = cms.untracked.bool(args.broker == "none"),
@@ -232,7 +233,7 @@ if "ml_sort" in args.only or "ml_reshape" in args.only or "ml_inf" in args.only:
         srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"),
         srcClustersCandsMap = cms.InputTag("CLUETaus", "clustersCandsMap"),
         model = cms.FileInPath(args.model),
-        step = step,
+        step = cms.uint32(step),
         maxBatchSize = cms.uint32(5000)
     )
     process.path += process.SoftTauId
@@ -255,7 +256,7 @@ if "ml_sort" in args.only or "ml_reshape" in args.only or "ml_inf" in args.only:
 if args.dump != ["none"]:
     if args.runScouting:
         process.out = cms.OutputModule("OrbitNanoAODOutputModule",
-            fileName = cms.untracked.string(f"ScoutCLUETaus_total_run0000{args.runNumber}.root"),
+            fileName = cms.untracked.string(f"ScoutCLUETaus_total_new_serial.root"),
             SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),  # keep all events
             outputCommands = cms.untracked.vstring(
                 "drop *",

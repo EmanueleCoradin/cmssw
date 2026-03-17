@@ -159,12 +159,11 @@ def parse_args():
         help="Input link IDs for the inputs"
     )
 
-    # Output/reporting
+    # Fast Timer Service Json
     parser.add_argument(
-        "-n", "--name",
-        type=str,
-        default="",
-        help="Name for output report file"
+        "--timer",
+        action="store_true",
+        help="Write json file with report of FastTimerService"
     )
 
     return parser.parse_args()
