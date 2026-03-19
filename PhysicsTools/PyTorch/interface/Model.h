@@ -23,11 +23,7 @@ namespace cms::torch {
     void to(::torch::Device dev, const bool non_blocking = false) {
       if (dev == device_)
         return;
-      //std::lock_guard<std::mutex> lock(migration_mutex_);
-
-      std::cout << "Moving model from device: " << device_ << " to device: " << dev << "\n";
       model_.to(dev, non_blocking);
-
       device_ = dev;
     }
 
@@ -44,7 +40,6 @@ namespace cms::torch {
   protected:
     ::torch::jit::script::Module model_;  // underlying JIT model
     ::torch::Device device_;              // device where the model is allocated (default CPU)
-    inline static std::mutex migration_mutex_; // mutex for thread safety during device transfers
   };
 
 }  // namespace cms::torch

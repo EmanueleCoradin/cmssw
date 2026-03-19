@@ -98,17 +98,20 @@ namespace cms::torch::alpakatools {
       requires(SameValueType<TSoAParamsImpl, Others...> && TSoAParamsImpl::columnType == cms::soa::SoAColumnType::eigen)
     void add(const std::string& name,
              int batch_size,
+             int total_size,
+             int offset,
              std::tuple<TSoAParamsImpl, cms::soa::size_type> column,
              std::tuple<Others, cms::soa::size_type>... others) {
       using DataType = typename TSoAParamsImpl::ScalarType;
+      constexpr auto matrix_size = TSoAParamsImpl::ValueType::RowsAtCompileTime * TSoAParamsImpl::ValueType::ColsAtCompileTime;
       auto [ptr, stride] = std::get<0>(column).tupleOrPointer();
       int n_elems =
-          cms::torch::alpakatools::detail::num_elements_per_column(batch_size, SoALayout::alignment, sizeof(DataType));
+          cms::torch::alpakatools::detail::num_elements_per_column(total_size, SoALayout::alignment, sizeof(DataType));
       assert_location(
-          n_elems * TSoAParamsImpl::ValueType::RowsAtCompileTime * TSoAParamsImpl::ValueType::ColsAtCompileTime,
+          n_elems * matrix_size,
           ptr,
           std::get<0>(std::get<0>(others).tupleOrPointer())...);
-
+      ptr = ptr + offset;
       std::vector<int> tensor_dims;
       if constexpr (TSoAParamsImpl::ValueType::ColsAtCompileTime > 1)
         tensor_dims = {1 + sizeof...(Others),
@@ -117,16 +120,16 @@ namespace cms::torch::alpakatools {
       else
         tensor_dims = {1 + sizeof...(Others), TSoAParamsImpl::ValueType::RowsAtCompileTime};
 
-      emplace_tensor(name, SoALayout::alignment, ptr, batch_size, tensor_dims);
+      emplace_tensor(name, SoALayout::alignment, ptr, batch_size, total_size, tensor_dims);
     }
 
-    // SOA_EIGEN_COLUMN with default batch size
+    // SOA_EIGEN_COLUMN with default batch size and no offset
     template <typename SoALayout, typename TSoAParamsImpl, typename... Others>
       requires(SameValueType<TSoAParamsImpl, Others...> && TSoAParamsImpl::columnType == cms::soa::SoAColumnType::eigen)
     void add(const std::string& name,
              std::tuple<TSoAParamsImpl, cms::soa::size_type> column,
              std::tuple<Others, cms::soa::size_type>... others) {
-      add<SoALayout, TSoAParamsImpl, Others...>(name, batch_size_, column, others...);
+      add<SoALayout, TSoAParamsImpl, Others...>(name, batch_size_, batch_size_, 0, column, others...);
     }
 
     // SOA_COLUMN
@@ -135,24 +138,27 @@ namespace cms::torch::alpakatools {
                TSoAParamsImpl::columnType == cms::soa::SoAColumnType::column)
     void add(const std::string& name,
              int batch_size,
+             int total_size,
+             int offset,
              std::tuple<TSoAParamsImpl, cms::soa::size_type> column,
              std::tuple<Others, cms::soa::size_type>... others) {
       using DataType = typename TSoAParamsImpl::ScalarType;
       int n_elems =
-          cms::torch::alpakatools::detail::num_elements_per_column(batch_size, SoALayout::alignment, sizeof(DataType));
-      assert_location(n_elems, std::get<0>(column).tupleOrPointer(), std::get<0>(others).tupleOrPointer()...);
+          cms::torch::alpakatools::detail::num_elements_per_column(total_size, SoALayout::alignment, sizeof(DataType));
       auto ptr = std::get<0>(column).tupleOrPointer();
-      emplace_tensor(name, SoALayout::alignment, ptr, batch_size, {1 + sizeof...(Others)});
+      assert_location(n_elems, ptr, std::get<0>(others).tupleOrPointer()...);
+      ptr = ptr + offset;
+      emplace_tensor(name, SoALayout::alignment, ptr, batch_size, total_size, {1 + sizeof...(Others)});
     }
 
-    // SOA_COLUMN with default batch size
+    // SOA_COLUMN with default batch size and no offset
     template <typename SoALayout, typename TSoAParamsImpl, typename... Others>
       requires(SameScalarType<TSoAParamsImpl, Others...> &&
                TSoAParamsImpl::columnType == cms::soa::SoAColumnType::column)
     void add(const std::string& name,
              std::tuple<TSoAParamsImpl, cms::soa::size_type> column,
              std::tuple<Others, cms::soa::size_type>... others) {
-      add<SoALayout, TSoAParamsImpl, Others...>(name, batch_size_, column, others...);
+      add<SoALayout, TSoAParamsImpl, Others...>(name, batch_size_, batch_size_, 0, column, others...);
     }
 
     // SOA_SCALAR
@@ -160,9 +166,10 @@ namespace cms::torch::alpakatools {
       requires(std::is_arithmetic_v<T> && column_t == cms::soa::SoAColumnType::scalar)
     void add(const std::string& name,
              int batch_size,
+             int total_size,
              std::tuple<cms::soa::SoAParametersImpl<column_t, T>, cms::soa::size_type> column) {
       auto ptr = std::get<0>(column).tupleOrPointer();
-      emplace_tensor(name, SoALayout::alignment, ptr, batch_size, {1}, true);
+      emplace_tensor(name, SoALayout::alignment, ptr, batch_size, total_size, {1}, true);
     }
 
     // SOA_SCALAR with default batch size
@@ -170,7 +177,7 @@ namespace cms::torch::alpakatools {
       requires(std::is_arithmetic_v<T> && column_t == cms::soa::SoAColumnType::scalar)
     void add(const std::string& name,
              std::tuple<cms::soa::SoAParametersImpl<column_t, T>, cms::soa::size_type> column) {
-      add<SoALayout, column_t, T>(name, batch_size_, column);
+      add<SoALayout, column_t, T>(name, batch_size_, batch_size_, column);
     }
 
     // The order is defined by the order `add()` is called.
@@ -201,12 +208,13 @@ namespace cms::torch::alpakatools {
                         size_t alignment,
                         Tptr ptr,
                         int batch_size,
+                        int total_size,
                         std::vector<int> dims = {1},
                         const bool is_scalar = false) {
       using T = std::remove_pointer_t<Tptr>;
       registry_.try_emplace(name,
                             std::make_unique<cms::torch::alpakatools::detail::TensorHandle<TQueue, T>>(
-                                alignment, sizeof(T), ptr, batch_size, std::move(dims), is_scalar));
+                                alignment, sizeof(T), ptr, batch_size, total_size, std::move(dims), is_scalar));
       order_.push_back(name);
     }
 
