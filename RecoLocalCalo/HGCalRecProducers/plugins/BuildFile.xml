@@ -1,5 +1,6 @@
 <library file="*.cc" name="RecoLocalCaloHGCalRecProducersPlugins">
   <use name="alpaka"/>
+  <use name="cluestering"/>
   <use name="fmt"/>
   <use name="tbb"/>
   <use name="CommonTools/UtilAlgos"/>
@@ -20,5 +21,28 @@
   <use name="Geometry/HGCalGeometry"/>
   <use name="RecoLocalCalo/HGCalRecAlgos"/>
   <use name="RecoLocalCalo/HGCalRecProducers"/>
+  <flags EDM_PLUGIN="1"/>
+  <flags ALPAKA_BACKENDS="serial"/>
+</library>
+
+<!-- alpaka-based portable plugins -->
+<library file="alpaka/*.cc" name="RecoLocalCaloHGCalRecProducersPluginsPortable">
+  <use name="alpaka"/>
+  <use name="clue"/>
+  <use name="FWCore/Framework"/>
+  <use name="FWCore/ParameterSet"/>
+  <use name="FWCore/Utilities"/>
+  <use name="CondFormats/DataRecord"/>
+  <use name="CondFormats/HGCalObjects"/>
+  <use name="DataFormats/HGCalReco"/>
+  <use name="DataFormats/CaloRecHit"/>
+  <use name="DataFormats/Portable"/>
+  <use name="Geometry/CaloGeometry"/>
+  <use name="Geometry/HGCalCommonData"/>
+  <use name="Geometry/HGCalGeometry"/>
+  <use name="HeterogeneousCore/AlpakaCore"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="RecoLocalCalo/HGCalRecAlgos"/>
+  <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
 </library>
