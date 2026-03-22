@@ -10,6 +10,7 @@ hltPhase2PixelTrackTorchHighPuritySelector = cms.EDProducer('PixelTrackTorchHigh
     minimumTrackQuality = cms.string('tight'),
     model = cms.FileInPath('RecoTracker/FinalTrackSelectors/data/track_classifier_GPU_enriched_FP16.pt'),
     scoreThreshold = cms.double(0.19),
-    batchSize = cms.int32(2_048),
-    toHalf = cms.bool(True)
+    batchSize = cms.int32(64),
+    toHalf = cms.bool(True),
+    useCudaGraphs = cms.bool(False)
 )

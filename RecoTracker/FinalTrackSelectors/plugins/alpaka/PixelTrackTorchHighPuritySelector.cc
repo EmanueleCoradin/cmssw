@@ -63,6 +63,8 @@
 #include <nvtx3/nvtx3.hpp>
 #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
 #include <c10/cuda/CUDAStream.h>
+#include <ATen/cuda/CUDAGraph.h>
+#include <ATen/cuda/CUDAContext.h>
 #endif
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
@@ -119,9 +121,27 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
     const int32_t batchSize_;
     const bool to_half_;
+    const bool use_cudaGraphs_; 
+    bool graph_ready_ = false;  
+    bool model_warmed_up_ = false;  
+    const int warmup_iterations_ = 5; // Number of iterations to warm up the model
+    int n_batches_;
+    std::deque<BatchIO> batches_;
     std::optional<Queue> torchQueue_;
     std::optional<Event> featuresReadyEvent_;
     std::optional<Event> inferenceDoneEvent_;
+    std::optional<cms::alpakatools::device_buffer<Device, int>> d_nPreselectedTracks_;
+    std::optional<cms::alpakatools::device_buffer<Device, int>> d_nSelectedTracks_;
+    std::optional<cms::alpakatools::device_buffer<Device, int[]>> d_preselectedTrackIndices_;
+    std::optional<cms::alpakatools::device_buffer<Device, int[]>> d_selectedTrackIndices_;
+    std::optional<cms::alpakatools::device_buffer<Device, int[]>> d_nKeptHits_;
+    std::optional<cms::alpakatools::device_buffer<Device, int[]>> d_preselectionOffsets_;
+    std::optional<PixelTrackFeaturesOnDevice>  trackFeatures_;
+    std::optional<PixelRecHitFeaturesOnDevice> hitFeatures_;
+    std::optional<PixelTrackScoresOnDevice>    trackScoresOnDevice_;
+    #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+    ::at::cuda::CUDAGraph inference_graph_;
+    #endif
   };
 
 
@@ -140,7 +160,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         model_(iConfig.getParameter<edm::FileInPath>("model").fullPath()),
         tokenTrackOut_(produces()),
         batchSize_(iConfig.getParameter<int>("batchSize")),
-        to_half_(iConfig.getParameter<bool>("toHalf"))
+        to_half_(iConfig.getParameter<bool>("toHalf")),
+	use_cudaGraphs_(iConfig.getParameter<bool>("useCudaGraphs"))
 
   {
     if (minimumTrackQuality_ == pixelTrack::Quality::notQuality) {
@@ -155,6 +176,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       throw cms::Exception("PixelTrackConfiguration")
           << "maxPreselectedTracks must be <= maxNumberOfTracks";
     }
+    n_batches_ = maxPreselectedTracks_ / batchSize_;
   }
 
   void PixelTrackTorchHighPuritySelector::produce(
@@ -186,24 +208,74 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     // Instantiate the necessary objects in memory
     //  - Temporary storage for filtering
-    auto d_nPreselectedTracks      = cms::alpakatools::make_device_buffer<int>(*torchQueue_);
-    auto d_nSelectedTracks         = cms::alpakatools::make_device_buffer<int>(*torchQueue_);
-    auto d_preselectedTrackIndices = cms::alpakatools::make_device_buffer<int[]>(*torchQueue_, maxNumberOfTracks_);
-    auto d_selectedTrackIndices    = cms::alpakatools::make_device_buffer<int[]>(*torchQueue_, maxPreselectedTracks_);
-    auto d_nKeptHits               = cms::alpakatools::make_device_buffer<int[]>(*torchQueue_, maxPreselectedTracks_);
-    auto d_preselectionOffsets     = cms::alpakatools::make_device_buffer<int[]>(*torchQueue_, maxNumberOfTracks_);
-    
-    alpaka::memset(*torchQueue_, d_nPreselectedTracks, 0);
-    alpaka::memset(*torchQueue_, d_nSelectedTracks, 0);
-    alpaka::memset(*torchQueue_, d_nKeptHits, 0);
-    alpaka::memset(*torchQueue_, d_preselectedTrackIndices, 0xFF);
-    alpaka::memset(*torchQueue_, d_selectedTrackIndices, 0xFF);
-    alpaka::memset(*torchQueue_, d_preselectionOffsets, 0);
+    if (!d_nPreselectedTracks_) {
+      d_nPreselectedTracks_.emplace(cms::alpakatools::make_device_buffer<int>(*torchQueue_));
+      d_nSelectedTracks_.emplace(cms::alpakatools::make_device_buffer<int>(*torchQueue_));
+      d_preselectedTrackIndices_.emplace(cms::alpakatools::make_device_buffer<int[]>(*torchQueue_, maxNumberOfTracks_));
+      d_selectedTrackIndices_.emplace(cms::alpakatools::make_device_buffer<int[]>(*torchQueue_, maxPreselectedTracks_));
+      d_nKeptHits_.emplace(cms::alpakatools::make_device_buffer<int[]>(*torchQueue_, maxPreselectedTracks_));
+      d_preselectionOffsets_.emplace(cms::alpakatools::make_device_buffer<int[]>(*torchQueue_, maxNumberOfTracks_));
+      trackFeatures_.emplace(*torchQueue_, maxPreselectedTracks_);
+      hitFeatures_.emplace(*torchQueue_, maxPreselectedTracks_);
+      trackScoresOnDevice_.emplace(*torchQueue_, maxPreselectedTracks_);
+      // - Tensor collections for DNN inference  
+      for(auto i=0; i<n_batches_; i++){
+        batches_.emplace_back(BatchIO{
+          cms::torch::alpakatools::TensorCollection<Queue>(batchSize_),
+          cms::torch::alpakatools::TensorCollection<Queue>(batchSize_)});
+        auto offset = i * batchSize_;
+        auto track_record = trackFeatures_->view().records();
+        auto hit_record = hitFeatures_->view().records();
+        auto score_record = trackScoresOnDevice_->view().records();
+        auto& batch = batches_[i];
+        batch.inputs.add<::RecHitFeatures::PixelRecHitFeaturesSoA>(
+                "hit_features", 
+                batchSize_, 
+                maxPreselectedTracks_, 
+                offset,
+                hit_record.hits()
+              );
+        // Order must match the TorchScript model input schema
+        batch.inputs.add<PixelTrackFeaturesSoA>(
+            "track_features",
+            batchSize_,
+            maxPreselectedTracks_,
+            offset,
+            track_record.chi2(),
+            track_record.dzError(),
+            track_record.dxyError(),
+            track_record.eta(),
+            track_record.nHits(),
+            track_record.phi(),
+            track_record.phiError(),
+            track_record.pt(),
+            track_record.qOverPtError(),
+            track_record.dzBS(),
+            track_record.dxyBS(),
+            track_record.nLayers(),
+            track_record.cotThetaError(),
+            track_record.covCotThetaDz(),
+            track_record.covDxyQOverPt(),
+            track_record.covPhiDxy(),
+            track_record.covPhiQOverPt()
+          );
 
-    //  - Features and scores containers
-    PixelTrackFeaturesOnDevice  trackFeatures(*torchQueue_, maxPreselectedTracks_);
-    PixelRecHitFeaturesOnDevice hitFeatures(*torchQueue_, maxPreselectedTracks_);
-    PixelTrackScoresOnDevice    trackScoresOnDevice(*torchQueue_, maxPreselectedTracks_);
+          batch.outputs.add<PixelTrackScoresSoA>(
+            "track_scores",
+            batchSize_,
+            maxPreselectedTracks_,
+            offset,
+            score_record.score()
+          );
+      }
+    }
+
+    alpaka::memset(*torchQueue_, *d_nPreselectedTracks_, 0);
+    alpaka::memset(*torchQueue_, *d_nSelectedTracks_, 0);
+    alpaka::memset(*torchQueue_, *d_nKeptHits_, 0);
+    alpaka::memset(*torchQueue_, *d_preselectedTrackIndices_, 0xFF);
+    alpaka::memset(*torchQueue_, *d_selectedTrackIndices_, 0xFF);
+    alpaka::memset(*torchQueue_, *d_preselectionOffsets_, 0);
 
     // Optional debug definitions
 #ifdef PIXEL_TRACK_HP_DEBUG
@@ -213,12 +285,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     int nSelectedTracks        = 0;
     // Helper to copy the number of kept tracks back to host (debug only)
     auto fetchnPreselectedTracks = [&]() {
-      alpaka::memcpy(*torchQueue_, h_nPreselectedTracks, d_nPreselectedTracks);
+      alpaka::memcpy(*torchQueue_, h_nPreselectedTracks, *d_nPreselectedTracks_);
       alpaka::wait(*torchQueue_);
       return *h_nPreselectedTracks;
     };
     auto fetchnSelectedTracks = [&]() {
-      alpaka::memcpy(*torchQueue_, h_nSelectedTracks, d_nSelectedTracks);
+      alpaka::memcpy(*torchQueue_, h_nSelectedTracks, *d_nSelectedTracks_);
       alpaka::wait(*torchQueue_);
       return *h_nSelectedTracks;
     };
@@ -235,9 +307,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         minNumberOfHits_,
         minimumTrackQuality_,
         tracks.tracks(),
-        alpaka::getPtrNative(d_preselectedTrackIndices),
-        alpaka::getPtrNative(d_preselectionOffsets),
-        alpaka::getPtrNative(d_nPreselectedTracks)
+        alpaka::getPtrNative(*d_preselectedTrackIndices_),
+        alpaka::getPtrNative(*d_preselectionOffsets_),
+        alpaka::getPtrNative(*d_nPreselectedTracks_)
       );
     }
 
@@ -255,74 +327,74 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         tracks.tracks(),
         tracks.trackHits(),
         hits.trackingHits(),
-        alpaka::getPtrNative(d_preselectedTrackIndices),
-        alpaka::getPtrNative(d_nPreselectedTracks),
-        trackFeatures.view(),
-        hitFeatures.view(),
-        alpaka::getPtrNative(d_nKeptHits)
+        alpaka::getPtrNative(*d_preselectedTrackIndices_),
+        alpaka::getPtrNative(*d_nPreselectedTracks_),
+        trackFeatures_->view(),
+        hitFeatures_->view(),
+        alpaka::getPtrNative(*d_nKeptHits_)
       );
     }
 
     // 3. DNN inference
     //  Prepare TensorCollection inputs and outputs for the model
-    auto track_record = trackFeatures.view().records();
-    auto hit_record = hitFeatures.view().records();
-    auto score_record = trackScoresOnDevice.view().records();
-    std::deque<BatchIO> batches;
-    
-    // - Tensor collections for DNN inference
-    
-    for(auto offset=0; offset<=maxPreselectedTracks_-batchSize_;offset+=batchSize_){
-      nvtx3::scoped_range range3{"DNNInference"};
-      batches.emplace_back(BatchIO{
-        cms::torch::alpakatools::TensorCollection<Queue>(batchSize_),
-        cms::torch::alpakatools::TensorCollection<Queue>(batchSize_)
-      });
-
-      auto& batch = batches.back();
-      batch.inputs.add<::RecHitFeatures::PixelRecHitFeaturesSoA>(
-            "hit_features", 
-            batchSize_, 
-            maxPreselectedTracks_, 
-            offset,
-            hit_record.hits()
-          );
-      // Order must match the TorchScript model input schema
-      batch.inputs.add<PixelTrackFeaturesSoA>(
-          "track_features",
-          batchSize_,
-          maxPreselectedTracks_,
-          offset,
-          track_record.chi2(),
-          track_record.dzError(),
-          track_record.dxyError(),
-          track_record.eta(),
-          track_record.nHits(),
-          track_record.phi(),
-          track_record.phiError(),
-          track_record.pt(),
-          track_record.qOverPtError(),
-          track_record.dzBS(),
-          track_record.dxyBS(),
-          track_record.nLayers(),
-          track_record.cotThetaError(),
-          track_record.covCotThetaDz(),
-          track_record.covDxyQOverPt(),
-          track_record.covPhiDxy(),
-          track_record.covPhiQOverPt()
-        );
-
-        batch.outputs.add<PixelTrackScoresSoA>(
-          "track_scores",
-          batchSize_,
-          maxPreselectedTracks_,
-          offset,
-          score_record.score()
-        );
-        
-        model_.forward(*torchQueue_, batch.inputs, batch.outputs, to_half_);
+    if(!model_warmed_up_){
+      nvtx3::scoped_range range_warmup{"ModelWarmup"};
+      // Run a dummy inference to warm up the model
+      for(auto i=0; i<warmup_iterations_; i++){
+        for(auto& batch : batches_){
+          model_.forward(*torchQueue_, batch.inputs, batch.outputs, to_half_);
+        }
+      }
+      alpaka::wait(*torchQueue_);
+      model_warmed_up_ = true;  
     }
-    
+
+  #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+    if(!graph_ready_&&use_cudaGraphs_){
+      // If using CUDA, we can capture the inference in a CUDA graph for faster subsequent execution
+      auto stream = c10::cuda::getStreamFromExternal(
+          torchQueue_->getNativeHandle(),
+          cms::torch::alpakatools::getDevice(*torchQueue_).index()
+      );
+
+      ::at::cuda::setCurrentCUDAStream(stream);
+
+      inference_graph_.capture_begin(/*pool=*/{}, cudaStreamCaptureModeThreadLocal);
+
+      for (auto& batch : batches_) {
+        model_.forward(*torchQueue_, batch.inputs, batch.outputs, to_half_);
+      }
+
+      inference_graph_.capture_end();
+
+      graph_ready_ = true;
+    }
+  #endif
+  
+    // - Tensor collections for DNN inference
+    #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+      if(graph_ready_&&use_cudaGraphs_){
+          nvtx3::scoped_range range_graph{"CudaGraphReplay"};
+          auto stream = c10::cuda::getStreamFromExternal(
+          torchQueue_->getNativeHandle(),
+              cms::torch::alpakatools::getDevice(*torchQueue_).index()
+          );
+
+          ::at::cuda::setCurrentCUDAStream(stream);
+          inference_graph_.replay();
+      }
+      else{
+          nvtx3::scoped_range range_no_graph{"NoCudaGraph"};
+          for(auto& batch : batches_){
+            model_.forward(*torchQueue_, batch.inputs, batch.outputs, to_half_);
+          }
+      }
+    #else
+      for(auto& batch : batches_){
+        nvtx3::scoped_range range3{"DNNInference"};
+        model_.forward(*torchQueue_, batch.inputs, batch.outputs, to_half_);
+      }
+    #endif
     // 4. Score-based filtering
     {
       nvtx3::scoped_range range4{"ScoreFilter"};
@@ -330,12 +402,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         *torchQueue_,
         maxPreselectedTracks_,
         scoreThreshold_,
-        trackScoresOnDevice.view(),
-        alpaka::getPtrNative(d_preselectedTrackIndices),
-        alpaka::getPtrNative(d_nPreselectedTracks),
-        alpaka::getPtrNative(d_selectedTrackIndices),
-        alpaka::getPtrNative(d_nSelectedTracks),
-        alpaka::getPtrNative(d_nKeptHits)
+        trackScoresOnDevice_->view(),
+        alpaka::getPtrNative(*d_preselectedTrackIndices_),
+        alpaka::getPtrNative(*d_nPreselectedTracks_),
+        alpaka::getPtrNative(*d_selectedTrackIndices_),
+        alpaka::getPtrNative(*d_nSelectedTracks_),
+        alpaka::getPtrNative(*d_nKeptHits_)
       );
     }
 
@@ -351,9 +423,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           avgHitsPerTrack_,
           tracks.tracks(),
           tracks.trackHits(), 
-          alpaka::getPtrNative(d_selectedTrackIndices),
-          alpaka::getPtrNative(d_nSelectedTracks),
-          alpaka::getPtrNative(d_nKeptHits)
+          alpaka::getPtrNative(*d_selectedTrackIndices_),
+          alpaka::getPtrNative(*d_nSelectedTracks_),
+          alpaka::getPtrNative(*d_nKeptHits_)
         );
       // Record that inference is done on the Torch stream
       alpaka::enqueue(*torchQueue_, *inferenceDoneEvent_);
@@ -378,6 +450,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     desc.add<double>("scoreThreshold", 0.5);
     desc.add<int>("batchSize", 10);
     desc.add<bool>("toHalf", false);
+    desc.add<bool>("useCudaGraphs", false);
     descriptions.addWithDefaultLabel(desc);
   }
 };

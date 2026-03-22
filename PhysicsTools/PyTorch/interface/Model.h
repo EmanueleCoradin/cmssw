@@ -15,9 +15,13 @@ namespace cms::torch {
   class Model {
   public:
     explicit Model(const std::string &model_path) 
-      : model_(cms::torch::load(model_path)), device_(::torch::kCPU) {}
+      : model_(cms::torch::load(model_path)), device_(::torch::kCPU) {
+        model_.eval();  // Set the model to evaluation mode (disables dropout, batchnorm, etc.)
+      }
     explicit Model(const std::string &model_path, ::torch::Device dev) 
-      : model_(cms::torch::load(model_path, dev)), device_(dev) {}
+      : model_(cms::torch::load(model_path, dev)), device_(dev) {
+        model_.eval();  // Set the model to evaluation mode (disables dropout, batchnorm, etc.)
+      }
 
     // Move model to specified device memory space. Async load by specifying `non_blocking` (in default stream if not overridden by the caller)
     void to(::torch::Device dev, const bool non_blocking = false) {
