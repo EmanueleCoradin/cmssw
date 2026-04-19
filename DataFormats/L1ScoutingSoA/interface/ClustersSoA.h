@@ -5,10 +5,17 @@
 
 namespace l1sc {
 
-  GENERATE_SOA_LAYOUT(ClustersLayout, SOA_COLUMN(int, cluster), SOA_COLUMN(int, is_seed))
+  GENERATE_SOA_LAYOUT(ClustersLayout, 
+    SOA_COLUMN(int, cluster) 
+  )
 
-  GENERATE_SOA_LAYOUT(
-      ClusterObjLayout, SOA_COLUMN(float, pt), SOA_COLUMN(float, eta), SOA_COLUMN(float, phi), SOA_COLUMN(int, cluster), SOA_COLUMN(uint32_t, numberOfDaughters))
+  GENERATE_SOA_LAYOUT(ClusterObjLayout, 
+      SOA_COLUMN(float, pt), 
+      SOA_COLUMN(float, eta), 
+      SOA_COLUMN(float, phi), 
+      SOA_COLUMN(int, cluster),
+      SOA_COLUMN(uint32_t, numberOfDaughters)
+  )
 
   using ClustersSoA = ClustersLayout<>;
   using ClusterObjSoA = ClusterObjLayout<>;

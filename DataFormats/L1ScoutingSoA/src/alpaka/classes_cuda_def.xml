@@ -1,8 +1,8 @@
 <lcgdict>
-  <!-- BxLookupDeviceCollection -->
-  <class name="alpaka_cuda_async::l1sc::BxLookupDeviceCollection" persistent="false"/>
-  <class name="edm::DeviceProduct<alpaka_cuda_async::l1sc::BxLookupDeviceCollection>" persistent="false"/>
-  <class name="edm::Wrapper<edm::DeviceProduct<alpaka_cuda_async::l1sc::BxLookupDeviceCollection>>" persistent="false"/>
+  <!-- BxLookupDevice -->
+  <class name="alpaka_cuda_async::l1sc::BxLookupDevice" persistent="false"/>
+  <class name="edm::DeviceProduct<alpaka_cuda_async::l1sc::BxLookupDevice>" persistent="false"/>
+  <class name="edm::Wrapper<edm::DeviceProduct<alpaka_cuda_async::l1sc::BxLookupDevice>>" persistent="false"/>
 
   <!-- AssociationMapDevice -->
   <class name="alpaka_cuda_async::l1sc::AssociationMapDevice" persistent="false"/>

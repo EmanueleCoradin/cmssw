@@ -64,10 +64,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     ALPAKA_FN_ACC void operator() (
       Acc1D const& acc,
       PFCandidateDeviceCollection::ConstView pf,
-      IndexSoA::ConstView indexes, // const indexes of the input map
+      AssociationMapDevice::ConstView clusters_cands, // to access the indexes of the input map
       uint32_t* keys) const {
-        for (auto ii : uniform_elements(acc, indexes.metadata().size())) {
-          auto pidx = indexes.indexes()[ii];
+        for (auto ii : uniform_elements(acc, clusters_cands.index().metadata().size())) {
+          auto pidx = clusters_cands.index().index()[ii];
           auto pt_rescaled = pf.pt()[pidx] * 4.0f; // divide by 0.25
           pt_rescaled = alpaka::math::max(acc, pt_rescaled, 0.0f);
           pt_rescaled = alpaka::math::min(acc, pt_rescaled, 4294967295.0f);
@@ -80,20 +80,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   struct ApplyPermKernel {
     ALPAKA_FN_ACC void operator() (
       Acc1D const& acc, 
-      IndexSoA::ConstView indexes, 
-      OffsetsSoA::ConstView offsets,
-      IndexSoA::View indexes_perm, 
+      AssociationMapDevice::ConstView clusters_cands,
+      AssociationMapDevice::View clusters_cands_sorted,
       uint16_t* perm) const {
-        for (auto ii : independent_groups(acc, offsets.metadata().size() - 1)) {
-          auto begin = offsets.offsets()[ii];
-          auto end = offsets.offsets()[ii + 1];
+        for (auto ii : independent_groups(acc, clusters_cands.offset().metadata().size() - 1)) {
+          auto begin = clusters_cands.offset()[ii].offset();
+          auto end = clusters_cands.offset()[ii + 1].offset();
           auto block_size = end - begin;
           if (block_size == 0)
             continue;
           
           for (auto jj : independent_group_elements(acc, block_size)) {
             auto new_local_idx = static_cast<uint32_t>(perm[begin + jj]);
-            indexes_perm.indexes()[begin + jj] = indexes.indexes()[begin + new_local_idx];
+            clusters_cands_sorted.index()[begin + jj].index() = clusters_cands.index()[begin + new_local_idx].index();
           }
         }
       }
@@ -104,12 +103,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     ALPAKA_FN_ACC void operator()(
       Acc1D const& acc,
       PFCandidateDeviceCollection::ConstView pf,
-      IndexSoA::ConstView indexes, 
-      OffsetsSoA::ConstView offsets,
+      AssociationMapDevice::ConstView clusters_cands,
       SoftTauInputDeviceTensor::View input_tensors) const {
-        for (auto block_idx: independent_groups(acc, offsets.metadata().size() - 1)) {
-          auto begin = offsets.offsets()[block_idx];
-          auto end = offsets.offsets()[block_idx + 1];
+        for (auto block_idx: independent_groups(acc, clusters_cands.offset().metadata().size() - 1)) {
+          auto begin = clusters_cands.offset()[block_idx].offset();
+          auto end = clusters_cands.offset()[block_idx + 1].offset();
           auto block_size = end - begin;
           if (block_size == 0)
             continue;
@@ -125,7 +123,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           // build jet axis
           if (once_per_block(acc)) {
             for (auto ii = 0; ii < block_size; ii++) {
-              auto p = indexes.indexes()[ii + begin];
+              auto p = clusters_cands.index()[ii + begin].index();
               auto px_v = px(acc, pf.pt()[p], pf.phi()[p]);
               auto py_v = py(acc, pf.pt()[p], pf.phi()[p]);
               auto pz_v = pz(acc, pf.pt()[p], pf.eta()[p]);
@@ -145,7 +143,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           auto input_tensor = input_tensors[block_idx];
           auto input_size = (block_size > JetFeatures::RowsAtCompileTime) ? JetFeatures::RowsAtCompileTime : block_size;
           for (auto tid : independent_group_elements(acc, input_size)) {
-            auto p = indexes.indexes()[begin + tid]; // global candidate index
+            auto p = clusters_cands.index()[begin + tid].index(); // global candidate index
             auto pdgid_abs = alpaka::math::abs(acc, static_cast<int>(pf.pdgid()[p]));
             // features
             input_tensor.features()(tid, 0) = pf.pt()[p];
@@ -169,8 +167,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   AssociationMapDevice sortClustersCandsMap(Queue& queue, 
                         const PFCandidateDeviceCollection& pf, 
                         const AssociationMapDevice& clusterCandsMap) {
-    const auto num_clusters = clusterCandsMap.const_view<OffsetsSoA>().metadata().size() - 1;
-    const auto num_clustered = clusterCandsMap.const_view<IndexSoA>().metadata().size();
+    const auto num_clusters = clusterCandsMap.const_view().offset().metadata().size() - 1;
+    const auto num_clustered = clusterCandsMap.const_view().index().metadata().size();
     
     // device buffers needed for the radixSort to work
     auto keys = cms::alpakatools::make_device_buffer<uint32_t[]>(queue, num_clustered);
@@ -191,7 +189,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       workDiv, 
       BuildKeysKernel{}, 
       pf.const_view(), // global pf collection
-      clusterCandsMap.const_view<IndexSoA>(), // indexes to retrieve pt of clustered candidates 
+      clusterCandsMap.const_view(), // indexes to retrieve pt of clustered candidates 
       alpaka::getPtrNative(keys) // get pointers to keys device buffer
     );
     
@@ -202,14 +200,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       radixSortMultiWrapper2<uint32_t, 4>{}, 
       alpaka::getPtrNative(keys), 
       alpaka::getPtrNative(perm),
-      clusterCandsMap.const_view<OffsetsSoA>().offsets().data(),
+      clusterCandsMap.const_view().offset().offset().data(),
       alpaka::getPtrNative(permWork)
     );
     
     // instantiate new sorted association map
-    AssociationMapDevice clusterCandsMapSorted({{clusterCandsMap.const_view<IndexSoA>().metadata().size(),
-                                                clusterCandsMap.const_view<OffsetsSoA>().metadata().size()}}, 
-                                                queue); 
+    AssociationMapDevice clusterCandsMapSorted(queue,
+                                                clusterCandsMap.const_view().index().metadata().size(),
+                                                clusterCandsMap.const_view().offset().metadata().size()); 
     alpaka::wait(queue);
       
     // apply permutation returned by radix sort
@@ -217,68 +215,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       queue, 
       workDiv, 
       ApplyPermKernel{}, 
-      clusterCandsMap.const_view<IndexSoA>(), 
-      clusterCandsMap.const_view<OffsetsSoA>(), 
-      clusterCandsMapSorted.view<IndexSoA>(),
+      clusterCandsMap.const_view(),
+      clusterCandsMapSorted.view(),
       alpaka::getPtrNative(perm)
     );
     alpaka::wait(queue);
 
     // copy also the offsets column to the new sorted map
     auto srcOffsets = alpaka::createView(alpaka::getDev(queue),
-                                        clusterCandsMap.const_view<OffsetsSoA>().offsets().data(), 
-                                        Vec1D{clusterCandsMap.const_view<OffsetsSoA>().metadata().size()});
+                                        clusterCandsMap.const_view().offset().offset().data(), 
+                                        Vec1D{clusterCandsMap.const_view().offset().metadata().size()});
     auto dstOffsets = alpaka::createView(alpaka::getDev(queue),
-                                        clusterCandsMapSorted.view<OffsetsSoA>().offsets().data(), 
-                                        Vec1D{clusterCandsMapSorted.view<OffsetsSoA>().metadata().size()});
+                                        clusterCandsMapSorted.view().offset().offset().data(), 
+                                        Vec1D{clusterCandsMapSorted.view().offset().metadata().size()});
     alpaka::memcpy(queue, dstOffsets, srcOffsets);
-    
-    #if defined(__DEBUG__)
-      alpaka::wait(queue);
-      AssociationMapHost debugMap({{clusterCandsMap.const_view<IndexSoA>().metadata().size(),
-                                    clusterCandsMap.const_view<OffsetsSoA>().metadata().size()}}, 
-                                    queue);
-      auto srcOffsetsDevice = alpaka::createView(alpaka::getDev(queue),
-                                                clusterCandsMapSorted.const_view<OffsetsSoA>().offsets().data(), 
-                                                Vec1D{clusterCandsMapSorted.const_view<OffsetsSoA>().metadata().size()});
-      auto srcIndexesDevice = alpaka::createView(alpaka::getDev(queue),
-                                                clusterCandsMapSorted.const_view<IndexSoA>().indexes().data(), 
-                                                Vec1D{clusterCandsMapSorted.const_view<IndexSoA>().metadata().size()});
-      auto dstOffsetsHost = alpaka::createView(alpaka::getDev(queue),
-                                                debugMap.view<OffsetsSoA>().offsets().data(), 
-                                                Vec1D{debugMap.view<OffsetsSoA>().metadata().size()});
-      auto dstIndexesHost = alpaka::createView(alpaka::getDev(queue),
-                                                debugMap.view<IndexSoA>().indexes().data(), 
-                                                Vec1D{debugMap.view<IndexSoA>().metadata().size()});
-      alpaka::memcpy(queue, dstOffsetsHost, srcOffsetsDevice);
-      alpaka::memcpy(queue, dstIndexesHost, srcIndexesDevice);
-      alpaka::wait(queue);
-
-      std::vector<float> pt_vec(pf.const_view().metadata().size());
-      auto srcPtDevice = alpaka::createView(alpaka::getDev(queue),
-                                            pf.const_view().pt().data(), 
-                                            Vec1D{pf.const_view().metadata().size()});
-      alpaka::memcpy(queue, pt_vec, srcPtDevice);
-      alpaka::wait(queue);
-      
-      auto num_clusters_new = debugMap.const_view<OffsetsSoA>().metadata().size() - 1;
-      auto num_clustered_new = debugMap.const_view<IndexSoA>().metadata().size();
-      
-      for (auto ii = 0; ii < debugMap.const_view<OffsetsSoA>().metadata().size() - 1; ++ii) {
-        std::cout << "------------------------------" << std::endl;
-        auto begin = debugMap.const_view<OffsetsSoA>().offsets()[ii];
-        auto end = debugMap.const_view<OffsetsSoA>().offsets()[ii + 1];
-        std::cout << "ii = " << ii << ", begin = " << begin << ", end = " << end << ", size = " << end - begin << std::endl;
-        
-        for (auto jj = begin; jj < end; ++jj) {
-          auto p = debugMap.const_view<IndexSoA>().indexes()[jj];
-          std::cout << "p = " << p << ", pt[p] = " << pt_vec[p] << std::endl;
-        }
-      }
-      
-      std::cout << "Original num clusters = " << num_clusters << ", New num clusters = " << num_clusters_new << std::endl;
-      std::cout << "Original num clustered = " << num_clustered << ", New num clusters = " << num_clustered_new << std::endl;
-    #endif
 
     return clusterCandsMapSorted;
   }
@@ -287,8 +237,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                       const PFCandidateDeviceCollection& pf,
                                       const AssociationMapDevice& clusterCandsMap) {
     // initialize input tensor
-    const auto num_clusters = clusterCandsMap.const_view<OffsetsSoA>().metadata().size() - 1;
-    auto input_tensors = SoftTauInputDeviceTensor(num_clusters, queue);
+    const auto num_clusters = clusterCandsMap.const_view().offset().metadata().size() - 1;
+    auto input_tensors = SoftTauInputDeviceTensor(queue, num_clusters);
     input_tensors.zeroInitialise(queue);
 
     // work division
@@ -299,8 +249,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       workDiv, 
       ComputeClueTauFeaturesKernel{}, 
       pf.const_view(),
-      clusterCandsMap.const_view<IndexSoA>(),
-      clusterCandsMap.const_view<OffsetsSoA>(),
+      clusterCandsMap.const_view(),
       input_tensors.view());
       
     return input_tensors;

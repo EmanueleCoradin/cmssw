@@ -17,7 +17,7 @@
 #include "FWCore/MessageLogger/interface/MessageDrop.h"
 
 #include "DataFormats/NanoAOD/interface/OrbitFlatTable.h"
-#include "DataFormats/L1ScoutingSoA/interface/BxLookupHostCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/BxLookupHost.h"
 #include "DataFormats/L1ScoutingSoA/interface/ClustersHostCollection.h"
 
 
@@ -33,7 +33,7 @@ public:
 
 private:
   // the tokens to access the data
-  edm::EDGetTokenT<l1sc::BxLookupHostCollection> srcBx_;
+  edm::EDGetTokenT<l1sc::BxLookupHost> srcBx_;
   edm::EDGetTokenT<l1sc::ClustersHostCollection> srcClusters_;
 
   std::string name_, doc_;
@@ -43,7 +43,7 @@ private:
 // -------------------------------- constructor  -------------------------------
 
 ClusterSoAToOrbitFlatTable::ClusterSoAToOrbitFlatTable(const edm::ParameterSet& iConfig)
-    : srcBx_(consumes<l1sc::BxLookupHostCollection>(iConfig.getParameter<edm::InputTag>("srcBx"))),
+    : srcBx_(consumes<l1sc::BxLookupHost>(iConfig.getParameter<edm::InputTag>("srcBx"))),
       srcClusters_(consumes<l1sc::ClustersHostCollection>(iConfig.getParameter<edm::InputTag>("srcClusters"))),
       name_(iConfig.getParameter<std::string>("name")),
       doc_(iConfig.getParameter<std::string>("doc")) {
@@ -53,27 +53,24 @@ ClusterSoAToOrbitFlatTable::ClusterSoAToOrbitFlatTable(const edm::ParameterSet& 
 
 // ----------------------- method called for each orbit  -----------------------
 void ClusterSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm::EventSetup const&) const {
-  edm::Handle<l1sc::BxLookupHostCollection> srcBx;
+  edm::Handle<l1sc::BxLookupHost> srcBx;
   iEvent.getByToken(srcBx_, srcBx);
   edm::Handle<l1sc::ClustersHostCollection> srcClusters;
   iEvent.getByToken(srcClusters_, srcClusters);
 
-  const auto *bxs = srcBx->const_view<l1sc::OffsetsSoA>().offsets().data();
-  const unsigned int nbx = srcBx->const_view<l1sc::OffsetsSoA>().metadata().size();
+  const auto *bxs = srcBx->const_view().offset().offset().data();
+  const unsigned int nbx = srcBx->const_view().offset().metadata().size(); // attention here
   std::vector<unsigned int> bxOffsets;
   bxOffsets.push_back(0);
   bxOffsets.insert(bxOffsets.end(), bxs, bxs + nbx);
 
   const auto *cluster = srcClusters->const_view().cluster().data();
-  const auto *seed = srcClusters->const_view().is_seed().data();
   const unsigned int nclusters = srcClusters->const_view().metadata().size();
   std::vector<int32_t> clusters{cluster, cluster + nclusters};
-  std::vector<int32_t> is_seed{seed, seed + nclusters};
   
   auto out = std::make_unique<l1ScoutingRun3::OrbitFlatTable>(bxOffsets, name_);
   out->setDoc(doc_);
   out->addColumn<int32_t>("cluster", clusters, "cluster index");
-  out->addColumn<int32_t>("is_seed", is_seed, "whether the cell is a seed");
   iEvent.put(std::move(out));
 }
 

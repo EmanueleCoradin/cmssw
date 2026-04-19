@@ -18,7 +18,7 @@
 #include "DataFormats/L1ScoutingSoA/interface/SoftTauTensorSoA.h"
 
 #include "DataFormats/L1ScoutingSoA/interface/AssociationMapHost.h"
-#include "DataFormats/L1ScoutingSoA/interface/BxLookupHostCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/BxLookupHost.h"
 #include "DataFormats/L1ScoutingSoA/interface/ClustersHostCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/PuppiHostCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/TkEmHostCollection.h"

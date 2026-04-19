@@ -1,6 +1,6 @@
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/SoftTauDeviceTensor.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/AssociationMapDevice.h"
-#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDeviceCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PFCandidateDeviceCollection.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -13,8 +13,7 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/EDProducer.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "L1TriggerScouting/TauTagging/plugins/alpaka/TransformKernel.h"
-#include "PhysicsTools/PyTorchAlpaka/interface/QueueGuard.h"
-#include "PhysicsTools/PyTorchAlpaka/interface/TensorRegistry.h"
+#include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
@@ -46,8 +45,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       const auto &cluster_cands_map = event.get(cluster_cands_map_token_); // clusters->candidates map
 
       // initialize output tensor
-      const auto job_size = cluster_cands_map.const_view<OffsetsSoA>().metadata().size() - 1; // number of elements to run the inference on, which is the number of clusters
-      auto output_tensor = SoftTauOutputDeviceTensor(job_size, event.queue());
+      const auto job_size = cluster_cands_map.const_view().offset().metadata().size() - 1; // number of elements to run the inference on, which is the number of clusters
+      auto output_tensor = SoftTauOutputDeviceTensor(event.queue(), job_size);
       output_tensor.zeroInitialise(event.queue());
 
       // sort the clusters->candidates association map by pt
@@ -67,29 +66,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
         if (step_ == 2u) {
           // set batch size
-          const auto batch_size = std::min<uint32_t>(job_size, max_batch_size_);
+          // const auto batch_size = std::min<uint32_t>(job_size, max_batch_size_);
+          const auto batch_size = job_size;
     
-          // records
-          auto input_records = input_tensor.view().records();
-          auto output_records = output_tensor.view().records();
-          // input tensor definition
-          cms::torch::alpakatools::TensorRegistry<Device> inputs(batch_size);
-          inputs.register_tensor<SoftTauInputTensorSoA>("jet_features", input_records.features());
-          inputs.register_tensor<SoftTauInputTensorSoA>("padding_mask", input_records.pad_mask());
-          // output tensor definition
-          cms::torch::alpakatools::TensorRegistry<Device> outputs(batch_size);
-          outputs.register_tensor<SoftTauOutputTensorSoA>("cls", output_records.cls());
-          outputs.register_tensor<SoftTauOutputTensorSoA>("reg_vz", output_records.vz());
-          outputs.register_tensor<SoftTauOutputTensorSoA>("reg_pt", output_records.pt());
-          outputs.register_tensor<SoftTauOutputTensorSoA>("charge", output_records.charge());
-    
-          // inference, queue guard restores stream when goes out of scope
-          {
-            cms::torch::alpakatools::QueueGuard<Queue> guard(event.queue());
-            model_.to(event.queue());
-            model_.forward(event.queue(), inputs, outputs);
-          }
+          // prepare input TensorCollection
+          cms::torch::alpakatools::TensorCollection<Queue> inputs(batch_size);
+          cms::torch::alpakatools::TensorCollection<Queue> outputs(batch_size);
 
+          // records
+          auto input_tensor_records = input_tensor.view().records();
+          inputs.add<SoftTauInputTensorSoA>("input_features", 
+            input_tensor_records.features(), 
+            input_tensor_records.pad_mask()
+          );
+
+          auto output_tensor_records = output_tensor.view().records();
+          outputs.add<SoftTauOutputTensorSoA>("output_logits", 
+            output_tensor_records.cls(), 
+            output_tensor_records.vz(), 
+            output_tensor_records.pt(), 
+            output_tensor_records.charge()
+          );
+
+          model_.forward(event.queue(), inputs, outputs);
           alpaka::wait(event.queue());
         }
       }

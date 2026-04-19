@@ -1,5 +1,5 @@
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/AssociationMapDevice.h"
-#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDeviceCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PFCandidateDeviceCollection.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -22,9 +22,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         : EDProducer<>(params),
           pf_candidates_token_{consumes(params.getParameter<edm::InputTag>("candidates"))},
           bx_sizes_token_{consumes(params.getParameter<edm::InputTag>("bxSizes"))},
-          cluestering_token_{produces()},
           bx_clusters_map_token_{produces("bxClustersMap")},
-          cluster_cands_map_token_{produces("clustersCandsMap")},
+          clusters_cands_map_token_{produces("clustersCandsMap")},
+          cluster_indexes_token_{produces("clusterIndexes")},
+          clusters_token_{produces("clusters")},
           clustering_(static_cast<float>(params.getParameter<double>("dc")),
                       static_cast<float>(params.getParameter<double>("rhoc")),
                       static_cast<float>(params.getParameter<double>("dm")),
@@ -33,19 +34,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
       // get collection from device memory space (implicit copy done by framework)
       const auto &pf = event.get(pf_candidates_token_);
+      const auto &bx_sizes = event.get(bx_sizes_token_);
       const auto n_points = pf.const_view().metadata().size();
 
       // allocate buffer for the index of the cluster for each pf candidate
-      auto clusters = ClustersDeviceCollection(n_points, event.queue());
+      auto points_clusters = ClustersDeviceCollection(event.queue(), n_points);
 
       // run CLUEstering algo
-      const auto &bx_sizes = event.get(bx_sizes_token_);
-      auto [bx_clusters_map, cluster_cands_map] = clustering_.run(event.queue(), pf, bx_sizes, clusters);
-      event.emplace(bx_clusters_map_token_, std::move(bx_clusters_map));
-      event.emplace(cluster_cands_map_token_, std::move(cluster_cands_map));
+      auto [bx_clusters_map, cluster_indexes, clusters_cands_map] = clustering_.run(event.queue(), pf, bx_sizes, points_clusters);
 
-      // move clustering results to event storage
-      event.emplace(cluestering_token_, std::move(clusters));
+      // emplace clustering products into the orbit
+      event.emplace(bx_clusters_map_token_, std::move(bx_clusters_map)); // bx -> clusters map
+      event.emplace(clusters_cands_map_token_, std::move(clusters_cands_map)); // clusters -> candidates map
+      event.emplace(cluster_indexes_token_, std::move(cluster_indexes)); // list of (unique) cluster indexes
+      event.emplace(clusters_token_, std::move(points_clusters)); // list of the cluster index each candidate belongs to (-1 if it is outlier)
     }
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
@@ -62,11 +64,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
   private:
     // get device pf data
     const device::EDGetToken<PFCandidateDeviceCollection> pf_candidates_token_;
-    const device::EDGetToken<BxLookupDeviceCollection> bx_sizes_token_;
+    const device::EDGetToken<BxLookupDevice> bx_sizes_token_;
     // put device clustering data
-    const device::EDPutToken<ClustersDeviceCollection> cluestering_token_;
-    const device::EDPutToken<AssociationMapDevice> bx_clusters_map_token_;
-    const device::EDPutToken<AssociationMapDevice> cluster_cands_map_token_;
+    const device::EDPutToken<BxLookupDevice> bx_clusters_map_token_;
+    const device::EDPutToken<AssociationMapDevice> clusters_cands_map_token_;
+    const device::EDPutToken<ClustersDeviceCollection> cluster_indexes_token_;
+    const device::EDPutToken<ClustersDeviceCollection> clusters_token_;
     // algorithm
     const kernels::CLUEsteringAlgo clustering_;
   };

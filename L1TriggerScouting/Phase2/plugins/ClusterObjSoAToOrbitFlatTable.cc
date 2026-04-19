@@ -17,7 +17,7 @@
 #include "FWCore/MessageLogger/interface/MessageDrop.h"
 
 #include "DataFormats/NanoAOD/interface/OrbitFlatTable.h"
-#include "DataFormats/L1ScoutingSoA/interface/BxLookupHostCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/BxLookupHost.h"
 #include "DataFormats/L1ScoutingSoA/interface/ClustersHostCollection.h"
 
 
@@ -33,7 +33,7 @@ public:
 
 private:
   // the tokens to access the data
-  edm::EDGetTokenT<l1sc::BxLookupHostCollection> srcBx_;
+  edm::EDGetTokenT<l1sc::BxLookupHost> srcBx_;
   edm::EDGetTokenT<l1sc::ClusterObjHostCollection> srcClusters_;
 
   std::string name_, doc_;
@@ -43,7 +43,7 @@ private:
 // -------------------------------- constructor  -------------------------------
 
 ClusterObjSoAToOrbitFlatTable::ClusterObjSoAToOrbitFlatTable(const edm::ParameterSet& iConfig)
-    : srcBx_(consumes<l1sc::BxLookupHostCollection>(iConfig.getParameter<edm::InputTag>("srcBx"))),
+    : srcBx_(consumes<l1sc::BxLookupHost>(iConfig.getParameter<edm::InputTag>("srcBx"))),
       srcClusters_(consumes<l1sc::ClusterObjHostCollection>(iConfig.getParameter<edm::InputTag>("srcClusters"))),
       name_(iConfig.getParameter<std::string>("name")),
       doc_(iConfig.getParameter<std::string>("doc")) {
@@ -53,13 +53,13 @@ ClusterObjSoAToOrbitFlatTable::ClusterObjSoAToOrbitFlatTable(const edm::Paramete
 
 // ----------------------- method called for each orbit  -----------------------
 void ClusterObjSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm::EventSetup const&) const {
-  edm::Handle<l1sc::BxLookupHostCollection> srcBx;
+  edm::Handle<l1sc::BxLookupHost> srcBx;
   iEvent.getByToken(srcBx_, srcBx);
   edm::Handle<l1sc::ClusterObjHostCollection> srcClusters;
   iEvent.getByToken(srcClusters_, srcClusters);
 
-  const auto *bxs = srcBx->const_view<l1sc::OffsetsSoA>().offsets().data();
-  const unsigned int nbx = srcBx->const_view<l1sc::OffsetsSoA>().metadata().size();
+  const auto *bxs = srcBx->const_view().offset().offset().data();
+  const unsigned int nbx = srcBx->const_view().offset().metadata().size(); // pay attention here
 
   const auto *pt = srcClusters->const_view().pt().data();
   const auto *eta = srcClusters->const_view().eta().data();

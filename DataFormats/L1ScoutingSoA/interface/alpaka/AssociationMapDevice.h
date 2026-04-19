@@ -1,12 +1,12 @@
 #ifndef DataFormats_L1ScoutingSoA_interface_alpaka_AssociationMapDevice_h
 #define DataFormats_L1ScoutingSoA_interface_alpaka_AssociationMapDevice_h
 
-#include "DataFormats/Portable/interface/alpaka/PortableCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/AssociationMapHost.h"
-#include "DataFormats/L1ScoutingSoA/interface/IndexSoA.h"
-#include "DataFormats/L1ScoutingSoA/interface/OffsetsSoA.h"
+#include "DataFormats/L1ScoutingSoA/interface/AssociationMapSoA.h"
+#include "DataFormats/Portable/interface/alpaka/PortableCollection.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/AssertDeviceMatchesHostCollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
-#include "HeterogeneousCore/AlpakaInterface/interface/CopyToHost.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/concepts.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
@@ -14,7 +14,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
   // inside the `ALPAKA_ACCELERATOR_NAMESPACE::l1sc` namespace
   using namespace ::l1sc;
 
-  using AssociationMapDevice = PortableCollection2<IndexSoA, OffsetsSoA>;
+  using AssociationMapDevice = PortableCollection<AssociationMapSoA>;
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc
 

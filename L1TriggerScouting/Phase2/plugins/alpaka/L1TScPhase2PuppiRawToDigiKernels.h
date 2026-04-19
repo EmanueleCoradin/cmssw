@@ -3,7 +3,7 @@
 
 #include <alpaka/alpaka.hpp>
 
-#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDeviceCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PuppiDeviceCollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "L1TriggerScouting/Phase2/interface/L1TScPhase2Common.h"
@@ -27,10 +27,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   };
 
   void decode_candidates(Queue& queue, data_t* p_data, PuppiDeviceCollection& puppi);
-  void decode_headers_to_map(Queue& queue, data_t* h_data, BxLookupDeviceCollection& bx_lookup);
-  void decode_headers_to_sizes(Queue& queue, data_t* h_data, BxLookupDeviceCollection& bx_sizes);
-  void fillBxLookupPadded(Queue& queue, BxLookupDeviceCollection& bx_lookup_padded, unsigned int nele);
-  void fillCandsPadded(Queue& queue, BxLookupDeviceCollection& bx_lookup, 
+  void decode_headers(Queue& queue, data_t* h_data, BxLookupDevice& bx_lookup, BxLookupDevice& bx_sizes);
+  void fillBxLookupPadded(Queue& queue, BxLookupDevice& bx_lookup_padded, unsigned int nele);
+  void fillCandsPadded(Queue& queue, BxLookupDevice& bx_lookup, 
                       PuppiDeviceCollection& puppi_padded, 
                       PuppiDeviceCollection& puppi, 
                       unsigned int nele);

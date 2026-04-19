@@ -20,7 +20,7 @@
 #include "DataFormats/L1ScoutingSoA/interface/SoftTauTensorSoA.h"
 
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/AssociationMapDevice.h"
-#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDeviceCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PuppiDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/TkEmDeviceCollection.h"

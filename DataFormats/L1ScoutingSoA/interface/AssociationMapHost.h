@@ -2,15 +2,12 @@
 #define DataFormats_L1ScoutingSoA_interface_AssociationMapHost_h
 
 #include <alpaka/alpaka.hpp>
-
-#include "DataFormats/Portable/interface/PortableCollection.h"
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
-#include "DataFormats/L1ScoutingSoA/interface/IndexSoA.h"
-#include "DataFormats/L1ScoutingSoA/interface/OffsetsSoA.h"
+#include "DataFormats/L1ScoutingSoA/interface/AssociationMapSoA.h"
 
 namespace l1sc {
 
-  using AssociationMapHost = PortableMultiCollection<alpaka::DevCpu, IndexSoA, OffsetsSoA>;
+  using AssociationMapHost = PortableHostCollection<AssociationMapSoA>;
 
 }  // namespace l1sc
 

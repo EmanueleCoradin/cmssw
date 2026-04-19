@@ -1,8 +1,7 @@
 import os
 import FWCore.ParameterSet.Config as cms
 from IOPool.Input.modules import PoolSource
-from L1TriggerScouting.TauTagging.options_cff import parse_args
-from L1TriggerScouting.TauTagging.modules import l1sc_TauTaggingSink
+from L1TriggerScouting.TauTagging.options_cff import *
 
 args = parse_args()
 process = cms.Process("L1TScPhase2TauTagging")
@@ -36,7 +35,6 @@ process.MessageLogger.cerr.FwkReport.reportEvery = 10
 # define path
 process.path = cms.Path()
 
-# data source both for scouting and non-scouting scenarios
 if args.runScouting:
     if len(args.buNumStreams) != len(args.buBaseDir):
         raise RuntimeError("Mismatch between buNumStreams (%d) and buBaseDirs (%d)" % (len(args.buNumStreams), len(args.buBaseDir)))
@@ -76,60 +74,10 @@ if args.runScouting:
         )
     )
     os.system("touch " + buDirs[0] + "/" + "fu.lock")
-
 else:
-    # pool source
-    process.source = cms.Source("PoolSource",
-        fileNames = cms.untracked.vstring(f'file:/eos/cms/store/cmst3/group/l1tr/vcamagni/L1TauID/DATA/FPinputs/m90/4STEPS/142Xv0/inputs140X_7099351_{i}.root' for i in range(4000)),
-    )
+    raise RuntimeError("Currently only runScoutng is supported")
 
-    # extra configs
-    process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
-    process.load('Configuration.Geometry.GeometryExtendedRun4D110Reco_cff')
-    process.load('Configuration.Geometry.GeometryExtendedRun4D110_cff')
-    process.load('Configuration.StandardSequences.MagneticField_cff')
-    process.load('Configuration.StandardSequences.SimL1Emulator_cff')
-    process.load('SimCalorimetry.HcalTrigPrimProducers.hcaltpdigi_cff') # needed to read HCal TPs
-    process.load('SimCalorimetry.HGCalSimProducers.hgcalDigitizer_cfi') # needed for HGCAL_noise_fC
-    process.load('SimGeneral.MixingModule.mixNoPU_cfi')
-    process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
-
-    from Configuration.AlCa.GlobalTag import GlobalTag
-    process.GlobalTag = GlobalTag(process.GlobalTag, '141X_mcRun4_realistic_v3', '')
-
-    process.l1tTrackSelectionProducer.processSimulatedTracks = False # these would need stubs, and are not used anyway
-
-    # run correlator trigger
-    process.deps = cms.Task(
-        process.l1tTkMuonsGmt,
-        process.l1tSAMuonsGmt,
-        process.l1tGTTInputProducer,
-        process.l1tTrackSelectionProducer,
-        process.l1tVertexFinderEmulator,
-        process.l1tPhase2L1CaloEGammaEmulator,
-        process.l1tPhase2CaloPFClusterEmulator,
-        process.l1tPhase2GCTBarrelToCorrelatorLayer1Emulator,    
-        process.L1TLayer1TaskInputsTask,
-        process.L1TLayer1Task,
-        process.l1tLayer2EG,
-        process.L1TPFJetsEmulationTask,
-        process.L1TPFJetsExtendedTask,
-        process.L1TBJetsTask
-    )    
-
-    process.l1tLayer1HGCalAll = cms.EDProducer("L1TPFCandMultiMerger",
-        pfProducers = cms.VInputTag(
-            cms.InputTag("l1tLayer1HGCal"),
-            cms.InputTag("l1tLayer1HGCalNoTK"),
-        )
-    )
-    process.deps.add(process.l1tLayer1HGCalAll)
-
-    # associate dependencies with main path
-    process.path.associate(process.deps)
-
-# PFCandidates
-if args.runScouting:
+if args.runScouting and args.step >= Step.UNPACKING:
     from L1TriggerScouting.Phase2.modules import l1sc_L1TScPhase2PuppiRawToDigi_alpaka
     process.PFCandidatesProducer = l1sc_L1TScPhase2PuppiRawToDigi_alpaka(
         alpaka = cms.untracked.PSet(
@@ -142,27 +90,17 @@ if args.runScouting:
     )
     process.path += process.PFCandidatesProducer
 
-    if "candidates" in args.dump:
-        from L1TriggerScouting.Phase2.modules import PFSoAToOrbitFlatTable
-        process.PFToOrbit = PFSoAToOrbitFlatTable(
+    if args.dump >= Dump.CLUSTERS:
+        from L1TriggerScouting.Phase2.modules import PFCandidateSoAToOrbitFlatTable
+        process.DumpCandidates = PFCandidateSoAToOrbitFlatTable(
             srcBx = cms.InputTag("PFCandidatesProducer", "bxLookup"), 
             srcPF = cms.InputTag("PFCandidatesProducer", "candidates"),
             name = "L1PF"
         )
-        process.path += process.PFToOrbit
-
-else:
-    from L1TriggerScouting.TauTagging.modules import l1sc_PFCandidateAoSToSoA_alpaka
-    process.PFCandidatesProducer = l1sc_PFCandidateAoSToSoA_alpaka(
-        alpaka = cms.untracked.PSet(
-            backend = cms.untracked.string(args.backend)
-        ),
-        src = cms.InputTag("l1tLayer1Extended", "PF")
-    )
-    process.path += process.PFCandidatesProducer
+        process.path += process.DumpCandidates
 
 # CLUEstering
-if args.runScouting:
+if args.runScouting and args.step >= step.CLUSTERING:
     if "clustering" in args.only or "ml_sort" in args.only or "ml_reshape" in args.only or "ml_inf" in args.only:
         from L1TriggerScouting.TauTagging.modules import l1sc_CLUETaus_alpaka
         process.CLUETaus = l1sc_CLUETaus_alpaka(
@@ -180,50 +118,21 @@ if args.runScouting:
 
         if "clusters" in args.dump:
             from L1TriggerScouting.Phase2.modules import ClusterToOrbitFlatTable
-            process.CLUEToOrbitTable = ClusterToOrbitFlatTable(
-                srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"),
-                srcBxCandidatesMap = cms.InputTag("PFCandidatesProducer", "bxLookup"),
-                srcBxClustersMap = cms.InputTag("CLUETaus", "bxClustersMap"),
-                srcClustersCandsMap = cms.InputTag("CLUETaus", "clustersCandsMap"), 
-                nameCandidates = "L1PF", 
-                nameClusters = "CLUEClusters",
-                doc = ""
+            process.DumpClusters = ClusterToOrbitFlatTable(
+                srcBx = cms.InputTag("PFCandidatesProducer", "bxLookup"), 
+                srcClusters = cms.InputTag("CLUETaus", "clusters"), 
+                name = "cluster"
             )
-            process.path += process.CLUEToOrbitTable
-else:
-    if "clustering" in args.only:
-        from L1TriggerScouting.TauTagging.modules import l1sc_CLUEJetsProducer_alpaka
-        process.CLUETaus = l1sc_CLUEJetsProducer_alpaka(
-            alpaka = cms.untracked.PSet(
-                backend = cms.untracked.string(args.backend)
-            ),
-            candidates = cms.InputTag("PFCandidatesProducer", "candidates"),
-            dc = cms.double(args.dc),
-            rhoc = cms.double(args.rhoc),
-            dm = cms.double(args.dm),
-            wrapCoords = cms.bool(args.wrapCoords)
-        )
-        process.path += process.CLUETaus
-
-        if "clusters" in args.dump:
-            from L1TriggerScouting.Phase2.modules import ClusterToFlatTable
-            process.CLUEToTable = ClusterToFlatTable(
-                srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"),
-                srcClustersCandsMap = cms.InputTag("CLUETaus", "clustersCandsMap"), 
-                nameCandidates = "L1PF", 
-                nameClusters = "CLUEClusters",
-                doc = ""
-            )
-            process.path += process.CLUEToTable
+            process.path += process.DumpClusters
 
 # Tagging
-if "ml_sort" in args.only or "ml_reshape" in args.only or "ml_inf" in args.only: # done in a bad way, have to check
-    if "ml_sort" in args.only:
-            step = 0
-    elif "ml_reshape" in args.only:
-            step = 1
-    elif "ml_inf" in args.only:
-            step = 2
+if args.runScouting and args.step >= step.SORTING: 
+    substep = 0
+
+    if args.step >= step.RESHAPING:
+            substep = 1
+    if args.step >= step.TAGGING:
+            substep = 2
 
     from L1TriggerScouting.TauTagging.modules import l1sc_SoftTauIdML_alpaka
     process.SoftTauId = l1sc_SoftTauIdML_alpaka(
@@ -233,30 +142,15 @@ if "ml_sort" in args.only or "ml_reshape" in args.only or "ml_inf" in args.only:
         srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"),
         srcClustersCandsMap = cms.InputTag("CLUETaus", "clustersCandsMap"),
         model = cms.FileInPath(args.model),
-        step = cms.uint32(step),
+        step = cms.uint32(substep),
         maxBatchSize = cms.uint32(5000)
     )
     process.path += process.SoftTauId
 
-    if "tagging" in args.dump and "ml_inf" in args.only:
-        from L1TriggerScouting.Phase2.modules import TaggerOutToOrbitFlatTable
-        process.TaggerOutToOrbit = TaggerOutToOrbitFlatTable(
-            srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"), 
-            srcBxCandidatesMap = cms.InputTag("PFCandidatesProducer", "bxLookup"),
-            srcBxClustersMap = cms.InputTag("CLUETaus", "bxClustersMap"),
-            srcClustersCandsMap = cms.InputTag("SoftTauId", "clusterCandsMapSorted"), # attention here to select the sorted  clusters->candidates to check the correctness!
-            srcOut = cms.InputTag("SoftTauId", "outputTensor"), 
-            nameCandidates = "L1PF", 
-            nameClusters = "CLUEClusters", 
-            nameTaggerOut = "TaggerOut", 
-            doc = ""
-        )
-        process.path += process.TaggerOutToOrbit
-
-if args.dump != ["none"]:
+if args.dump >= Dump.NONE:
     if args.runScouting:
         process.out = cms.OutputModule("OrbitNanoAODOutputModule",
-            fileName = cms.untracked.string(f"ScoutCLUETaus_total_new_serial.root"),
+            fileName = cms.untracked.string(f"ScoutCLUETaus.root"),
             SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),  # keep all events
             outputCommands = cms.untracked.vstring(
                 "drop *",

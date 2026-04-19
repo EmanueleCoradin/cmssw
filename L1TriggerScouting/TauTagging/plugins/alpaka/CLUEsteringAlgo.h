@@ -5,16 +5,16 @@
 #include <fmt/core.h> 
 
 #include "CLUEstering/CLUEstering.hpp"
-#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDeviceCollection.h"
+#include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/AssociationMapDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PFCandidateDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/PFCandidateHostCollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
-#include <fstream>
+#include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
-// #define __DEBUG_CLUE__
-// #define __DEBUG_DUMP__
+#include <fstream>
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
@@ -25,12 +25,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   class CLUEsteringAlgo {
   public:
     explicit CLUEsteringAlgo(float dc, float rhoc, float dm, bool wrap_coords);
-    typedef std::tuple<AssociationMapDevice, AssociationMapDevice> return_type;
+    typedef std::tuple<BxLookupDevice, ClustersDeviceCollection, AssociationMapDevice> return_type;
 
     return_type run(Queue& queue,
                     const PFCandidateDeviceCollection& pf,
-                    const BxLookupDeviceCollection& bx_sizes,
-                    ClustersDeviceCollection& clusters) const;
+                    const BxLookupDevice& bx_sizes,
+                    ClustersDeviceCollection& points_clusters) const;
+
 
   private:
     float dc_, rhoc_, dm_;
