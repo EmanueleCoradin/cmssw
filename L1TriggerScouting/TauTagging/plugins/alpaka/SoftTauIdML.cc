@@ -75,8 +75,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
           // records
           auto input_tensor_records = input_tensor.view().records();
-          inputs.add<SoftTauInputTensorSoA>("input_features", 
-            input_tensor_records.features(), 
+          inputs.add<SoftTauInputTensorSoA>("features", 
+            input_tensor_records.features()
+          );
+          inputs.add<SoftTauInputTensorSoA>("pad_mask", 
             input_tensor_records.pad_mask()
           );
 

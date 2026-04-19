@@ -1,77 +1,69 @@
 <lcgdict>
-  <!-- BxLookupHost -->
-  <!-- BxLookupSoA -->
-  <class name="l1sc::BxLookupSoA"/>
-  <class name="l1sc::BxLookupSoA::View"/>
-  <class name="l1sc::BxLookupSoA::ConstView"/>
+  <!-- BxLookupHost Collection -->
+  <class name="l1sc::BxLookupHost" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::BxLookupHost::Layout"/>
+  <class name="l1sc::BxLookupBxIndexLayout<128, false>"/>
+  <class name="l1sc::BxLookupOffsetLayout<128, false>"/>
   <!-- ROOT R/W recipies -->
-  <class name="portablecollection::CollectionImpl<0,l1sc::BxIndexLayout<128,false>,l1sc::OffsetLayout<128,false>>"/>
-  <class name="portablecollection::CollectionImpl<1,l1sc::OffsetLayout<128,false>>"/>
-  <class name="portablecollection::CollectionLeaf<0,l1sc::BxIndexLayout<128,false>>"/>
-  <class name="portablecollection::CollectionLeaf<1,l1sc::OffsetLayout<128,false>>"/>
-  <!-- PortableCollection -->
-  <class name="l1sc::BxLookupHost"/>
   <class name="edm::Wrapper<l1sc::BxLookupHost>" splitLevel="0"/>
-  <!-- ___________ END ___________ -->
 
-  <!-- AssociationMapHost -->
-  <!-- IndexSoA -->
-  <class name="l1sc::IndexSoA"/>
-  <class name="l1sc::IndexSoA::View"/>
-  <class name="l1sc::IndexSoA::ConstView"/>
+  <!-- AssociationMapHost Collection-->
+  <class name="l1sc::AssociationMapHost" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::AssociationMapHost::Layout"/>
+  <class name="l1sc::AssociationMapIndexLayout<128, false>"/>
+  <class name="l1sc::AssociationMapOffsetLayout<128, false>"/>
   <!-- ROOT R/W recipies -->
-  <class name="portablecollection::CollectionImpl<0,l1sc::IndexLayout<128,false>,l1sc::OffsetLayout<128,false>>"/>
-  <class name="portablecollection::CollectionLeaf<0,l1sc::IndexLayout<128,false>>"/>
-  <!-- PortableCollection -->
-  <class name="l1sc::AssociationMapHost"/>
   <class name="edm::Wrapper<l1sc::AssociationMapHost>" splitLevel="0"/>
-  <!-- ___________ END ___________ -->
 
   <!-- ClustersHostCollection -->
-  <class name="l1sc::ClustersSoA"/>
-  <class name="l1sc::ClustersSoA::View"/>
-  <class name="l1sc::ClustersSoA::ConstView"/>
-  <class name="l1sc::ClustersHostCollection"/>
+  <class name="l1sc::ClustersHostCollection" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::ClustersHostCollection::Layout"/>
+  <!-- ROOT R/W recipies -->
   <class name="edm::Wrapper<l1sc::ClustersHostCollection>" splitLevel="0"/>
-  <class name="l1sc::ClusterObjSoA"/>
-  <class name="l1sc::ClusterObjSoA::View"/>
-  <class name="l1sc::ClusterObjSoA::ConstView"/>
-  <class name="l1sc::ClusterObjHostCollection"/>
+
+  <!-- ClusterObjHostCollection -->
+  <class name="l1sc::ClusterObjHostCollection" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::ClusterObjHostCollection::Layout"/>
+  <!-- ROOT R/W recipies -->
   <class name="edm::Wrapper<l1sc::ClusterObjHostCollection>" splitLevel="0"/>
 
   <!-- PuppiHostCollection -->
-  <class name="l1sc::PuppiSoA"/>
-  <class name="l1sc::PuppiSoA::View"/>
-  <class name="l1sc::PuppiSoA::ConstView"/>
-  <class name="l1sc::PuppiHostCollection"/>
+  <class name="l1sc::PuppiHostCollection" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::PuppiHostCollection::Layout"/>
+  <!-- ROOT R/W recipies -->
   <class name="edm::Wrapper<l1sc::PuppiHostCollection>" splitLevel="0"/>
 
   <!-- TkEmHostCollection -->
-  <class name="l1sc::TkEmSoA"/>
-  <class name="l1sc::TkEmSoA::View"/>
-  <class name="l1sc::TkEmSoA::ConstView"/>
-  <class name="l1sc::TkEmHostCollection"/>
+  <class name="l1sc::TkEmHostCollection" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::TkEmHostCollection::Layout"/>
+  <!-- ROOT R/W recipies -->
   <class name="edm::Wrapper<l1sc::TkEmHostCollection>" splitLevel="0"/>
 
   <!-- TkEleHostCollection -->
-  <class name="l1sc::TkEleSoA"/>
-  <class name="l1sc::TkEleSoA::View"/>
-  <class name="l1sc::TkEleSoA::ConstView"/>
-  <class name="l1sc::TkEleHostCollection"/>
+  <class name="l1sc::TkEleHostCollection" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::TkEleHostCollection::Layout"/>
+  <!-- ROOT R/W recipies -->
   <class name="edm::Wrapper<l1sc::TkEleHostCollection>" splitLevel="0"/>
 
   <!-- SelectedBxHostCollection -->
-  <class name="l1sc::SelectedBxSoA"/>
-  <class name="l1sc::SelectedBxSoA::View"/>
-  <class name="l1sc::SelectedBxSoA::ConstView"/>
-  <class name="l1sc::SelectedBxHostCollection"/>
+  <class name="l1sc::SelectedBxHostCollection" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::SelectedBxHostCollection::Layout"/>
+  <!-- ROOT R/W recipies -->
   <class name="edm::Wrapper<l1sc::SelectedBxHostCollection>" splitLevel="0"/>
 
   <!-- W3PiHostTable -->
-  <class name="l1sc::W3PiTable"/>
-  <class name="l1sc::W3PiTable::View"/>
-  <class name="l1sc::W3PiTable::ConstView"/>
-  <class name="l1sc::W3PiHostTable"/>
+  <class name="l1sc::W3PiHostTable" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::W3PiHostTable::Layout"/>
+  <!-- ROOT R/W recipies -->
   <class name="edm::Wrapper<l1sc::W3PiHostTable>" splitLevel="0"/>
 
   <!-- CounterHost -->
@@ -79,16 +71,16 @@
   <class name="edm::Wrapper<l1sc::CounterHost>" splitLevel="0"/>  
 
   <!-- SoftTauInputHostTensor -->
-  <class name="l1sc::SoftTauInputTensorSoA"/>
-  <class name="l1sc::SoftTauInputTensorSoA::View"/>
-  <class name="l1sc::SoftTauInputTensorSoA::ConstView"/>
-  <class name="l1sc::SoftTauInputHostTensor"/>
+  <class name="l1sc::SoftTauInputHostTensor" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::SoftTauInputHostTensor::Layout"/>
+  <!-- ROOT R/W recipies -->
   <class name="edm::Wrapper<l1sc::SoftTauInputHostTensor>" splitLevel="0"/>
 
   <!-- SoftTauOutputHostTensor -->
-  <class name="l1sc::SoftTauOutputTensorSoA"/>
-  <class name="l1sc::SoftTauOutputTensorSoA::View"/>
-  <class name="l1sc::SoftTauOutputTensorSoA::ConstView"/>
-  <class name="l1sc::SoftTauOutputHostTensor"/>
+  <class name="l1sc::SoftTauOutputHostTensor" rntupleStreamerMode="true"/>
+  <!-- Layouts -->
+  <class name="l1sc::SoftTauOutputHostTensor::Layout"/>
+  <!-- ROOT R/W recipies -->
   <class name="edm::Wrapper<l1sc::SoftTauOutputHostTensor>" splitLevel="0"/>
 </lcgdict>

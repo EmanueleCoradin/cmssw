@@ -8,10 +8,7 @@
 #include "DataFormats/Common/interface/Wrapper.h"
 #include "DataFormats/Common/interface/DeviceProduct.h"
 
-#include "DataFormats/L1ScoutingSoA/interface/IndexSoA.h"
-#include "DataFormats/L1ScoutingSoA/interface/BxIndexSoA.h"
 #include "DataFormats/L1ScoutingSoA/interface/ClustersSoA.h"
-#include "DataFormats/L1ScoutingSoA/interface/OffsetsSoA.h"
 #include "DataFormats/L1ScoutingSoA/interface/PuppiSoA.h"
 #include "DataFormats/L1ScoutingSoA/interface/TkEmSoA.h"
 #include "DataFormats/L1ScoutingSoA/interface/TkEleSoA.h"

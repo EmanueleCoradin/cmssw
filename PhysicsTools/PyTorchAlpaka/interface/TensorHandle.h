@@ -10,7 +10,14 @@
 #include "PhysicsTools/PyTorch/interface/TorchInterface.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/Policy.h"
 
+// Forward declaration for friend
 namespace cms::torch::alpakatools {
+  template <typename TQueue>
+    requires alpaka::isQueue<TQueue>
+  class TensorCollection;
+}
+
+namespace cms::torch::alpakatools::detail {
 
   template <typename T>
   ::torch::ScalarType get_type() {
@@ -47,24 +54,33 @@ namespace cms::torch::alpakatools {
     bool is_scalar_;
   };
 
+  template <typename TQueue>
+    requires alpaka::isQueue<TQueue>
   class ITensorHandle {
   public:
     virtual ~ITensorHandle() = default;
 
-    virtual void copy(void* queue_ptr, const MemcpyKind kind) = 0;
-
     virtual size_t alignment() const = 0;
     virtual size_t bytes() const = 0;
-    virtual void* data() = 0;
     virtual ::torch::ScalarType type() const = 0;
 
     virtual std::vector<long int> sizes() const = 0;
     virtual std::vector<long int> strides() const = 0;
+
+    template <typename TQueue_T>
+    friend ::torch::Tensor arrayToTensor(::torch::Device device, ITensorHandle<TQueue_T>& tensor_handle);
+    friend class ::cms::torch::alpakatools::TensorCollection<TQueue>;
+
+  private:
+    virtual void copy(TQueue& queue, const cms::torch::alpakatools::detail::MemcpyKind kind) = 0;
+    virtual void* data() = 0;
   };
 
-  template <typename TDev, typename T>
-    requires alpaka::isDevice<TDev>
-  class TensorHandle : public ITensorHandle {
+  // TODO: handle case when user register only one column:
+  // e.g. .register_tensor("test", soa.pt()); (stride should be [1] instead of e.g. [1, 32])
+  template <typename TQueue, typename T>
+    requires alpaka::isQueue<TQueue>
+  class TensorHandle : public ITensorHandle<TQueue> {
   public:
     explicit TensorHandle(const size_t alignment,
                           const size_t bytes,
@@ -85,13 +101,10 @@ namespace cms::torch::alpakatools {
 
     size_t alignment() const override { return alignment_; }
     size_t bytes() const override { return bytes_; }
-    void* data() override { return static_cast<void*>(policy_.data()); }
     ::torch::ScalarType type() const override { return get_type<T>(); }
 
     std::vector<long int> strides() const override { return strides_; }
     std::vector<long int> sizes() const override { return sizes_; }
-
-    void copy(void* queue_ptr, const MemcpyKind kind) override { policy_.copy(queue_ptr, kind); }
 
     // propagate iterator from Dims
     using iterator_t = std::vector<int>::const_iterator;
@@ -101,11 +114,15 @@ namespace cms::torch::alpakatools {
     iterator_t cend() const { return dims_.cend(); }
 
   private:
+    void copy(TQueue& queue, const cms::torch::alpakatools::detail::MemcpyKind kind) override {
+      policy_.copy(queue, kind);
+    }
+    void* data() override { return static_cast<void*>(policy_.data()); }
     void init_sizes() {
       sizes_ = std::vector<long int>(dims_.size() + 1);
       sizes_[0] = dims_.batch_size();
       std::copy(dims_.begin(), dims_.end(), sizes_.begin() + 1);
-      if (dims_.size() >= 1 && dims_[0] == 1) {
+      if (dims_.size() > 1 && dims_[0] == 1 && !dims_.is_scalar()) {
         sizes_.erase(sizes_.begin() + 1);
       }
     }
@@ -124,11 +141,6 @@ namespace cms::torch::alpakatools {
         // no tensor dimensions (scalar case)
         strides_[0] = 0;
         bunches = 1;
-      }
-
-      if (dims_.size() == 1 && dims_[0] == 1) {
-        strides_.erase(strides_.begin() + 1);
-        return;
       }
 
       // stride for the second dimension (or first available)
@@ -158,9 +170,9 @@ namespace cms::torch::alpakatools {
 
     // workaround until pytorch COW Tensors is implemented
     // in the mainstream framework or cmssw add patch with COW inital state.
-    Policy<TDev, T> policy_;
+    cms::torch::alpakatools::detail::Policy<TQueue, T> policy_;
   };
 
-}  // namespace cms::torch::alpakatools
+}  // namespace cms::torch::alpakatools::detail
 
 #endif  // PhysicsTools_PyTorchAlpaka_interface_TensorHandle_h

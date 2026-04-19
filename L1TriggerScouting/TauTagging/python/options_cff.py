@@ -8,29 +8,29 @@ class Step(IntEnum):
     RESHAPING = 4
     TAGGING = 5
 
-def parse_step(value: str) -> Step:
-try:
-    return Step[value.upper()]
-except KeyError:
-    valid = ", ".join(s.name.lower() for s in Step)
-    raise argparse.ArgumentTypeError(
-        f"Invalid step '{value}'. Valid choices: {valid}"
-    )
-
 class Dump(IntEnum):
     NONE = 0
     CANDIDATES = 1
     CLUSTERS = 2
     LOGITS = 3
 
+def parse_step(value: str) -> Step:
+    try:
+        return Step[value.upper()]
+    except KeyError:
+        valid = ", ".join(s.name.lower() for s in Step)
+        raise argparse.ArgumentTypeError(
+            f"Invalid step '{value}'. Valid choices: {valid}"
+        )
+
 def parse_dump(value: str) -> Step:
-try:
-    return Dump[value.upper()]
-except KeyError:
-    valid = ", ".join(s.name.lower() for s in Dump)
-    raise argparse.ArgumentTypeError(
-        f"Invalid dump '{value}'. Valid choices: {valid}"
-    )
+    try:
+        return Dump[value.upper()]
+    except KeyError:
+        valid = ", ".join(s.name.lower() for s in Dump)
+        raise argparse.ArgumentTypeError(
+            f"Invalid dump '{value}'. Valid choices: {valid}"
+        )
 
 def parse_args():
     parser = argparse.ArgumentParser()

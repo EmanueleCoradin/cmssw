@@ -5,7 +5,6 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/devices.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/GetDevice.h"
-#include "PhysicsTools/PyTorchAlpaka/interface/QueueGuard.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
@@ -13,7 +12,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
   constexpr auto modelPath = "PhysicsTools/PyTorchAlpaka/data/linear_dnn.pt";
 
   using namespace ALPAKA_ACCELERATOR_NAMESPACE::torch;
-  using namespace cms::torch::alpakatools;
 
   class TestAlpakaModel : public CppUnit::TestFixture {
   public:
@@ -93,7 +91,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
       // guard scope, restores when goes out of scope
       // all operations should be scheduled on provided queue.
       {
-        QueueGuard<Queue> guard(queue);
         // async model load and inference check
         m.to(queue);
 

@@ -7,9 +7,6 @@
 <use name="FWCore/ParameterSet"/>
 <use name="FWCore/PluginManager"/>
 <use name="L1TriggerScouting/Utilities"/>
-<library file="*.cc" name="L1TScoutingTauTaggingPlugins">
-  <flags EDM_PLUGIN="1"/>
-</library>
 
 <library file="alpaka/*.cc" name="L1TScoutingTauTaggingPluginsPortable">
   <use name="alpaka"/>
