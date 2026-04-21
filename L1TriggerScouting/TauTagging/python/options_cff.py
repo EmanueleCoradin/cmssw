@@ -146,7 +146,7 @@ def parse_args():
     parser.add_argument(
         "-m","--model",
         type=str,
-        default="L1TriggerScouting/TauTagging/data/softtauid_sigmoid.pt",
+        default="L1TriggerScouting/TauTagging/data/softtauid_sigmoid_col.pt",
         help="Path to JIT compiled PyTorch model."
     )
 

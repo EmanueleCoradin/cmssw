@@ -167,7 +167,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
             
             Pt = jet_pt(acc, Px, Py);
             Eta = jet_eta(acc, Pt, Pz);
-            Phi = jet_phi(acc, Py, Px);
+            Phi = jet_phi(acc, Px, Py);
           }
 
           // fill input tensor corresponding to the current cluster
@@ -193,6 +193,53 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           }
         }
       }
+  };
+
+  class CopyInputChunkKernel {
+  public:
+    ALPAKA_FN_ACC void operator()(
+      Acc1D const& acc,
+      SoftTauInputDeviceTensor::ConstView full_input,
+      SoftTauInputDeviceTensor::View chunk_input,
+      uint32_t begin,
+      uint32_t chunk_size) const {
+        constexpr uint32_t nRows = JetFeatures::RowsAtCompileTime;
+        constexpr uint32_t nCols = JetFeatures::ColsAtCompileTime;
+
+        for (auto local_idx : cms::alpakatools::independent_groups(acc, chunk_size)) {
+          const auto global_idx = begin + local_idx;
+
+          auto src = full_input[global_idx];
+          auto dst = chunk_input[local_idx];
+
+          for (auto tid : cms::alpakatools::independent_group_elements(acc, nRows)) {
+            dst.pad_mask()(tid) = src.pad_mask()(tid);
+            for (uint32_t j = 0; j < nCols; ++j) {
+              dst.features()(tid, j) = src.features()(tid, j);
+            }
+          }
+        }
+      }
+  };
+
+
+  class CopyOutputChunkKernel {
+  public:
+    ALPAKA_FN_ACC void operator()(
+        Acc1D const& acc,
+        SoftTauOutputDeviceTensor::ConstView batch_output,
+        SoftTauOutputDeviceTensor::View full_output,
+        uint32_t begin,
+        uint32_t chunk_size) const {
+          for (auto local_idx : cms::alpakatools::independent_groups(acc, chunk_size)) {
+            const auto global_idx = begin + local_idx;
+
+            full_output.cls()[global_idx]    = batch_output.cls()[local_idx];
+            full_output.vz()[global_idx]     = batch_output.vz()[local_idx];
+            full_output.pt()[global_idx]     = batch_output.pt()[local_idx];
+            full_output.charge()[global_idx] = batch_output.charge()[local_idx];
+          }
+        }
   };
 
   AssociationMapDevice sortClustersCandsMap(Queue& queue, 
@@ -315,4 +362,44 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       
     return input_tensors;
   }
+
+  SoftTauInputDeviceTensor copyInputChunk(Queue& queue,
+                                          const SoftTauInputDeviceTensor& full_input,
+                                          uint32_t begin,
+                                          uint32_t chunk_size) {
+    auto chunk_input = SoftTauInputDeviceTensor(queue, chunk_size);
+    chunk_input.zeroInitialise(queue);
+
+    auto threadsPerBlock = 256;
+    auto workDiv = make_workdiv<Acc1D>(chunk_size, threadsPerBlock);
+
+    alpaka::exec<Acc1D>(queue,
+                        workDiv,
+                        CopyInputChunkKernel{},
+                        full_input.const_view(),
+                        chunk_input.view(),
+                        begin,
+                        chunk_size);
+
+    return chunk_input;
+  }
+
+  void copyOutputChunk(Queue& queue,
+                       const SoftTauOutputDeviceTensor& batch_output,
+                       SoftTauOutputDeviceTensor& full_output,
+                       uint32_t begin,
+                       uint32_t chunk_size) {
+    auto threadsPerBlock = 256;
+    auto workDiv = make_workdiv<Acc1D>(chunk_size, threadsPerBlock);
+
+    alpaka::exec<Acc1D>(queue,
+                        workDiv,
+                        CopyOutputChunkKernel{},
+                        batch_output.const_view(),
+                        full_output.view(),
+                        begin,
+                        chunk_size);
+  }
+
+  
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels

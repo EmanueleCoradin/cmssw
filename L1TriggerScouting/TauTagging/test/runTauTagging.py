@@ -155,7 +155,7 @@ if args.runScouting and args.step >= Step.SORTING:
         srcClusters = cms.InputTag("CLUETaus", "clusters"),
         model = cms.FileInPath(args.model),
         step = cms.uint32(substep),
-        maxBatchSize = cms.uint32(250)
+        maxBatchSize = cms.uint32(10000)
     )
     process.path += process.SoftTauId
 

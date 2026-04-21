@@ -53,6 +53,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                  const PFCandidateDeviceCollection& pf, 
                  const AssociationMapDevice& clusterCandsMap);
 
+  SoftTauInputDeviceTensor copyInputChunk(Queue& queue,
+                          const SoftTauInputDeviceTensor& full_input,
+                          uint32_t begin,
+                          uint32_t chunk_size);
+
+  void copyOutputChunk(Queue& queue,
+                       const SoftTauOutputDeviceTensor& batch_output,
+                       SoftTauOutputDeviceTensor& full_output,
+                       uint32_t begin,
+                       uint32_t chunk_size);
+
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels
 
 #endif  // L1TriggerScouting_TauTagging_plugins_alpaka_TransformKernel_h
