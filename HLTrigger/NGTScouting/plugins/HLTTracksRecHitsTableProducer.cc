@@ -66,7 +66,7 @@ void HLTTracksRecHitsTableProducer::produce(edm::Event& iEvent, const edm::Event
   const size_t nTracks = tracksIn.isValid() ? (*tracksIn).size() : 0;
 
   static constexpr float default_value = std::numeric_limits<float>::quiet_NaN();
-  static constexpr int maxRecHits = 16;
+  static constexpr int maxRecHits = 19;
 
   std::vector<float> globalX(maxRecHits * nTracks, default_value);
   std::vector<float> globalY(maxRecHits * nTracks, default_value);
