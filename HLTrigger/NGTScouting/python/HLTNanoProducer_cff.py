@@ -81,6 +81,7 @@ NanoPixelTables = cms.Sequence(
     + hltPixelTrackTable
     + hltPixelTrackExtTable
     + hltPixelTrackRecHitsTable
+    + hltPixelTrackSoATable
 )
 
 # Store variables and associators for validation purposes
@@ -115,48 +116,6 @@ dstValidationNanoFlavour = cms.Sequence(
 # Phase-2 HLT Nano flavour (NANO:@Phase2HLT)
 hltNanoFlavour = cms.Sequence(
     NanoHltTables
-)
-
-hltNanoProducerPixelOnly = cms.Sequence(
-    NanoGenTables
-    + pixelTrackAssoc
-    + hltPixelTrackTable
-    + hltPixelTrackExtTable
-    + hltPixelTrackRecHitsTable
-    + hltPixelTrackSoATable
-)
-
-
-dstNanoProducer = cms.Sequence(
-    NanoGenTables
-    + dstTriggerAcceptFilter
-    + hltVertexTable
-    + pixelTrackAssoc
-    + hltPixelTrackTable
-    + hltPixelVertexTable
-    + hltGeneralTrackTable
-    + hltEgammaPacker
-    + hltPhotonTable
-    + hltElectronTable
-    + hltPhase2L3MuonIdTracks
-    + hltMuonTable
-    + hltPFCandidateTable
-    + hltJetTable
-    + hltTauTable
-    + hltTrackstersTableSequence
-    + hltTiclCandidateTable
-    + hltTiclCandidateExtraTable
-    + hltTiclSuperClustersTable
-    + hltTauExtTable
-    + METTable
-    + HTTable
-)
-
-trackingExtraNanoProducer = cms.Sequence(
-    hltPixelTrackExtTable+
-    hltPixelTrackRecHitsTable+
-    hltPixelTrackSoATable+
-    hltGeneralTrackExtTable
 )
 
 # Phase-2 HLT Nano flavour with MC/HGCal info (NANO:@Phase2HLTVal)
