@@ -54,6 +54,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     alpaka::memcpy(queue, dstIndexesClustersCands, srcIndexesClustersCands);
     alpaka::memcpy(queue, dstOffsetsClustersCands, srcOffsetsClustersCands); // here the actual dimension of the buffer is extents + 1
 
+    /* BEGIN DEBUG */
+    // std::vector<uint32_t> cc_indexes(static_cast<size_t>(clusters_cands_map.const_view().index().metadata().size()));
+    // std::vector<uint32_t> cc_offsets(static_cast<size_t>(clusters_cands_map.const_view().offset().metadata().size()));
+    // alpaka::memcpy(queue, cc_indexes, dstIndexesClustersCands);
+    // alpaka::memcpy(queue, cc_offsets, dstOffsetsClustersCands);
+    // alpaka::wait(queue);
+
+    // auto max_size = std::max({cc_indexes.size(), cc_offsets.size()});
+    // cc_indexes.resize(max_size, std::numeric_limits<uint32_t>::max());
+    // cc_offsets.resize(max_size, std::numeric_limits<uint32_t>::max());
+    
+    // std::ofstream cc_map_stream("cc_map_v2.csv", std::ios::out);
+    // cc_map_stream << "cand_idx,offset\n";
+    // for (int i = 0; i < max_size; ++i) 
+    //   cc_map_stream << fmt::format("{},{}\n", cc_indexes[i], cc_offsets[i]);
+    // cc_map_stream.close();
+    /* END DEBUG */
+
     // get bx -> clusters association map
     auto bx_clusters_map_clue = clue_algo.getSampleAssociations(queue, points_device);
     
@@ -68,7 +86,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                         Vec1D{bx_clusters_map.const_view().bx().metadata().size()});
     auto dstOffsetsBxClusters = alpaka::createView(alpaka::getDev(queue), 
                                         bx_clusters_map.view().offset().offset().data(),
-                                        Vec1D{bx_clusters_map.view().offset().metadata().size()});
+                                        Vec1D{bx_clusters_map.const_view().offset().metadata().size()});
     auto srcIndexesBxClusters = alpaka::createView(alpaka::getDev(queue),
                                       bx_sizes.const_view().bx().bx().data(), 
                                       Vec1D{bx_sizes.const_view().bx().metadata().size()});
@@ -78,6 +96,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
     alpaka::memcpy(queue, dstIndexesBxClusters, srcIndexesBxClusters);
     alpaka::memcpy(queue, dstOffsetsBxClusters, srcOffsetsBxClusters);
+
+    /* BEGIN DEBUG */
+    // std::vector<uint16_t> bxc_indexes(static_cast<size_t>(bx_clusters_map.const_view().bx().metadata().size()));
+    // std::vector<uint32_t> bxc_offsets(static_cast<size_t>(bx_clusters_map.const_view().offset().metadata().size()));
+    // alpaka::memcpy(queue, bxc_indexes, dstIndexesBxClusters);
+    // alpaka::memcpy(queue, bxc_offsets, dstOffsetsBxClusters);
+    // alpaka::wait(queue);
+
+    // auto max_size = std::max({bxc_indexes.size(), bxc_offsets.size()});
+    // bxc_indexes.resize(max_size, std::numeric_limits<uint16_t>::max());
+    // bxc_offsets.resize(max_size, std::numeric_limits<uint32_t>::max());
+    
+    // std::ofstream bxc_map_stream("bxc_map_new.csv", std::ios::out);
+    // bxc_map_stream << "bx_idx,offset\n";
+    // for (int i = 0; i < max_size; ++i) 
+    //   bxc_map_stream << fmt::format("{},{}\n", bxc_indexes[i], bxc_offsets[i]);
+    // bxc_map_stream.close();
+    /* END DEBUG */
     
     // ClustersDeviceCollection to store the indexes of the clusters, accesible via the BxLookup
     ClustersDeviceCollection cluster_indexes(queue, static_cast<int>(bx_clusters_map_clue.extents().values));
@@ -91,6 +127,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                       Vec1D{cluster_indexes.const_view().metadata().size()});
 
     alpaka::memcpy(queue, dstClusterIndexes, srcClusterIndexes);
+
+    /* BEGIN DEBUG */
+    // std::vector<int32_t> cidxs(static_cast<size_t>(cluster_indexes.const_view().metadata().size()));
+    // alpaka::memcpy(queue, cidxs, dstClusterIndexes);
+    // alpaka::wait(queue);
+
+    // std::ofstream cluster_indexes_stream("cluster_indexes_new.csv", std::ios::out);
+    // cluster_indexes_stream << "cidx\n";
+    // for (int i = 0; i < cidxs.size(); ++i) 
+    //   cluster_indexes_stream << cidxs[i] << std::endl;
+    // cluster_indexes_stream.close();
+    /* END DEBUG */
 
     // return
     return std::make_tuple(std::move(bx_clusters_map), std::move(cluster_indexes), std::move(clusters_cands_map));

@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <limits>
+#include <fmt/core.h> 
 
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
 #include "DataFormats/Portable/interface/PortableHostObject.h"
@@ -44,7 +45,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   AssociationMapDevice sortClustersCandsMap(Queue& queue,
                             const PFCandidateDeviceCollection& pf,
-                            const AssociationMapDevice& clusterCandsMap);
+                            const BxLookupDevice& bxClustersMap,
+                            const AssociationMapDevice& clusterCandsMap, 
+                            const ClustersDeviceCollection& clusters);
 
   SoftTauInputDeviceTensor transform(Queue& queue, 
                  const PFCandidateDeviceCollection& pf, 

@@ -20,7 +20,7 @@ process.FastTimerService.printEventSummary = True
 process.FastTimerService.printJobSummary = True
 process.FastTimerService.writeJSONSummary = cms.untracked.bool(args.timer)
 streams = list(range(sum(args.buNumStreams))) if args.streams == [] else args.streams
-process.FastTimerService.jsonFileName = cms.untracked.string(f"resources_j1_t{args.numberOfThreads}_s{args.numberOfStreams}__streams:{''.join(map(str, streams))}_split{args.splitFactor}__task:{args.only[0]}__backend:{args.backend}.json")
+process.FastTimerService.jsonFileName = cms.untracked.string(f"resources.json")
 process.FastTimerService.enableTimingPaths = cms.untracked.bool(True)
 process.FastTimerService.enableTimingModules = cms.untracked.bool(True)
 process.FastTimerService.useRealTimeClock = cms.untracked.bool(True)
@@ -85,12 +85,11 @@ if args.runScouting and args.step >= Step.UNPACKING:
         ),
         streams = cms.vuint32(*list(range(sum(args.buNumStreams))) if args.streams == [] else args.streams),
         splitFactor = cms.uint32(args.splitFactor),
-        src = cms.InputTag('rawDataCollector'),
-        environment = cms.untracked.int32(args.environment),
+        src = cms.InputTag('rawDataCollector')
     )
     process.path += process.PFCandidatesProducer
 
-    if args.dump >= Dump.CLUSTERS:
+    if args.dump >= Dump.CANDIDATES:
         from L1TriggerScouting.Phase2.modules import PFCandidateSoAToOrbitFlatTable
         process.DumpCandidates = PFCandidateSoAToOrbitFlatTable(
             srcBx = cms.InputTag("PFCandidatesProducer", "bxLookup"), 
@@ -100,38 +99,49 @@ if args.runScouting and args.step >= Step.UNPACKING:
         process.path += process.DumpCandidates
 
 # CLUEstering
-if args.runScouting and args.step >= step.CLUSTERING:
-    if "clustering" in args.only or "ml_sort" in args.only or "ml_reshape" in args.only or "ml_inf" in args.only:
-        from L1TriggerScouting.TauTagging.modules import l1sc_CLUETaus_alpaka
-        process.CLUETaus = l1sc_CLUETaus_alpaka(
-            alpaka = cms.untracked.PSet(
-                backend = cms.untracked.string(args.backend)
-            ),
-            candidates = cms.InputTag("PFCandidatesProducer", "candidates"),
-            bxSizes = cms.InputTag("PFCandidatesProducer", "bxSizes"),
-            dc = cms.double(args.dc),
-            rhoc = cms.double(args.rhoc),
-            dm = cms.double(args.dm),
-            wrapCoords = cms.bool(args.wrapCoords)
-        )
-        process.path += process.CLUETaus
+if args.runScouting and args.step >= Step.CLUSTERING:
+    from L1TriggerScouting.TauTagging.modules import l1sc_CLUETaus_alpaka
+    process.CLUETaus = l1sc_CLUETaus_alpaka(
+        alpaka = cms.untracked.PSet(
+            backend = cms.untracked.string(args.backend)
+        ),
+        candidates = cms.InputTag("PFCandidatesProducer", "candidates"),
+        bxSizes = cms.InputTag("PFCandidatesProducer", "bxSizes"),
+        dc = cms.double(args.dc),
+        rhoc = cms.double(args.rhoc),
+        dm = cms.double(args.dm),
+        wrapCoords = cms.bool(args.wrapCoords)
+    )
+    process.path += process.CLUETaus
 
-        if "clusters" in args.dump:
-            from L1TriggerScouting.Phase2.modules import ClusterToOrbitFlatTable
-            process.DumpClusters = ClusterToOrbitFlatTable(
-                srcBx = cms.InputTag("PFCandidatesProducer", "bxLookup"), 
-                srcClusters = cms.InputTag("CLUETaus", "clusters"), 
-                name = "cluster"
-            )
-            process.path += process.DumpClusters
+    if args.dump >= Dump.CLUSTERS:
+        from L1TriggerScouting.Phase2.modules import ClusterSoAToOrbitFlatTable
+        process.DumpClusters = ClusterSoAToOrbitFlatTable(
+            srcBx = cms.InputTag("PFCandidatesProducer", "bxLookup"), 
+            srcClusters = cms.InputTag("CLUETaus", "clusters"), 
+            name = "CLUE", # so that the column in the root file is CLUE_cluster
+            doc = ""
+        )
+        process.path += process.DumpClusters
+
+        from L1TriggerScouting.Phase2.modules import ScPhase2ClusterMapsToOrbitFlatTable
+        process.DumpClusterObj = ScPhase2ClusterMapsToOrbitFlatTable(
+            srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"), 
+            srcBxClustersMap = cms.InputTag("CLUETaus", "bxClustersMap"), 
+            srcClustersCandsMap = cms.InputTag("CLUETaus", "clustersCandsMap"), 
+            srcClusterIndexes = cms.InputTag("CLUETaus", "clusterIndexes"), 
+            nameClusters = "CLUEClusters", 
+            doc = ""
+        )
+        process.path += process.DumpClusterObj
 
 # Tagging
-if args.runScouting and args.step >= step.SORTING: 
+if args.runScouting and args.step >= Step.SORTING: 
     substep = 0
 
-    if args.step >= step.RESHAPING:
+    if args.step >= Step.RESHAPING:
             substep = 1
-    if args.step >= step.TAGGING:
+    if args.step >= Step.TAGGING:
             substep = 2
 
     from L1TriggerScouting.TauTagging.modules import l1sc_SoftTauIdML_alpaka
@@ -140,17 +150,33 @@ if args.runScouting and args.step >= step.SORTING:
             backend = cms.untracked.string(args.backend)
         ),
         srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"),
+        srcBxClustersMap = cms.InputTag("CLUETaus", "bxClustersMap"),
         srcClustersCandsMap = cms.InputTag("CLUETaus", "clustersCandsMap"),
+        srcClusters = cms.InputTag("CLUETaus", "clusters"),
         model = cms.FileInPath(args.model),
         step = cms.uint32(substep),
-        maxBatchSize = cms.uint32(5000)
+        maxBatchSize = cms.uint32(250)
     )
     process.path += process.SoftTauId
 
-if args.dump >= Dump.NONE:
+    # if args.dump >= Dump.CLUSTERS:
+    #     from L1TriggerScouting.Phase2.modules import ScPhase2ClusterMapsToOrbitFlatTable
+    #     process.DumpClusterObj = ScPhase2ClusterMapsToOrbitFlatTable(
+    #         srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"), 
+    #         srcBxClustersMap = cms.InputTag("CLUETaus", "bxClustersMap"), 
+    #         srcClustersCandsMap = cms.InputTag("SoftTauId", "clusterCandsMapSorted"), 
+    #         srcClusterIndexes = cms.InputTag("CLUETaus", "clusterIndexes"), 
+    #         nameClusters = "CLUEClusters", 
+    #         doc = ""
+    #     )
+    #     process.path += process.DumpClusterObj
+
+
+
+if args.dump > Dump.NONE:
     if args.runScouting:
         process.out = cms.OutputModule("OrbitNanoAODOutputModule",
-            fileName = cms.untracked.string(f"ScoutCLUETaus.root"),
+            fileName = cms.untracked.string(f"ScoutCLUETaus_new_sorted.root"),
             SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),  # keep all events
             outputCommands = cms.untracked.vstring(
                 "drop *",
@@ -158,12 +184,4 @@ if args.dump >= Dump.NONE:
                 "keep nanoaodFlatTable_*Table_*_*"  
             )
         )   
-        process.end = cms.EndPath(process.out)
-    else:
-        process.out = cms.OutputModule("NanoAODOutputModule",
-            fileName = cms.untracked.string("ScoutCLUETaus_debug.root"),
-            outputCommands = cms.untracked.vstring("drop *", "keep nanoaodFlatTable_*Table_*_*"),
-            compressionLevel = cms.untracked.int32(4),
-            compressionAlgorithm = cms.untracked.string("ZLIB"),
-        )
         process.end = cms.EndPath(process.out)

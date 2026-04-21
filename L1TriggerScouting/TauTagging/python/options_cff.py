@@ -67,7 +67,7 @@ def parse_args():
     parser.add_argument(
         "-d", "--dump",
         type=parse_dump,
-        default=Step.NONE,
+        default=Dump.NONE,
         help="Select which artifacts to dump on NanoAOD file: none, candidates, clusters, logits"
     )
 

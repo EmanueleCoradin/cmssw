@@ -40,8 +40,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           bx_sizes_token_{produces("bxSizes")},
           nbx_token_{produces("nbx")},
           streams_(params.getParameter<std::vector<uint32_t>>("streams")),
-          splitFactor_(params.getParameter<unsigned int>("splitFactor")),
-          environment_{static_cast<Environment>(params.getUntrackedParameter<int>("environment"))} {}
+          splitFactor_(params.getParameter<unsigned int>("splitFactor")) {}
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
       // get raw data input
@@ -158,7 +157,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     // utility members
     const std::vector<uint32_t> streams_;
     const unsigned int splitFactor_;  // number of streams per BX
-    const Environment environment_;
 
     // temporary storage
     std::vector<uint64_t> h_data_;
