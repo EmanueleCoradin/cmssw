@@ -116,19 +116,23 @@ hltPixelTrackSoATable = cms.EDProducer(
     extension = cms.bool(False),
 
     variables = cms.PSet(
-        pt        = Var("pt()",        "float"),
-        eta       = Var("eta()",       "float"),
-        phi       = Var("phi()",       "float"),
-        charge    = Var("charge()",    "int16"),
-        dxy       = Var("dxy()",       "float"),
-        dz        = Var("dz()",        "float"),
-        dxyError  = Var("dxyError()",  "float"),
-        dzError   = Var("dzError()",   "float"),
-        ptError   = Var("ptError()",   "float"),
-        phiError  = Var("phiError()",  "float"),
-        chi2      = Var("chi2()",      "float"),
-        ndof      = Var("ndof()",      "int16"),
-        nHits     = Var("nHits()",     "int16"),
+        chi2 = Var("chi2()", "float"),
+        dzError = Var("dzError()", "float"),
+        dxyError = Var("dxyError()", "float"),
+        eta = Var("eta()","float"),
+        nHits  = Var("nHits()","float"),
+        phi = Var("phi()","float"),
+        phiError = Var("phiError()","float"),
+        pt = Var("pt()","float"),
+        qOverPtError = Var("qOverPtError()","float"),
+        dzBS = Var("dzBS()","float"),
+        dxyBS = Var("dxyBS()","float"),
+        nLayers = Var("nLayers()","float"),
+        cotThetaError = Var("cotThetaError()","float"),
+        covCotThetaDz = Var("covCotThetaDz()","float"),
+        covDxyQOverPt = Var("covDxyQOverPt()","float"),
+        covPhiDxy = Var("covPhiDxy()","float"),
+        covPhiQOverPt = Var("covPhiQOverPt()","float")
     )
 )
 
