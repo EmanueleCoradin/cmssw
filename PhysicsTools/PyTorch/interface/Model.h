@@ -19,12 +19,17 @@ namespace cms::torch {
         : model_(cms::torch::load(model_path, dev)), device_(dev) {}
 
     // Move model to specified device memory space. Async load by specifying `non_blocking` (in default stream if not overridden by the caller)
-    void to(::torch::Device dev, const bool non_blocking = false) {
+    void to(::torch::Device dev, const bool non_blocking = false, std::optional<::torch::Dtype> dtype = std::nullopt) {
       if (dev == device_)
         return;
-      model_.to(dev, non_blocking);
+      if (dtype)
+        model_.to(dev, *dtype, non_blocking);
+      else
+        model_.to(dev, non_blocking);
       device_ = dev;
     }
+
+    void to(::torch::Dtype dtype) { model_.to(dtype); }
 
     // Forward pass (inference) of model, returns torch::IValue (multi output support). Match native torchlib interface.
     ::torch::IValue forward(std::vector<::torch::IValue> &inputs) {

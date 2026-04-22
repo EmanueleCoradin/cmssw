@@ -7,6 +7,7 @@
 
 #include <alpaka/alpaka.hpp>
 
+#include "PhysicsTools/PyTorch/interface/PyTorchFP16Bridge.h"
 #include "PhysicsTools/PyTorch/interface/TorchInterface.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/Policy.h"
 
@@ -21,7 +22,7 @@ namespace cms::torch::alpakatools::detail {
 
   template <typename T>
   ::torch::ScalarType get_type() {
-    return ::torch::CppTypeToScalarType<std::remove_const_t<T>>();
+    return c10::CppTypeToScalarType<std::remove_const_t<T>>::value;
   }
 
   inline int num_elements_per_column(const int n_elems, const size_t alignment, const size_t bytes) {
