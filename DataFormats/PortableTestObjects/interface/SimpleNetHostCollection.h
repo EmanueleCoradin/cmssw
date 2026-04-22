@@ -7,6 +7,7 @@
 namespace portabletest {
 
   using SimpleNetHostCollection = PortableHostCollection<SimpleNetSoA>;
+  using SimpleNetFP16HostCollection = PortableHostCollection<SimpleNetFP16SoA>;
 
 }  // namespace portabletest
 

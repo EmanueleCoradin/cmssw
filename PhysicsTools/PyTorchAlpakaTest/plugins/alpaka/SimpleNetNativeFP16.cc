@@ -16,25 +16,22 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
-  class SimpleNet : public stream::FixedQueueEDProducer<> {
+  class SimpleNetNativeFP16 : public stream::FixedQueueEDProducer<> {
   public:
-    SimpleNet(const edm::ParameterSet &params)
+    SimpleNetNativeFP16(const edm::ParameterSet &params)
         : FixedQueueEDProducer<>(params),
           particles_token_(consumes(params.getParameter<edm::InputTag>("particles"))),
           simple_net_token_{produces()},
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
-          enable_FP16_(params.getParameter<bool>("enable_FP16")),
           environment_{static_cast<::torchtest::Environment>(params.getUntrackedParameter<int>("environment"))} {
       // Cast the model in half precision if required.
       // Note: this passage can be skipped if you exported the model in FP16 precision in the .pt file
-      if (enable_FP16_)
-        model_.to(::torch::kHalf);
+      model_.to(::torch::kHalf);
     }
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
       desc.add<edm::FileInPath>("model");
-      desc.add<bool>("enable_FP16");
       desc.add<edm::InputTag>("particles");
       desc.addUntracked<int>("environment", static_cast<int>(::torchtest::Environment::kProduction));
       descriptions.addWithDefaultLabel(desc);
@@ -44,37 +41,35 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
       // in/out collections
       const auto &particles = event.get(particles_token_);
       const auto batch_size = particles.const_view().metadata().size();
-      auto regression_collection = portabletest::SimpleNetDeviceCollection(event.queue(), batch_size);
+      auto regression_collection = portabletest::SimpleNetFP16DeviceCollection(event.queue(), batch_size);
 
       // records
       auto input_records = particles.const_view().records();
       auto output_records = regression_collection.view().records();
       // input tensor definition
       cms::torch::alpakatools::TensorCollection<Queue> inputs(batch_size);
-      inputs.add<portabletest::ParticleSoA>("particles", input_records.pt(), input_records.eta(), input_records.phi());
+      inputs.add<portabletest::ParticleFP16SoA>(
+          "particles", input_records.pt(), input_records.eta(), input_records.phi());
       // output tensor definition
       cms::torch::alpakatools::TensorCollection<Queue> outputs(batch_size);
-      outputs.add<portabletest::SimpleNetSoA>("regression_head", output_records.reco_pt());
+      outputs.add<portabletest::SimpleNetFP16SoA>("regression_head", output_records.reco_pt());
 
-      if (enable_FP16_)
-        model_.forward(event.queue(), inputs, outputs, ::torch::kHalf);
-      else
-        model_.forward(event.queue(), inputs, outputs);
+      // Note: here I consume FP16 data, so
+      model_.forward(event.queue(), inputs, outputs);
       // put device-side product into event
       event.emplace(simple_net_token_, std::move(regression_collection));
     }
 
   private:
     // event query tokens
-    const device::EDGetToken<portabletest::ParticleDeviceCollection> particles_token_;
-    const device::EDPutToken<portabletest::SimpleNetDeviceCollection> simple_net_token_;
+    const device::EDGetToken<portabletest::ParticleFP16DeviceCollection> particles_token_;
+    const device::EDPutToken<portabletest::SimpleNetFP16DeviceCollection> simple_net_token_;
     // model
     torch::AlpakaModel model_;
-    const bool enable_FP16_;
     // debug mode flag
     const ::torchtest::Environment environment_;
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest
 
-DEFINE_FWK_ALPAKA_MODULE(torchtest::SimpleNet);
+DEFINE_FWK_ALPAKA_MODULE(torchtest::SimpleNetNativeFP16);

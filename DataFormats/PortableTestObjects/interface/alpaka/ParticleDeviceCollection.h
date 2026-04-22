@@ -15,6 +15,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     using namespace ::portabletest;
 
     using ParticleDeviceCollection = PortableCollection<ParticleSoA>;
+    using ParticleFP16DeviceCollection = PortableCollection<ParticleFP16SoA>;
 
   }  // namespace portabletest
 
@@ -22,5 +23,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
 // heterogeneous ml data checks
 ASSERT_DEVICE_MATCHES_HOST_COLLECTION(portabletest::ParticleDeviceCollection, portabletest::ParticleHostCollection);
+ASSERT_DEVICE_MATCHES_HOST_COLLECTION(portabletest::ParticleFP16DeviceCollection,
+                                      portabletest::ParticleFP16HostCollection);
 
 #endif  // DataFormats_PortableTestObjects_interface_alpaka_ParticleDeviceCollection_h

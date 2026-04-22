@@ -7,7 +7,8 @@ This package extends the PyTorch implementation and enables seamless integration
 All Pytorch based modules should add `PyTorchService` to disable internal torchlib threading. It enforces single-threaded execution on CPU backends.
 
 Examples demonstrating the interoperability of PyTorch with Alpaka in the CMSSW environment can be found in the [PyTorchAlpakaTest](../PyTorchAlpakaTest) directory. The basic test pipeline includes:
-- *SimpleNet* composed with few Dense layers, that operate on SoA style portable data structures
+- *SimpleNet* composed with few Dense layers, that operate on SoA style portable data structures. It provides also an example for Runtime FP16 conversion.
+- *SimpleNetNativeFP16* shows an example of network processing data which is already stored in FP16 format
 - *MaskedNet* shows how to use multiple input data with `Eigen::Vector` and `SOA_SCALAR`
 - *TinyResNet* emulate more complex scenario with `Eigen::Matrix` and how one can implement image-like Tensor implementation
 - *MulitHeadNet* handle networks that return more than one output tensor 
@@ -20,6 +21,58 @@ By default, the model is automatically frozen using the `torch::jit::freeze()` f
 You can skip this optimization step by setting `auto_freeze=false` when calling the model constructor.
 **Important:** Once a model is frozen, it cannot be moved to another device. Attempting to do so will trigger a runtime assertion.
 
+## FP16 Inference Support
+
+FP16 (half precision) inference is supported alongside the default FP32 execution path. The goal is to enable reduced memory usage while preserving numerical compatibility with FP32 results.
+
+Two workflows are supported:
+
+### 1. Runtime FP16 conversion
+
+FP32 data is stored in SoA format and explicitly converted to FP16 at inference time.
+In this case, you just need to pass `torch::kHalf` to the forward call; the model and input tensors are converted to FP16 under the hood using the PyTorch API.
+
+```cpp
+// SoA with input features and output
+GENERATE_SOA_LAYOUT(SimpleNetLayout, SOA_COLUMN(float, reco_pt))
+GENERATE_SOA_LAYOUT(ParticleLayout, SOA_COLUMN(float, pt), SOA_COLUMN(float, eta), SOA_COLUMN(float, phi))
+
+TensorCollection<Queue> inputs(batch_size);
+inputs.add<ParticleSoA>(
+    "particles",
+    input_records.pt(),
+    input_records.eta(),
+    input_records.phi()
+);
+TensorCollection<Queue> outputs(batch_size);
+outputs.add<SimpleNetSoA>("regression_head", output_records.reco_pt());
+
+// Runtime FP16 inference
+model.forward(queue, inputs, outputs, torch::kHalf);
+```
+### 2. Native FP16 pipeline
+
+Input data is stored directly in [FP16](../../HeterogeneousCore/AlpakaMath/interface/float16_t.h) SoA format and consumed as half-precision tensors end-to-end.
+
+```cpp
+// SoA with input features and output
+GENERATE_SOA_LAYOUT(SimpleNetLayoutFP16, SOA_COLUMN(cms::float16_t, reco_pt))
+GENERATE_SOA_LAYOUT(ParticleLayoutFP16, SOA_COLUMN(cms::float16_t, pt), SOA_COLUMN(cms::float16_t, eta), SOA_COLUMN(cms::float16_t, phi))
+
+TensorCollection<Queue> inputs(batch_size);
+inputs.add<ParticleFP16SoA>(
+    "particles",
+    input_records.pt(),
+    input_records.eta(),
+    input_records.phi()
+);
+TensorCollection<Queue> outputs(batch_size);
+outputs.add<SimpleNetFP16SoA>("regression_head", output_records.reco_pt());
+
+model.forward(queue, inputs, outputs);
+```
+
+FP16 and FP32 outputs may differ slightly due to reduced precision and floating-point accumulation effects. Users are encouraged to check the output compatibility.
 
 ## Direct Inference on SoA 
 The interface provides a converter to dynamically wrap SoA data into one or more `torch::tensors` without the need to copy data (or minimal copy overhead).
