@@ -26,6 +26,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
         particles.view());
   }
 
+  void copyFillParticleCollection(Queue& queue,
+                                  portabletest::ParticleDeviceCollection& particles,
+                                  portabletest::ParticleFP16DeviceCollection& particlesFP16) {
+    const uint32_t threads_per_block = 64;
+    const uint32_t blocks_per_grid = particles.view().metadata().size();
+    const auto grid = cms::alpakatools::make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
+
+    alpaka::exec<Acc1D>(
+        queue,
+        grid,
+        [] ALPAKA_FN_ACC(Acc1D const& acc,
+                         portabletest::ParticleDeviceCollection::View particles_view,
+                         portabletest::ParticleFP16DeviceCollection::View particlesFP16_view) {
+          for (int32_t thread_idx : cms::alpakatools::uniform_elements(acc, particles_view.metadata().size())) {
+            particlesFP16_view[thread_idx].pt() = particles_view[thread_idx].pt();
+            particlesFP16_view[thread_idx].eta() = particles_view[thread_idx].eta();
+            particlesFP16_view[thread_idx].phi() = particles_view[thread_idx].phi();
+          }
+        },
+        particles.view(),
+        particlesFP16.view());
+  }
+
   struct RandomFillImageCollectionKernel {
     ALPAKA_FN_ACC void operator()(Acc3D const& acc, portabletest::ImageDeviceCollection::View images_view) const {
       Vec3D size = Vec3D{images_view.metadata().size(), 9, 9};

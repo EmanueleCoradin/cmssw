@@ -7,6 +7,7 @@
 namespace portabletest {
 
   using ParticleHostCollection = PortableHostCollection<ParticleSoA>;
+  using ParticleFP16HostCollection = PortableHostCollection<ParticleFP16SoA>;
 
 }  // namespace portabletest
 

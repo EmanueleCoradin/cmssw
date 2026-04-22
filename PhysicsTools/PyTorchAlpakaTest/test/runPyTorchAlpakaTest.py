@@ -41,9 +41,10 @@ process.DataSource = torchtest_DataSource_alpaka(
 process.path += process.DataSource
 # --only SimpleNet
 if "SimpleNet" in args.only:
-    from PhysicsTools.PyTorchAlpakaTest.modules import torchtest_SimpleNet_alpaka
+    from PhysicsTools.PyTorchAlpakaTest.modules import torchtest_SimpleNet_alpaka, torchtest_SimpleNetNativeFP16_alpaka
     process.SimpleNet = torchtest_SimpleNet_alpaka(
         model = cms.FileInPath(args.simpleNet),
+        enable_FP16 = cms.bool(False),
         particles = 'DataSource',
         alpaka = cms.untracked.PSet(
             backend = cms.untracked.string("serial_sync")  # force serial backend to emulate heterogeneous pipeline
@@ -51,6 +52,28 @@ if "SimpleNet" in args.only:
         environment = cms.untracked.int32(args.environment)
     )
     process.path += process.SimpleNet
+
+    process.SimpleNetRuntineFP16 = torchtest_SimpleNet_alpaka(
+        model = cms.FileInPath(args.simpleNet),
+        enable_FP16 = cms.bool(True),
+        particles = 'DataSource',
+        alpaka = cms.untracked.PSet(
+            backend = cms.untracked.string("serial_sync")  # force serial backend to emulate heterogeneous pipeline
+        ),
+        environment = cms.untracked.int32(args.environment)
+    )
+    process.path += process.SimpleNetRuntineFP16
+
+    process.SimpleNetNativeFP16 = torchtest_SimpleNetNativeFP16_alpaka(
+        model = cms.FileInPath(args.simpleNet),
+        particles = 'DataSource',
+        alpaka = cms.untracked.PSet(
+            backend = cms.untracked.string("serial_sync")  # force serial backend to emulate heterogeneous pipeline
+        ),
+        environment = cms.untracked.int32(args.environment)
+    )
+    process.path += process.SimpleNetNativeFP16
+    
 # --only MultiHeadNet
 if "MultiHeadNet" in args.only:
     from PhysicsTools.PyTorchAlpakaTest.modules import torchtest_MultiHeadNet_alpaka
@@ -91,6 +114,8 @@ if "TinyResNet" in args.only:
 process.InspectionSink = torchtest_InspectionSink(
     particles = 'DataSource',
     simple_net = 'SimpleNet',
+    simple_net_runtimeFP16 = 'SimpleNetRuntineFP16',
+    simple_net_FP16 = 'SimpleNetNativeFP16',
     masked_net = 'MaskedNet',
     multi_head_net = 'MultiHeadNet',
     images = 'DataSource',
