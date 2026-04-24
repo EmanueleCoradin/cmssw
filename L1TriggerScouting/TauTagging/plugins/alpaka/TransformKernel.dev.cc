@@ -4,7 +4,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/radixSort.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
-#include "DataFormats/L1ScoutingSoA/interface/AssociationMapHost.h"
+#include "DataFormats/L1ScoutingSoA/interface/SoftTauHostTensor.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
@@ -41,7 +41,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   template <typename TAcc, typename T>
   ALPAKA_FN_ACC T jet_eta(const TAcc& acc, T Pt, T Pz) {
-    return (Pt > 0.0) ? alpaka::math::asinh(acc, Pz / Pt) : 0.0; 
+    return alpaka::math::asinh(acc, Pz / Pt); 
   }
 
   template <typename TAcc, typename T>
@@ -51,12 +51,35 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   ALPAKA_FN_ACC float phi(Acc1D const& acc, float phi, float Phi) {
     auto kPi = alpaka::math::constants::pi;
-    return alpaka::math::remainder(acc, phi - Phi + kPi, 2.0 * kPi) - kPi;
+    // return alpaka::math::remainder(acc, phi - Phi + kPi, 2.0 * kPi) - kPi;
+    auto delta = phi - Phi;
+    auto dphi = (delta > kPi) ? 
+                  (
+                    delta - 2 * kPi
+                  ) : 
+                  (
+                    (delta < -kPi) ?
+                      (
+                        delta + 2 * kPi
+                      ) : 
+                      delta                    
+                  );
+    return dphi;
   }
 
   template <typename TAcc>
   ALPAKA_FN_ACC float charge(const TAcc& acc, int pdgid) {
-    auto charge = (alpaka::math::abs(acc, pdgid) == 211) ? ((pdgid > 0) ? +1 : -1) : ((pdgid > 0) ? -1 : +1);
+    auto charge = (alpaka::math::abs(acc, pdgid) == 22 || alpaka::math::abs(acc, pdgid) == 130) ?
+                    0 : 
+                    (
+                      (alpaka::math::abs(acc, pdgid) == 211) ?
+                        (
+                          (pdgid > 0) ? +1 : -1
+                        ) :
+                        (
+                          (pdgid > 0) ? -1 : +1
+                        )
+                    );
     return charge;
   }
 
@@ -143,32 +166,36 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           if (block_size == 0)
             continue;
         
-          auto E = 0.0f;
-          auto Px = 0.0f;
-          auto Py = 0.0f;
-          auto Pz = 0.0f;
-          auto Pt = 0.0f;
-          auto Eta = 0.0f;
-          auto Phi = 0.0f;
+          auto& shPx  = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+          auto& shPy  = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+          auto& shPz  = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+          auto& shPt  = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+          auto& shEta = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+          auto& shPhi = alpaka::declareSharedVar<float, __COUNTER__>(acc);
           
           // build jet axis
           if (once_per_block(acc)) {
+            shPx = 0.0f;
+            shPy = 0.0f;
+            shPz = 0.0f;
+
             for (auto ii = 0; ii < block_size; ii++) {
               auto p = clusters_cands.index()[ii + begin].index();
               auto px_v = px(acc, pf.pt()[p], pf.phi()[p]);
               auto py_v = py(acc, pf.pt()[p], pf.phi()[p]);
               auto pz_v = pz(acc, pf.pt()[p], pf.eta()[p]);
-              auto e_v = energy(acc, px_v, py_v, pz_v);
-              Px += px_v;
-              Py += py_v;
-              Pz += pz_v;
-              E += e_v;
+              shPx += px_v;
+              shPy += py_v;
+              shPz += pz_v;
             }
             
-            Pt = jet_pt(acc, Px, Py);
-            Eta = jet_eta(acc, Pt, Pz);
-            Phi = jet_phi(acc, Px, Py);
+            shPt = jet_pt(acc, shPx, shPy);
+            shEta = jet_eta(acc, shPt, shPz);
+            shPhi = jet_phi(acc, shPx, shPy);
           }
+
+          // synch threads across block so that they access the correct values of shEta and shPhi
+          alpaka::syncBlockThreads(acc);
 
           // fill input tensor corresponding to the current cluster
           auto input_tensor = input_tensors[block_idx];
@@ -178,10 +205,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
             auto pdgid_abs = alpaka::math::abs(acc, static_cast<int>(pf.pdgid()[p]));
             // features
             input_tensor.features()(tid, 0) = pf.pt()[p];
-            input_tensor.features()(tid, 1) = pf.eta()[p] - Eta;
-            input_tensor.features()(tid, 2) = phi(acc, pf.phi()[p], Phi);
-            input_tensor.features()(tid, 3) = charge(acc, pf.pdgid()[p]);
-            input_tensor.features()(tid, 4) = pf.z0()[p];
+            input_tensor.features()(tid, 1) = pf.eta()[p] - shEta;
+            input_tensor.features()(tid, 2) = phi(acc, pf.phi()[p], shPhi);
+            input_tensor.features()(tid, 3) = pf.z0()[p];
+            input_tensor.features()(tid, 4) = charge(acc, pf.pdgid()[p]);
             // one hot-encoding for pdgid
             input_tensor.features()(tid, 5) = (pdgid_abs == 211) ? 1.0f : 0.0f;
             input_tensor.features()(tid, 6) = (pdgid_abs == 130) ? 1.0f : 0.0f;
@@ -346,8 +373,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                       const AssociationMapDevice& clusterCandsMap) {
     // initialize input tensor
     const auto num_clusters = clusterCandsMap.const_view().offset().metadata().size() - 1;
-    auto input_tensors = SoftTauInputDeviceTensor(queue, num_clusters);
-    input_tensors.zeroInitialise(queue);
+    auto input_tensor = SoftTauInputDeviceTensor(queue, num_clusters);
+    input_tensor.zeroInitialise(queue);
 
     // work division
     auto threadsPerBlock = 256;
@@ -358,9 +385,35 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
       ComputeClueTauFeaturesKernel{}, 
       pf.const_view(),
       clusterCandsMap.const_view(),
-      input_tensors.view());
+      input_tensor.view());
+
+    /* BEGIN DEBUG */
+    // auto host_tensor = SoftTauInputHostTensor(num_clusters);
+    // alpaka::memcpy(queue, host_tensor.buffer(), input_tensor.const_buffer());
+    // alpaka::wait(queue);
+
+    // std::ofstream out_stream("input_tensor.csv", std::ios::out);
+    // out_stream << "cluster_idx,pt,deta,dphi,vz,charge,chad,nhad,ele,mu,pho,mask\n";
+
+    // const auto input_tensor_view = host_tensor.const_view();
+
+    // for (auto ii = 0; ii < input_tensor_view.metadata().size(); ++ii) {
+    //   const auto features = input_tensor_view[ii].features();
+    //   const auto mask = input_tensor_view[ii].pad_mask();
+
+    //   for (auto row = 0; row < JetFeatures::RowsAtCompileTime; ++row) {
+    //     out_stream << ii;
+
+    //     for (auto col = 0; col < JetFeatures::ColsAtCompileTime; ++col) {
+    //       out_stream << "," << features (row, col);
+    //     }
+
+    //     out_stream << "," << mask(row) << "\n";
+    //   }
+    // }
+    /* END DEBUG */
       
-    return input_tensors;
+    return input_tensor;
   }
 
   SoftTauInputDeviceTensor copyInputChunk(Queue& queue,

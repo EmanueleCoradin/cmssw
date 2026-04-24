@@ -119,7 +119,7 @@ if args.runScouting and args.step >= Step.CLUSTERING:
         process.DumpClusters = ClusterSoAToOrbitFlatTable(
             srcBx = cms.InputTag("PFCandidatesProducer", "bxLookup"), 
             srcClusters = cms.InputTag("CLUETaus", "clusters"), 
-            name = "CLUE", # so that the column in the root file is CLUE_cluster
+            name = "cluster", # so that the column in the root file is cluster_idx
             doc = ""
         )
         process.path += process.DumpClusters
@@ -159,24 +159,21 @@ if args.runScouting and args.step >= Step.SORTING:
     )
     process.path += process.SoftTauId
 
-    # if args.dump >= Dump.CLUSTERS:
-    #     from L1TriggerScouting.Phase2.modules import ScPhase2ClusterMapsToOrbitFlatTable
-    #     process.DumpClusterObj = ScPhase2ClusterMapsToOrbitFlatTable(
-    #         srcCandidates = cms.InputTag("PFCandidatesProducer", "candidates"), 
-    #         srcBxClustersMap = cms.InputTag("CLUETaus", "bxClustersMap"), 
-    #         srcClustersCandsMap = cms.InputTag("SoftTauId", "clusterCandsMapSorted"), 
-    #         srcClusterIndexes = cms.InputTag("CLUETaus", "clusterIndexes"), 
-    #         nameClusters = "CLUEClusters", 
-    #         doc = ""
-    #     )
-    #     process.path += process.DumpClusterObj
-
-
+    if args.dump >= Dump.LOGITS:
+        from L1TriggerScouting.Phase2.modules import ScPhase2SoftTauOutputTensorToOrbitFlatTable
+        process.DumpLogits = ScPhase2SoftTauOutputTensorToOrbitFlatTable(
+            srcBxClustersMap = cms.InputTag("CLUETaus", "bxClustersMap"), 
+            srcOutput = cms.InputTag("SoftTauId", "outputTensor"), 
+            srcClusterIndexes = cms.InputTag("CLUETaus", "clusterIndexes"), 
+            name = "out", 
+            doc = ""
+        )
+        process.path += process.DumpLogits
 
 if args.dump > Dump.NONE:
     if args.runScouting:
         process.out = cms.OutputModule("OrbitNanoAODOutputModule",
-            fileName = cms.untracked.string(f"ScoutCLUETaus_new_sorted.root"),
+            fileName = cms.untracked.string(f"ScoutCLUETaus_new_logits.root"),
             SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),  # keep all events
             outputCommands = cms.untracked.vstring(
                 "drop *",

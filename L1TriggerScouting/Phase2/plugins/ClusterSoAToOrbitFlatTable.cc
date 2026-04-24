@@ -58,11 +58,11 @@ void ClusterSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm:
   edm::Handle<l1sc::ClustersHostCollection> srcClusters;
   iEvent.getByToken(srcClusters_, srcClusters);
 
-  const auto *bxs = srcBx->const_view().offset().offset().data();
-  const unsigned int nbx = srcBx->const_view().offset().metadata().size(); // attention here
+  const auto *bx_offsets = srcBx->const_view().offset().offset().data();
+  const unsigned int nbx = srcBx->const_view().bx().metadata().size(); // ATTENTION here
   std::vector<unsigned int> bxOffsets;
   bxOffsets.push_back(0);
-  bxOffsets.insert(bxOffsets.end(), bxs, bxs + nbx);
+  bxOffsets.insert(bxOffsets.end(), bx_offsets, bx_offsets + nbx + 1); // ATTENTION here
 
   const auto *cluster = srcClusters->const_view().cluster().data();
   const unsigned int nclusters = srcClusters->const_view().metadata().size();
@@ -70,7 +70,7 @@ void ClusterSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm:
   
   auto out = std::make_unique<l1ScoutingRun3::OrbitFlatTable>(bxOffsets, name_);
   out->setDoc(doc_);
-  out->addColumn<int32_t>("cluster", clusters, "cluster index");
+  out->addColumn<int32_t>("idx", clusters, "cluster index");
   iEvent.put(std::move(out));
 }
 
