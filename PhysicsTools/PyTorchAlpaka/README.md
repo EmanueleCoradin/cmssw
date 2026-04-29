@@ -64,14 +64,14 @@ auto result_records = deviceResultCollection.view().records();
 
 **IMPORTANT:** continuity of memory is a strict requirement!
 ```
-TensorCollection input(batch_size);
+TensorCollection input(total_size);
 input.add<SoA>("eigen_vector", records.a(), records.b());
 input.add<SoA>("eigen_matrix", records.c());
 input.add<SoA>("column", records.x(), records.y(), records.z());
 input.add<SoA>("scalar", records.type());
 input.change_order({"column", "scalar", "eigen_matrix", "eigen_vector"});
 
-TensorCollection output(batch_size);
+TensorCollection output(total_size);
 output.add<SoA>("result", result_view.cluster());
 ```
 

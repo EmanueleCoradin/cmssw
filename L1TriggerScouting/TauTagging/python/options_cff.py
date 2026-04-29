@@ -54,6 +54,12 @@ def parse_args():
         default=1,
         help="Number of events to process"
     )
+    parser.add_argument(
+        "-re", "--reportEvery", 
+        type=int, 
+        default=10,
+        help="Report to standard output at every set number of processed events"
+    )
     
     # pipeline 
     parser.add_argument(

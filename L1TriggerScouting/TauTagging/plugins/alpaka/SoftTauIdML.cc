@@ -18,6 +18,11 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
+  struct BatchIO {
+    cms::torch::alpakatools::TensorCollection<Queue> inputs;
+    cms::torch::alpakatools::TensorCollection<Queue> outputs;
+  };
+
   class SoftTauIdML : public stream::EDProducer<> {
   public:
     SoftTauIdML(const edm::ParameterSet &params)
@@ -30,7 +35,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           soft_tau_token_{produces("outputTensor")},
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
           step_{params.getParameter<uint32_t>("step")},
-          max_batch_size_{params.getParameter<uint32_t>("maxBatchSize")} {}
+          batch_size_{params.getParameter<uint32_t>("batchSize")} {}
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
@@ -40,7 +45,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       desc.add<edm::InputTag>("srcClusters");
       desc.add<edm::FileInPath>("model");
       desc.add<uint32_t>("step", 0u);
-      desc.add<uint32_t>("maxBatchSize", std::numeric_limits<uint32_t>::max());
+      desc.add<uint32_t>("batchSize", 32u);
       descriptions.addWithDefaultLabel(desc);
     }
 
@@ -72,45 +77,33 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
         if (step_ == 2u) {
           // set batch size
-          const auto effective_batch_size = (max_batch_size_ > 0u) ? max_batch_size_ : 1u;
+          assert(batch_size_ > 0 && "batch_size_ is expected to be greater than zero, as unbatched inference will probably make the device go out of memory");
+          auto num_batches = (job_size + batch_size_ - 1) / batch_size_;
 
-          // loop over batches
-          for (auto begin = 0u; begin < job_size; begin += effective_batch_size) {
-            // check batch size for the current batch
-            const auto this_batch = std::min<uint32_t>(effective_batch_size, job_size - begin);
+          // records
+          auto input_records = input_tensor.view().records(); // pay A LOT OF attention here to constness
+          auto output_records = output_tensor.view().records();
 
-            // copy the content of the global input tensor that corresponds to the current batch
-            auto batch_input = kernels::copyInputChunk(event.queue(), input_tensor, begin, this_batch);
-
-            // initialize the output tensor corresponding to the current input batch
-            auto batch_output = SoftTauOutputDeviceTensor(event.queue(), this_batch);
-            batch_output.zeroInitialise(event.queue());
+          std::deque<BatchIO> batches;
+          for (auto batch_idx = 0; batch_idx < num_batches; ++batch_idx) {
+            // std::cout << "Batch " << batch_idx << std::endl;
+            BatchIO batch{cms::torch::alpakatools::TensorCollection<Queue>(batch_size_, job_size),
+                          cms::torch::alpakatools::TensorCollection<Queue>(batch_size_, job_size)};
             
-            // create tensor collections for the current batch
-            cms::torch::alpakatools::TensorCollection<Queue> inputs(this_batch);
-            cms::torch::alpakatools::TensorCollection<Queue> outputs(this_batch);
+            batch.inputs.add<SoftTauInputTensorSoA>("features", batch_idx, input_records.features());
+            batch.inputs.add<SoftTauInputTensorSoA>("pad_mask", batch_idx, input_records.pad_mask());
 
-            // records
-            auto in = batch_input.view().records();
-            inputs.add<SoftTauInputTensorSoA>("features", in.features());
-            inputs.add<SoftTauInputTensorSoA>("pad_mask", in.pad_mask());
+            batch.outputs.add<SoftTauOutputTensorSoA>("cls", batch_idx, output_records.cls());
+            batch.outputs.add<SoftTauOutputTensorSoA>("vz", batch_idx, output_records.vz());
+            batch.outputs.add<SoftTauOutputTensorSoA>("pt", batch_idx, output_records.pt());
+            batch.outputs.add<SoftTauOutputTensorSoA>("charge", batch_idx, output_records.charge());
 
-            auto out = batch_output.view().records();
-            outputs.add<SoftTauOutputTensorSoA>("cls", out.cls());
-            outputs.add<SoftTauOutputTensorSoA>("vz", out.vz());
-            outputs.add<SoftTauOutputTensorSoA>("pt", out.pt());
-            outputs.add<SoftTauOutputTensorSoA>("charge", out.charge());
-            outputs.change_order({"cls", "vz", "pt", "charge"});
-
-            // do the inference
-            model_.forward(event.queue(), inputs, outputs);
-
-            // copy results from the batch output to the global output
-            kernels::copyOutputChunk(event.queue(), batch_output, output_tensor, begin, this_batch);
+            batches.push_back(std::move(batch));
           }
 
-          // wait
-          alpaka::wait(event.queue());
+          for (auto &batch : batches) {
+            model_.forward(event.queue(), batch.inputs, batch.outputs);
+          }
         }
       }
 
@@ -137,7 +130,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     // do inference or not
     const uint32_t step_;
     // scouting switch
-    const uint32_t max_batch_size_;
+    const uint32_t batch_size_;
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest

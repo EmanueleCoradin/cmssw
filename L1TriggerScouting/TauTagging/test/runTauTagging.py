@@ -30,7 +30,7 @@ process.load("Configuration.StandardSequences.Accelerators_cff")
 
 # logging configuration
 process.load("FWCore.MessageService.MessageLogger_cfi")
-process.MessageLogger.cerr.FwkReport.reportEvery = 10
+process.MessageLogger.cerr.FwkReport.reportEvery = args.reportEvery
 
 # define path
 process.path = cms.Path()
@@ -155,7 +155,7 @@ if args.runScouting and args.step >= Step.SORTING:
         srcClusters = cms.InputTag("CLUETaus", "clusters"),
         model = cms.FileInPath(args.model),
         step = cms.uint32(substep),
-        maxBatchSize = cms.uint32(10000)
+        batchSize = cms.uint32(32768)
     )
     process.path += process.SoftTauId
 
