@@ -376,13 +376,14 @@ void PixelTrackProducerFromSoAAlpaka::produce(edm::StreamID streamID,
   std::vector<int32_t> sortIdxs(nTracks);
   std::iota(sortIdxs.begin(), sortIdxs.end(), 0);
   // sort good-quality tracks by pt, keep bad-quality tracks at the bottom
-  std::sort(sortIdxs.begin(), sortIdxs.end(), [&](int32_t const i1, int32_t const i2) {
-    if (quality[i1] >= minQuality_ && quality[i2] >= minQuality_)
-      return tsoa.view().tracks()[i1].pt() > tsoa.view().tracks()[i2].pt();
-    else
-      return quality[i1] > quality[i2];
-  });
-
+  if (false){
+    std::sort(sortIdxs.begin(), sortIdxs.end(), [&](int32_t const i1, int32_t const i2) {
+      if (quality[i1] >= minQuality_ && quality[i2] >= minQuality_)
+        return tsoa.view().tracks()[i1].pt() > tsoa.view().tracks()[i2].pt();
+      else
+        return quality[i1] > quality[i2];
+    });
+  }
   indToEdm.resize(nTracks, -1);
 
   // loop over (sorted) tracks
