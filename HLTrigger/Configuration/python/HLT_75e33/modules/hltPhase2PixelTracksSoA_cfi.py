@@ -164,8 +164,8 @@ for i, lp in enumerate(layerPairsCAExtension):
     if lp[2]:
         startingPairsCAExtension.append(i)
 
-hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2@alpaka',
-    pixelRecHitSrc = cms.InputTag('hltPhase2SiPixelRecHitsSoA'),
+hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2OT@alpaka',
+    pixelRecHitSrc = cms.InputTag('hltPhase2PixelRecHitsExtendedSoA'),
     ptmin = cms.double(0.9),
     hardCurvCut = cms.double(0.01425), # corresponds to 800 MeV in 3.8T.
     earlyFishbone = cms.bool(True),
@@ -194,8 +194,8 @@ hltPhase2PixelTracksSoA = cms.EDProducer('CAHitNtupletAlpakaPhase2@alpaka',
     disableFastDuplicateRemover = cms.bool(False),
     disableEarlyDuplicateRemover = cms.bool(False),
     trackQualityCuts = cms.PSet(
-        maxChi2TripletsOrQuadruplets = cms.double(5.0),
-        maxChi2Quintuplets = cms.double(5.0),
+        maxChi2TripletsOrQuadruplets = cms.double(1.0),
+        maxChi2Quintuplets = cms.double(3.0),
         maxChi2 = cms.double(5.0),
         minPt   = cms.double(0.9),
         maxTip  = cms.double(0.3),
