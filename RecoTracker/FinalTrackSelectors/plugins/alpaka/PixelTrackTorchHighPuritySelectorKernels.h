@@ -32,7 +32,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                const int* preselectedTrackIndices,
                                const int* nPreselectedTracks,
                                PixelTrackFeaturesSoA::View trackFeatures,
-                               int* nKeptHits);
+                               int* trackHitCounts);
 
   void launchScoreFilter(Queue& queue,
                          const int maxPreselectedTracks,
@@ -40,9 +40,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                          const PixelTrackScoresSoA::View trackScores,
                          const int* preselectedTrackIndices,
                          const int* nPreselectedTracks,
+                         const int* trackHitCounts,
                          int* selectedTrackIndices,
                          int* nSelectedTracks,
-                         int* nKeptHits);
+                         int* selectedTrackHitOffsets);
 
   reco::TracksSoACollection launchProduceOutputTracks(Queue& queue,
                                                       const int maxPreselectedTracks,
@@ -51,7 +52,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                       const ::reco::TrackHitSoAConstView track_hits,
                                                       const int* selectedTrackIndices,
                                                       const int* nSelectedTracks,
-                                                      const int* nKeptHits);
+                                                      const int* selectedTrackHitOffsets);
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
 #endif
