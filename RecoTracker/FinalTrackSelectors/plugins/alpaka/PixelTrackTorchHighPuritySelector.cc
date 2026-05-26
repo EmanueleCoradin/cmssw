@@ -16,7 +16,6 @@
  *
  *   Input:
  *       TracksSoA (pixel tracks + hit associations)
- *       TrackingRecHitsSoA
  *
  *   Transformations:
  *
@@ -41,12 +40,9 @@
  * Torch Inference
  * ------------------------------------------------------------------
  *
- * The Torch model expects fixed-size tensors:
- *
  *     Track tensor:  [maxPreselectedTracks, N_track_features]
- *     Hit tensor:    [maxPreselectedTracks, MaxHitsPerTrack, N_hit_features]
  *
- * Padding slots are filled with NaNs.
+ * Padding slots are filled with 0s.
  * ------------------------------------------------------------------
 */
 
@@ -71,7 +67,6 @@
 #include "DataFormats/TrackSoA/interface/TracksDevice.h"
 #include "DataFormats/TrackSoA/interface/TracksHost.h"
 #include "DataFormats/TrackSoA/interface/alpaka/TracksSoACollection.h"
-#include "DataFormats/TrackingRecHitSoA/interface/alpaka/TrackingRecHitsSoACollection.h"
 
 #include "RecoTracker/FinalTrackSelectors/interface/PixelTrackFeaturesSoA.h"
 #include "RecoTracker/FinalTrackSelectors/plugins/alpaka/PixelTrackFeaturesDeviceCollection.h"
@@ -91,7 +86,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   class PixelTrackTorchHighPuritySelector : public stream::FixedQueueEDProducer<> {
     using TkSoADevice = reco::TracksSoACollection;
-    using HitsOnDevice = reco::TrackingRecHitsSoACollection;
     using TrackHitSoA = ::reco::TrackHitSoA;
 
   public:
@@ -111,7 +105,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     torch::AlpakaModel model_;
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
     const int batchSize_;
-    bool isFirstEvent_;
   };
 
   PixelTrackTorchHighPuritySelector::PixelTrackTorchHighPuritySelector(const edm::ParameterSet& iConfig)
@@ -137,15 +130,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     if (maxPreselectedTracks_ > maxNumberOfTracks_) {
       throw cms::Exception("PixelTrackConfiguration") << "maxPreselectedTracks must be <= maxNumberOfTracks";
     }
-    isFirstEvent_ = true;
-    //model_.to(::torch::kHalf);
   }
 
   void PixelTrackTorchHighPuritySelector::produce(device::Event& iEvent, const device::EventSetup&) {
     /* 
     Processing steps:
       1. CA-based preselection of tracks
-      2. Feature extraction (track + hit SoA)
+      2. Feature extraction (track SoA)
       3. DNN inference
       4. Score-based filtering
       5. Track compaction and output production
@@ -161,12 +152,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto d_nSelectedTracks = cms::alpakatools::make_device_buffer<int>(queue);
     auto d_preselectedTrackIndices = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks_);
     auto d_selectedTrackIndices = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
-    auto d_nKeptHits = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
+    auto d_trackHitCounts = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
+    auto d_selectedTrackHitOffsets = cms::alpakatools::make_device_buffer<int[]>(queue, maxPreselectedTracks_);
     auto d_preselectionOffsets = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks_);
 
     alpaka::memset(queue, d_nPreselectedTracks, 0);
     alpaka::memset(queue, d_nSelectedTracks, 0);
-    alpaka::memset(queue, d_nKeptHits, 0);
+    alpaka::memset(queue, d_trackHitCounts, 0);
+    alpaka::memset(queue, d_selectedTrackHitOffsets, 0);
     alpaka::memset(queue, d_preselectedTrackIndices, 0xFF);
     alpaka::memset(queue, d_selectedTrackIndices, 0xFF);
     alpaka::memset(queue, d_preselectionOffsets, 0);
@@ -214,7 +207,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     std::cout << "PixelTrackTorchHighPuritySelector::Prefiltered tracks=" << nPreselectedTracks << "\n";
 #endif
 
-    // 2. Feature extraction (track + hit SoA)
+    // 2. Feature extraction (track SoA)
     {
       nvtx3::scoped_range range2{"FeaturesExtractor"};
       launchFeaturesExtractor(queue,
@@ -223,7 +216,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                               alpaka::getPtrNative(d_preselectedTrackIndices),
                               alpaka::getPtrNative(d_nPreselectedTracks),
                               trackFeatures.view(),
-                              alpaka::getPtrNative(d_nKeptHits));
+                              alpaka::getPtrNative(d_trackHitCounts));
     }
 
     // 3. DNN inference
@@ -277,9 +270,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         trackScoresOnDevice.view(),
                         alpaka::getPtrNative(d_preselectedTrackIndices),
                         alpaka::getPtrNative(d_nPreselectedTracks),
+                        alpaka::getPtrNative(d_trackHitCounts),
                         alpaka::getPtrNative(d_selectedTrackIndices),
                         alpaka::getPtrNative(d_nSelectedTracks),
-                        alpaka::getPtrNative(d_nKeptHits));
+                        alpaka::getPtrNative(d_selectedTrackHitOffsets));
     }
 
 #ifdef PIXEL_TRACK_HP_DEBUG
@@ -295,7 +289,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                   tracks.trackHits(),
                                                   alpaka::getPtrNative(d_selectedTrackIndices),
                                                   alpaka::getPtrNative(d_nSelectedTracks),
-                                                  alpaka::getPtrNative(d_nKeptHits));
+                                                  alpaka::getPtrNative(d_selectedTrackHitOffsets));
       iEvent.emplace(tokenTrackOut_, std::move(tracks_out));
     }
   }
