@@ -25,7 +25,6 @@ HLTPhase2PixelTracksAndVerticesSequence = cms.Sequence(
     +hltPhase2PixelRecHitsExtendedSoA
     +hltPhase2PixelTracksSoA
     +hltPhase2PixelTrackTorchHighPuritySelector
-    #+hltPhase2PixelTrackSoATableProducer
     +hltPhase2PixelTracks
     +HLTPhase2PixelVertexingSequence
 )
