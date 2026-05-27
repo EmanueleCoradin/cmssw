@@ -68,6 +68,7 @@ _HLTPhase2PixelTracksAndVerticesSequenceTrimming = cms.Sequence(
     +hltPhase2OtRecHitsSoA
     +hltPhase2PixelRecHitsExtendedSoA
     +hltPhase2PixelTracksSoA
+    +hltPhase2PixelTrackTorchHighPuritySelector
     +hltPhase2PixelTracks
     +HLTPhase2PixelVertexingSequence
     +hltPhase2TrimmedPixelVertices
