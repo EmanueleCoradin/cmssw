@@ -87,7 +87,6 @@ NanoPixelTables = cms.Sequence(
     + hltPixelTrackTable
     + hltPixelTrackExtTable
     + hltPixelTrackRecHitsTable
-    + hltPixelTrackSoATable
 )
 
 # Store variables and associators for validation purposes
