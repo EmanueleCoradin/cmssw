@@ -12,7 +12,6 @@ from ..modules.hltPhase2PixelTracksHitSeeds_cfi import hltPhase2PixelTracksHitSe
 from ..modules.hltPhase2PixelTracksSeedLayers_cfi import hltPhase2PixelTracksSeedLayers
 from ..modules.hltPhase2PixelTracksSoA_cfi import hltPhase2PixelTracksSoA
 from ..modules.hltPhase2PixelTrackTorchHighPuritySelector_cfi import hltPhase2PixelTrackTorchHighPuritySelector
-from ..modules.hltPhase2PixelTrackSoATableProducer_cfi import hltPhase2PixelTrackSoATableProducer
 from ..modules.hltPhase2PixelVertices_cfi import *
 from ..sequences.HLTPhase2PixelVertexingSequence_cfi import *
 from ..sequences.HLTBeamSpotSequence_cfi import HLTBeamSpotSequence
@@ -35,11 +34,11 @@ HLTPhase2PixelTracksAndVerticesSequenceSerialSync = cms.Sequence()
 hltPhase2PixelTracksSoASerialSync = makeSerialClone(hltPhase2PixelTracksSoA)
 hltPhase2PixelTrackTorchHighPuritySelectorSerialSync = makeSerialClone(
     hltPhase2PixelTrackTorchHighPuritySelector.clone(
-        pixelTrackSrc = "hltPhase2PixelTracksSoASerialSync"
+        pixelTrackSrc = cms.InputTag("hltPhase2PixelTracksSoASerialSync")
     )
 )
 hltPhase2PixelTracksSerialSync = hltPhase2PixelTracks.clone(
-    trackSrc = "hltPhase2PixelTrackTorchHighPuritySelectorSerialSync"
+    trackSrc = cms.InputTag("hltPhase2PixelTrackTorchHighPuritySelectorSerialSync")
 )
 
 # Sequence for CPU vs. GPU validation, to be kept in sync with default sequence
