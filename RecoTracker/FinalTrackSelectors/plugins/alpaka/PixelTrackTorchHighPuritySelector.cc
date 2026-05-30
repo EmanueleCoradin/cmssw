@@ -94,6 +94,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   private:
     void produce(device::Event&, const device::EventSetup&) override;
+    void beginStream(edm::StreamID sid, Queue queue) override;
 
     const device::EDGetToken<TkSoADevice> pixelTrackToken_;
     const int maxNumberOfTracks_;
@@ -105,6 +106,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     torch::AlpakaModel model_;
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
     const int batchSize_;
+    const int warmupIterations_ = 3;
   };
 
   PixelTrackTorchHighPuritySelector::PixelTrackTorchHighPuritySelector(const edm::ParameterSet& iConfig)
@@ -129,6 +131,44 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
     if (maxPreselectedTracks_ > maxNumberOfTracks_) {
       throw cms::Exception("PixelTrackConfiguration") << "maxPreselectedTracks must be <= maxNumberOfTracks";
+    }
+  }
+
+  void PixelTrackTorchHighPuritySelector::beginStream(edm::StreamID sid, Queue queue) {
+    // Warmup the model with dummy data
+
+    // Allocate dummy input and output tensors on the device
+    PixelTrackFeaturesOnDevice trackFeatures(queue, batchSize_);
+    PixelTrackScoresOnDevice trackScoresOnDevice(queue, batchSize_);
+    auto track_record = trackFeatures.view().records();
+    auto score_record = trackScoresOnDevice.view().records();
+
+    for (auto it = 0; it < warmupIterations_; ++it) {
+      cms::torch::alpakatools::TensorCollection<Queue> dummy_inputs(batchSize_);
+      cms::torch::alpakatools::TensorCollection<Queue> dummy_outputs(batchSize_);
+
+      dummy_inputs.add<PixelTrackFeaturesSoA>("track_features",
+                                              track_record.chi2(),
+                                              track_record.dzError(),
+                                              track_record.dxyError(),
+                                              track_record.eta(),
+                                              track_record.nHits(),
+                                              track_record.phi(),
+                                              track_record.phiError(),
+                                              track_record.pt(),
+                                              track_record.qOverPtError(),
+                                              track_record.dzBS(),
+                                              track_record.dxyBS(),
+                                              track_record.nLayers(),
+                                              track_record.cotThetaError(),
+                                              track_record.covCotThetaDz(),
+                                              track_record.covDxyQOverPt(),
+                                              track_record.covPhiDxy(),
+                                              track_record.covPhiQOverPt());
+
+      dummy_outputs.add<PixelTrackScoresSoA>("track_scores", score_record.score());
+
+      model_.forward(queue, dummy_inputs, dummy_outputs, ::torch::kHalf);
     }
   }
 
