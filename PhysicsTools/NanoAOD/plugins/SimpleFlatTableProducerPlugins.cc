@@ -16,9 +16,6 @@ typedef SimpleCollectionFlatTableProducer<reco::Candidate> SimpleCandidateCollec
 #include "DataFormats/TrackReco/interface/Track.h"
 typedef SimpleFlatTableProducer<reco::Track> SimpleTrackFlatTableProducer;
 
-#include "DataFormats/TrackSoA/interface/PixelTrackSoATab.h"
-typedef SimpleFlatTableProducer<PixelTrackSoATab> SimplePixelTrackSoATabFlatTableProducer;
-
 #include "DataFormats/EgammaReco/interface/SuperCluster.h"
 typedef SimpleFlatTableProducer<reco::SuperCluster> SimpleSuperclusterFlatTableProducer;
 
@@ -106,4 +103,3 @@ DEFINE_FWK_MODULE(SimpleL2MuonTrajectorySeedFlatTableProducer);
 DEFINE_FWK_MODULE(SimpleTriggerTrackFlatTableProducer);
 DEFINE_FWK_MODULE(SimpleGsfTrackFlatTableProducer);
 DEFINE_FWK_MODULE(SimpleCompositeCandidateFlatTableProducer);
-DEFINE_FWK_MODULE(SimplePixelTrackSoATabFlatTableProducer);

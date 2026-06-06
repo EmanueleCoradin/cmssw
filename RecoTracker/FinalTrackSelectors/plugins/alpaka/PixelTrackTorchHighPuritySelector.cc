@@ -55,7 +55,6 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/FixedQueueEDProducer.h"
 
 #include <deque>
-#include <nvtx3/nvtx3.hpp>
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -79,6 +78,7 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
+  /// Input/output tensors associated to a single inference batch.
   struct BatchIO {
     cms::torch::alpakatools::TensorCollection<Queue> inputs;
     cms::torch::alpakatools::TensorCollection<Queue> outputs;
@@ -94,7 +94,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   private:
     void produce(device::Event&, const device::EventSetup&) override;
-    void beginStream(edm::StreamID sid, Queue queue) override;
+    void beginStream(edm::StreamID /*sid*/, Queue queue) override;
 
     const device::EDGetToken<TkSoADevice> pixelTrackToken_;
     const int maxNumberOfTracks_;
@@ -104,9 +104,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const pixelTrack::Quality minimumTrackQuality_;
     const double scoreThreshold_;
     torch::AlpakaModel model_;
-    const device::EDPutToken<TkSoADevice> tokenTrackOut_;
     const int batchSize_;
     const int warmupIterations_ = 3;
+    const device::EDPutToken<TkSoADevice> tokenTrackOut_;
   };
 
   PixelTrackTorchHighPuritySelector::PixelTrackTorchHighPuritySelector(const edm::ParameterSet& iConfig)
@@ -119,8 +119,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         minimumTrackQuality_(pixelTrack::qualityByName(iConfig.getParameter<std::string>("minimumTrackQuality"))),
         scoreThreshold_(iConfig.getParameter<double>("scoreThreshold")),
         model_(iConfig.getParameter<edm::FileInPath>("model").fullPath()),
-        tokenTrackOut_(produces()),
-        batchSize_(iConfig.getParameter<int>("batchSize")) {
+        batchSize_(iConfig.getParameter<int>("batchSize")),
+        tokenTrackOut_(produces()) {
     if (minimumTrackQuality_ == pixelTrack::Quality::notQuality) {
       throw cms::Exception("PixelTrackConfiguration")
           << iConfig.getParameter<std::string>("minimumTrackQuality") + " is not a pixelTrack::Quality";
@@ -134,10 +134,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   }
 
-  void PixelTrackTorchHighPuritySelector::beginStream(edm::StreamID sid, Queue queue) {
+  void PixelTrackTorchHighPuritySelector::beginStream(edm::StreamID /*sid*/, Queue queue) {
     // Warmup the model with dummy data
 
-    // Allocate dummy input and output tensors on the device
+    // Create temporary feature and score buffers used to warm up the model.
     PixelTrackFeaturesOnDevice trackFeatures(queue, batchSize_);
     PixelTrackScoresOnDevice trackScoresOnDevice(queue, batchSize_);
     auto track_record = trackFeatures.view().records();
@@ -181,7 +181,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       4. Score-based filtering
       5. Track compaction and output production
 */
-    nvtx3::scoped_range range{"PixelTrackTorchHP Producer"};
     // Retrieve tokens
     auto& queue = iEvent.queue();
     const auto& tracks = iEvent.get(pixelTrackToken_).view();
@@ -215,12 +214,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto nPreselectedTracks = 0;
     auto nSelectedTracks = 0;
     // Helper to copy the number of kept tracks back to host (debug only)
-    auto fetchnPreselectedTracks = [&]() {
+    auto fetchNumPreselectedTracks = [&]() {
       alpaka::memcpy(queue, h_nPreselectedTracks, d_nPreselectedTracks);
       alpaka::wait(queue);
       return *h_nPreselectedTracks;
     };
-    auto fetchnSelectedTracks = [&]() {
+    auto fetchNumSelectedTracks = [&]() {
       alpaka::memcpy(queue, h_nSelectedTracks, d_nSelectedTracks);
       alpaka::wait(queue);
       return *h_nSelectedTracks;
@@ -230,46 +229,38 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // 1. CA-based preselection of tracks
     //  Launch first kernel to look which tracks need to be filtered out
     //  based on quality criteria from the CA
-    {
-      nvtx3::scoped_range range1{"CAPreselection"};
-      launchCAPreselection(queue,
-                           maxNumberOfTracks_,
-                           minNumberOfHits_,
-                           minimumTrackQuality_,
-                           tracks.tracks(),
-                           alpaka::getPtrNative(d_preselectedTrackIndices),
-                           alpaka::getPtrNative(d_preselectionOffsets),
-                           alpaka::getPtrNative(d_nPreselectedTracks));
-    }
+
+    launchCAPreselection(queue,
+                         maxNumberOfTracks_,
+                         minNumberOfHits_,
+                         minimumTrackQuality_,
+                         tracks.tracks(),
+                         alpaka::getPtrNative(d_preselectedTrackIndices),
+                         alpaka::getPtrNative(d_preselectionOffsets),
+                         alpaka::getPtrNative(d_nPreselectedTracks));
 
 #ifdef PIXEL_TRACK_HP_DEBUG
-    nPreselectedTracks = fetchnPreselectedTracks();
+    nPreselectedTracks = fetchNumPreselectedTracks();
     std::cout << "PixelTrackTorchHighPuritySelector::Prefiltered tracks=" << nPreselectedTracks << "\n";
 #endif
 
-    // 2. Feature extraction (track SoA)
-    {
-      nvtx3::scoped_range range2{"FeaturesExtractor"};
-      launchFeaturesExtractor(queue,
-                              maxPreselectedTracks_,
-                              tracks.tracks(),
-                              alpaka::getPtrNative(d_preselectedTrackIndices),
-                              alpaka::getPtrNative(d_nPreselectedTracks),
-                              trackFeatures.view(),
-                              alpaka::getPtrNative(d_trackHitCounts));
-    }
+    launchFeaturesExtractor(queue,
+                            maxPreselectedTracks_,
+                            tracks.tracks(),
+                            alpaka::getPtrNative(d_preselectedTrackIndices),
+                            alpaka::getPtrNative(d_nPreselectedTracks),
+                            trackFeatures.view(),
+                            alpaka::getPtrNative(d_trackHitCounts));
 
     // 3. DNN inference
     //  Prepare TensorCollection inputs and outputs for the model
     auto track_record = trackFeatures.view().records();
     auto score_record = trackScoresOnDevice.view().records();
-    const auto n_batches = maxPreselectedTracks_ / batchSize_;
+    const auto n_batches = (maxPreselectedTracks_ + batchSize_ - 1) / batchSize_;
     std::deque<BatchIO> batches;
 
     // - Tensor collections for DNN inference
-
     for (auto i_batch = 0; i_batch < n_batches; ++i_batch) {
-      nvtx3::scoped_range range3{"DNNInference"};
       batches.emplace_back(
           BatchIO{cms::torch::alpakatools::TensorCollection<Queue>(batchSize_, maxPreselectedTracks_),
                   cms::torch::alpakatools::TensorCollection<Queue>(batchSize_, maxPreselectedTracks_)});
@@ -301,37 +292,31 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       model_.forward(queue, batch.inputs, batch.outputs, ::torch::kHalf);
     }
 
-    // 4. Score-based filtering
-    {
-      nvtx3::scoped_range range4{"ScoreFilter"};
-      launchScoreFilter(queue,
-                        maxPreselectedTracks_,
-                        scoreThreshold_,
-                        trackScoresOnDevice.view(),
-                        alpaka::getPtrNative(d_preselectedTrackIndices),
-                        alpaka::getPtrNative(d_nPreselectedTracks),
-                        alpaka::getPtrNative(d_trackHitCounts),
-                        alpaka::getPtrNative(d_selectedTrackIndices),
-                        alpaka::getPtrNative(d_nSelectedTracks),
-                        alpaka::getPtrNative(d_selectedTrackHitOffsets));
-    }
+    launchScoreFilter(queue,
+                      maxPreselectedTracks_,
+                      scoreThreshold_,
+                      trackScoresOnDevice.view(),
+                      alpaka::getPtrNative(d_preselectedTrackIndices),
+                      alpaka::getPtrNative(d_nPreselectedTracks),
+                      alpaka::getPtrNative(d_trackHitCounts),
+                      alpaka::getPtrNative(d_selectedTrackIndices),
+                      alpaka::getPtrNative(d_nSelectedTracks),
+                      alpaka::getPtrNative(d_selectedTrackHitOffsets));
 
 #ifdef PIXEL_TRACK_HP_DEBUG
-    nSelectedTracks = fetchnSelectedTracks();
+    nSelectedTracks = fetchNumSelectedTracks();
     std::cout << "PixelTrackTorchHighPuritySelector::Filtered tracks=" << nSelectedTracks << "\n";
 #endif
-    {
-      nvtx3::scoped_range range5{"OutputCompaction"};
-      auto tracks_out = launchProduceOutputTracks(queue,
-                                                  maxPreselectedTracks_,
-                                                  avgHitsPerTrack_,
-                                                  tracks.tracks(),
-                                                  tracks.trackHits(),
-                                                  alpaka::getPtrNative(d_selectedTrackIndices),
-                                                  alpaka::getPtrNative(d_nSelectedTracks),
-                                                  alpaka::getPtrNative(d_selectedTrackHitOffsets));
-      iEvent.emplace(tokenTrackOut_, std::move(tracks_out));
-    }
+
+    auto tracks_out = launchProduceOutputTracks(queue,
+                                                maxPreselectedTracks_,
+                                                avgHitsPerTrack_,
+                                                tracks.tracks(),
+                                                tracks.trackHits(),
+                                                alpaka::getPtrNative(d_selectedTrackIndices),
+                                                alpaka::getPtrNative(d_nSelectedTracks),
+                                                alpaka::getPtrNative(d_selectedTrackHitOffsets));
+    iEvent.emplace(tokenTrackOut_, std::move(tracks_out));
   }
 
   void PixelTrackTorchHighPuritySelector::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
