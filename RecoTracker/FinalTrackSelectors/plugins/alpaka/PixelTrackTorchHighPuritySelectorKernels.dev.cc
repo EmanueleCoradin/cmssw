@@ -5,6 +5,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/prefixScan.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/radixSort.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/warpsize.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
 #include "DataFormats/TrackSoA/interface/TracksDevice.h"
@@ -14,8 +15,8 @@
 #include "DataFormats/TrackingRecHitSoA/interface/TrackingRecHitsSoA.h"
 
 #include "RecoTracker/FinalTrackSelectors/plugins/alpaka/PixelTrackTorchHighPuritySelectorKernels.h"
-
-//#define KERNELS_DEBUG
+ 
+#define KERNELS_DEBUG
 
 // ------------------------------------------------------------------------------
 
@@ -51,7 +52,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   const ::pixelTrack::Quality minimumTrackQuality,
                                   const ::reco::TrackSoAConstView tracks,
                                   int* preselectionMask,
-                                  int* tmpPreselectedTrackIndices) const {
+                                  int* expandedPreselectedTrackIndices) const {
       /**
             * Applies a fast preselection to pixel tracks based on:
             *  - CAHitNtuplet quality flag
@@ -65,7 +66,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             *
             * Outputs:
             *  - preselectionMask[i] = 1 if track i passes preselection, 0 otherwise
-            *  - tmpPreselectedTrackIndices[i] = i (identity mapping, used for compaction)
+            *  - expandedPreselectedTrackIndices[i] = i (identity mapping, used for compaction)
             *
             * Notes:
             *  - Only tracks in [0, min(maxNumberOfTracks, tracks.nTracks())) are processed
@@ -76,7 +77,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       const auto trackLimit = alpaka::math::min(acc, maxNumberOfTracks, tracks.nTracks());
 #ifdef KERNELS_DEBUG
-      if (cms::alpakatools::once_per_block(acc)) {
+      if (cms::alpakatools::once_per_grid(acc)) {
         printf("nTracks=%d\n", tracks.nTracks());
         if (tracks.nTracks() >= maxNumberOfTracks)
           printf("PixelTrackTorchHighPuritySelectorKernels Warning: nTracks (%d) >= maxNumberOfTracks (%d)\n",
@@ -85,7 +86,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
 #endif
       for (auto i : cms::alpakatools::uniform_elements(acc, trackLimit)) {
-        tmpPreselectedTrackIndices[i] = i;
+        expandedPreselectedTrackIndices[i] = i;
         bool isGoodQuality = tracks[i].quality() >= minimumTrackQuality && nHits(tracks, i) >= minNumberOfHits;
         preselectionMask[i] = isGoodQuality ? 1 : 0;
       }
@@ -221,7 +222,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         */
 
       const auto nTracks = alpaka::math::min(acc, *nSelectedTracks, maxPreselectedTracks);
-      if (cms::alpakatools::once_per_block(acc))
+      if (cms::alpakatools::once_per_grid(acc))
         tracks_out.nTracks() = nTracks;
 
       for (auto i : cms::alpakatools::uniform_elements(acc, nTracks)) {
@@ -282,9 +283,81 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
+  struct ExtractPtKernel {
+    template <typename TAcc>
+    ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                  const ::reco::TrackSoAConstView tracks,
+                                  const int* preselectedTrackIndices,
+                                  const int* nPreselectedTracks,
+                                  float* ptValues,
+                                  uint32_t* sortingOffsets) const {
+      /**
+            * Extracts per-track pT values for sorting,
+            * fill the sorting offset used by the radix sort.
+            *
+            * For each valid preselected track:
+            *  - ptValues[i] = track.pt()
+            *
+            * Padding policy:
+            *  - Slots i >= nPreselectedTracks are treated as padding
+            *  - All padding slots are filled with a default value (e.g. 0)
+        */
+      const auto nPreselected = *nPreselectedTracks;
+      if (cms::alpakatools::once_per_grid(acc)) {
+        sortingOffsets[0] = 0u; 
+        sortingOffsets[1] = static_cast<uint32_t>(nPreselected);
+      }
+
+      for (auto i : cms::alpakatools::uniform_elements(acc, nPreselected)) {
+          auto inputTrackIdx = preselectedTrackIndices[i];
+          ptValues[i] = -tracks[inputTrackIdx].pt(); // Negate pT for descending sort
+          #ifdef KERNELS_DEBUG
+            if (inputTrackIdx < 10){
+              printf("ExtractPtKernel: preselectedTrackIndices[%d]=%d, pt=%.3f\n", i, inputTrackIdx, tracks[inputTrackIdx].pt());
+            }
+          #endif
+      }
+    }
+  };
+
+  struct PermuteIndicesKernel {
+    template <typename TAcc>
+    ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                  const int* preselectedTrackIndices,
+                                  const uint16_t* sortingMap,
+                                  const int maxPreselectedTracks,
+                                  int* nPreselectedTracks,
+                                  int* permutedTrackIndices) const {
+      /**
+            * Permutes the preselectedTrackIndices according to the sorting map.
+            *
+            * For each valid preselected track:
+            *  - Reads the sorting index from sortingMap
+            *  - Writes the track index to the permutedTrackIndices at the sorted position
+        */
+      const auto nPreselectedTracksBound = alpaka::math::min(acc, *nPreselectedTracks, maxPreselectedTracks);
+      for (auto i : cms::alpakatools::uniform_elements(acc, nPreselectedTracksBound)) {
+          auto sortedPos = sortingMap[i];
+          permutedTrackIndices[i] = preselectedTrackIndices[sortedPos];
+          #ifdef KERNELS_DEBUG
+            if (sortedPos >= maxPreselectedTracks) {
+                printf("PixelTrackTorchHighPuritySelectorKernels: Invalid sorting index %d for track %d\n", sortedPos, i);
+            }
+            if(sortedPos < 10){
+              printf("Track %d: preselectedTrackIndex=%d, sortedPos=%d, permutedTrackIndex=%d\n",
+                     i,
+                     preselectedTrackIndices[i],
+                     sortedPos,
+                     permutedTrackIndices[i]);
+            }
+          #endif
+      }
+    }
+  };
+
   // ------------------------------------------------------------------------------
 
-  struct FilterArray {
+  struct CompactArray {
     template <typename TAcc, typename T, typename Index, typename Size>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   const T* __restrict__ old_array,
@@ -310,7 +383,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             */
 
       // ---- Compute output size once ----
-      if (cms::alpakatools::once_per_block(acc)) {
+      if (cms::alpakatools::once_per_grid(acc)) {
         if (old_size > 0) {
           *new_size = static_cast<Size>(offsets[old_size - 1]);
         } else {
@@ -336,23 +409,33 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   void launchCAPreselection(Queue& queue,
                             const int maxNumberOfTracks,
+                            const int maxPreselectedTracks,
                             const int minNumberOfHits,
                             const ::pixelTrack::Quality minimumTrackQuality,
                             const ::reco::TrackSoAConstView tracks,
                             int* preselectedTrackIndices,
-                            int* preselectionOffsets,
                             int* nPreselectedTracks) {
     // Produce a preselection mask based on track quality and number of hits
-    auto tmpPreselectedTrackIndices = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks);
+    auto expandedPreselectedTrackIndices = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks);
+    auto unsortedPreselectedTrackIndices = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks);
+    auto sortingMap = cms::alpakatools::make_device_buffer<uint16_t[]>(queue, maxNumberOfTracks);
+    auto sortingWorkspace = cms::alpakatools::make_device_buffer<uint16_t[]>(queue,maxNumberOfTracks);
+    auto sortingOffsets = cms::alpakatools::make_device_buffer<uint32_t[]>(queue, 2);
     auto preselectionMask = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks);
+    auto preselectionOffsets = cms::alpakatools::make_device_buffer<int[]>(queue, maxNumberOfTracks);
+    auto pTbuffer = cms::alpakatools::make_device_buffer<float[]>(queue, maxNumberOfTracks);
 
-    alpaka::memset(queue, tmpPreselectedTrackIndices, 0);
+    alpaka::memset(queue, expandedPreselectedTrackIndices, 0);
+    alpaka::memset(queue, unsortedPreselectedTrackIndices, 0);
+    alpaka::memset(queue, sortingMap, 0u);
     alpaka::memset(queue, preselectionMask, 0);
+    alpaka::memset(queue, preselectionOffsets, 0);
+    alpaka::memset(queue, pTbuffer, 0);
 
     constexpr auto threadsPerBlock = 256u;
-    const auto blocks = cms::alpakatools::divide_up_by(maxNumberOfTracks, threadsPerBlock);
+    const auto blocks  = cms::alpakatools::divide_up_by(maxNumberOfTracks, threadsPerBlock);
     const auto workDiv = cms::alpakatools::make_workdiv<Acc1D>(blocks, threadsPerBlock);
-
+    
     alpaka::exec<Acc1D>(queue,
                         workDiv,
                         PreselectionMaskingKernel{},
@@ -361,7 +444,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         minimumTrackQuality,
                         tracks,
                         preselectionMask.data(),
-                        tmpPreselectedTrackIndices.data());
+                        expandedPreselectedTrackIndices.data());
 
     // Apply the preselection mask to compact the preselectedTrackIndices array
     // and produce the final list of preselected tracks,
@@ -377,21 +460,66 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         workDivPrefixScan,
                         cms::alpakatools::multiBlockPrefixScan<int>(),
                         preselectionMask.data(),
-                        preselectionOffsets,
+                        preselectionOffsets.data(),
                         maxNumberOfTracks,
                         blocksPrefixScan,
                         bCounter.data(),
                         alpaka::getPreferredWarpSize(alpaka::getDev(queue)));
 
-    // Compact the preselectedTrackIndices array using the preselection offsets
+    // Compact the expandedPreselectedTrackIndices buffer in the preselectedTrackIndices using the preselection offsets
     alpaka::exec<Acc1D>(queue,
                         workDivPrefixScan,
-                        FilterArray{},
-                        tmpPreselectedTrackIndices.data(),
-                        preselectedTrackIndices,
-                        preselectionOffsets,
+                        CompactArray{},
+                        expandedPreselectedTrackIndices.data(),
+                        unsortedPreselectedTrackIndices.data(),
+                        preselectionOffsets.data(),
                         maxNumberOfTracks,
                         nPreselectedTracks);
+    
+    // Extract the pT values of the preselected tracks
+    alpaka::exec<Acc1D>(queue,
+                        workDivPrefixScan,
+                        ExtractPtKernel{},
+                        tracks,
+                        unsortedPreselectedTrackIndices.data(),
+                        nPreselectedTracks,
+                        pTbuffer.data(),
+                        sortingOffsets.data());
+
+    auto sortWorkDiv = cms::alpakatools::make_workdiv<Acc1D>(1u, threadsPerBlock);
+
+    alpaka::enqueue(
+        queue,
+        alpaka::createTaskKernel<Acc1D>(
+            sortWorkDiv,
+            cms::alpakatools::radixSortMultiWrapper2<float, 2>{},
+            pTbuffer.data(),
+            sortingMap.data(),
+            sortingOffsets.data(),
+            sortingWorkspace.data()));
+
+    #ifdef KERNELS_DEBUG
+      alpaka::wait(queue);
+      auto sortingMap_h = cms::alpakatools::make_host_buffer<uint16_t[]>(queue, maxNumberOfTracks);
+
+      alpaka::memcpy(queue, sortingMap_h, sortingMap);
+      alpaka::wait(queue);
+
+      for (int i = 0; i < 20; ++i)
+        std::cout << i << " -> " << sortingMap_h[i] << std::endl;
+      
+    #endif
+    // Permute the preselectedTrackIndices according to the sorting map
+    
+    alpaka::exec<Acc1D>(queue,
+                        workDivPrefixScan,
+                        PermuteIndicesKernel{},
+                        unsortedPreselectedTrackIndices.data(),
+                        sortingMap.data(),
+                        maxPreselectedTracks,
+                        nPreselectedTracks,
+                        preselectedTrackIndices);
+    
   }
 
   // ------------------------------------------------------------------------------
@@ -476,7 +604,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Compact the preselectedTrackIndices array using the selection offsets
     alpaka::exec<Acc1D>(queue,
                         workDivPrefixScan,
-                        FilterArray{},
+                        CompactArray{},
                         preselectedTrackIndices,
                         selectedTrackIndices,
                         selectionOffsets.data(),
@@ -486,7 +614,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Compact selectedTrackHitCounts using the same selection offsets to produce selectedTrackHitOffsets
     alpaka::exec<Acc1D>(queue,
                         workDivPrefixScan,
-                        FilterArray{},
+                        CompactArray{},
                         trackHitCounts,
                         selectedTrackHitCounts.data(),
                         selectionOffsets.data(),

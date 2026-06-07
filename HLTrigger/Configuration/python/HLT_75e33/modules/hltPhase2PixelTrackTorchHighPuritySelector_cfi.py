@@ -2,8 +2,8 @@ import FWCore.ParameterSet.Config as cms
 
 hltPhase2PixelTrackTorchHighPuritySelector = cms.EDProducer('PixelTrackTorchHighPuritySelector@alpaka',
     pixelTrackSrc = cms.InputTag('hltPhase2PixelTracksSoA'),
-    maxNumberOfTracks = cms.int32(2*60*1024),
-    maxPreselectedTracks = cms.int32(9_984),
+    maxNumberOfTracks = cms.int32(200_000),
+    maxPreselectedTracks = cms.int32(4_992 * 2),
     minNumberOfHits = cms.int32(0),
     avgHitsPerTrack = cms.int32(8),
     minimumTrackQuality = cms.string('tight'),

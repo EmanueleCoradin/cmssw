@@ -19,11 +19,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   void launchCAPreselection(Queue& queue,
                             const int maxNumberOfTracks,
+                            const int maxPreselectedTracks,
                             const int minNumberOfHits,
                             const ::pixelTrack::Quality minimumTrackQuality,
                             const ::reco::TrackSoAConstView tracks,
                             int* preselectedTrackIndices,
-                            int* preselectionOffsets,
                             int* nPreselectedTracks);
 
   void launchFeaturesExtractor(Queue& queue,
