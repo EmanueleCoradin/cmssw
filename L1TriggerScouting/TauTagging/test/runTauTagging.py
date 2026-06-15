@@ -173,7 +173,7 @@ if args.runScouting and args.step >= Step.SORTING:
 if args.dump > Dump.NONE:
     if args.runScouting:
         process.out = cms.OutputModule("OrbitNanoAODOutputModule",
-            fileName = cms.untracked.string(f"ScoutCLUETaus_new_logits.root"),
+            fileName = cms.untracked.string(f"ScoutCLUETaus_new_logits_v12.root"),
             SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),  # keep all events
             outputCommands = cms.untracked.vstring(
                 "drop *",

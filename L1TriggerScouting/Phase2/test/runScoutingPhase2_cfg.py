@@ -90,6 +90,7 @@ process.scPhase2PuppiRawToDigiStruct.fedIDs = [*puppiStreamIDs]
 process.scPhase2TkEmRawToDigiStruct.fedIDs = [*tkEmStreamIDs]
 process.scPhase2TrackerMuonRawToDigiStruct.fedIDs = [*tkMuStreamIDs]
 process.goodOrbitsByNBX.nbxMin = 3564 * options.timeslices // options.tmuxPeriod
+#process.goodOrbitsByNBX.nbxMin = 1
 
 ## Configure analyses
 analysisModules = [getattr(process,f"{a}Struct") for a in analyses]
@@ -128,7 +129,10 @@ process.o_nanoSelected = cms.EndPath(process.scPhase2NanoSelected)
 process.o_nanoBoth = cms.EndPath(process.scPhase2NanoAll + process.scPhase2NanoSelected)
 
 sched = [ process.p_inclusive, process.p_selected ]
-if options.run != "both":  [ getattr(process, "p_" + options.run)]
+if options.run == "both":
+    sched = [process.p_inclusive, process.p_selected]
+else:
+    sched = [getattr(process, "p_" + options.run)]
 
 if options.outMode != "none":
   sched.append(getattr(process, "o_"+options.outMode))
