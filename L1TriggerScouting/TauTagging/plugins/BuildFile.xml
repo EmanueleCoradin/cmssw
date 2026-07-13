@@ -19,9 +19,4 @@
   <use name="PhysicsTools/PyTorchAlpaka"/>
   <flags ALPAKA_BACKENDS="serial cuda"/>
   <flags EDM_PLUGIN="1"/>
-  <!-- CLUEstering lib -->
-  <flags CXXFLAGS="-Wno-sign-compare"/>
-  <flags CXXFLAGS="-Wno-type-limits"/>
-  <flags CXXFLAGS="-I${CMSSW_BASE}/src/CLUEstering/include"/>
-  <flags ADDINCLUDE="-I${CMSSW_BASE}/src/CLUEstering/include"/>
 </library>

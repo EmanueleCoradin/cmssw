@@ -1,11 +1,11 @@
-#include "L1TriggerScouting/TauTagging/plugins/alpaka/CLUEsteringAlgo.h"
+#include "L1TriggerScouting/Phase2/plugins/alpaka/L1TScPhase2CLUEJetsKernels.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   CLUEsteringAlgo::CLUEsteringAlgo(float dc, float rhoc, float dm, bool wrap_coords)
       : dc_(dc), rhoc_(rhoc), dm_(dm), wrap_coords_(wrap_coords) {}
 
-  std::tuple<BxLookupDevice, ClustersDeviceCollection, AssociationMapDevice>
+  std::tuple<BxLookupDevice, ClusterObjDeviceCollection, AssociationMapDevice>
   CLUEsteringAlgo::run(Queue& queue,
                       const PFCandidateDeviceCollection& pf,
                       const BxLookupDevice& bx_sizes,
@@ -29,11 +29,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
         clue::PointsDevice<kDims, float, Device>(queue, n_points, eta_coord_ptr, phi_coord_ptr, weights_ptr, clusters_ptr);
     auto clue_algo = clue::Clusterer<kDims>(queue, dc_, rhoc_, dm_);
     
-    // call the clustering function
-    clue_algo.make_clusters(queue, points_device, bx_sizes_host.const_view().offset().offset()); // here give bx_sizes as inputs
-    alpaka::wait(queue); // this is very important
-    // get clusters -> candidates (clue) association map and copy the buffer to 
-    // a portable collection
+    // call the batched clustering function
+    clue_algo.make_clusters(queue, points_device, bx_sizes_host.const_view().offset().offset());
+    alpaka::wait(queue); // wait before copying
+
+    // get clusters -> candidates (clue) association map and copy the buffer to a portable collection
     auto clusters_cands_map_clue = clue_algo.getClusters(queue, points_device);
 
     AssociationMapDevice clusters_cands_map(queue,
@@ -52,25 +52,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                                       reinterpret_cast<const uint32_t *>(clusters_cands_map_clue.extract().keys.data()), 
                                                       Vec1D{clusters_cands_map_clue.extents().keys + 1});
     alpaka::memcpy(queue, dstIndexesClustersCands, srcIndexesClustersCands);
-    alpaka::memcpy(queue, dstOffsetsClustersCands, srcOffsetsClustersCands); // here the actual dimension of the buffer is extents + 1
-
-    /* BEGIN DEBUG */
-    // std::vector<uint32_t> cc_indexes(static_cast<size_t>(clusters_cands_map.const_view().index().metadata().size()));
-    // std::vector<uint32_t> cc_offsets(static_cast<size_t>(clusters_cands_map.const_view().offset().metadata().size()));
-    // alpaka::memcpy(queue, cc_indexes, dstIndexesClustersCands);
-    // alpaka::memcpy(queue, cc_offsets, dstOffsetsClustersCands);
-    // alpaka::wait(queue);
-
-    // auto max_size = std::max({cc_indexes.size(), cc_offsets.size()});
-    // cc_indexes.resize(max_size, std::numeric_limits<uint32_t>::max());
-    // cc_offsets.resize(max_size, std::numeric_limits<uint32_t>::max());
-    
-    // std::ofstream cc_map_stream("cc_map_v2.csv", std::ios::out);
-    // cc_map_stream << "cand_idx,offset\n";
-    // for (int i = 0; i < max_size; ++i) 
-    //   cc_map_stream << fmt::format("{},{}\n", cc_indexes[i], cc_offsets[i]);
-    // cc_map_stream.close();
-    /* END DEBUG */
+    alpaka::memcpy(queue, dstOffsetsClustersCands, srcOffsetsClustersCands);
 
     // get bx -> clusters association map
     auto bx_clusters_map_clue = clue_algo.getSampleAssociations(queue, points_device);
@@ -115,32 +97,45 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     // bxc_map_stream.close();
     /* END DEBUG */
     
-    // ClustersDeviceCollection to store the indexes of the clusters, accesible via the BxLookup
-    ClustersDeviceCollection cluster_indexes(queue, static_cast<int>(bx_clusters_map_clue.extents().values));
+    // ClusterObjDeviceCollection to store the indexes of the cluster, accesible via the BxLookup
+    ClusterObjDeviceCollection cluster_objects(queue, static_cast<int>(bx_clusters_map_clue.extents().values));
 
     auto srcClusterIndexes = alpaka::createView(alpaka::getDev(queue),
                                       reinterpret_cast<const int32_t *>(bx_clusters_map_clue.extract().values.data()), 
                                       Vec1D{bx_clusters_map_clue.extents().values});
 
     auto dstClusterIndexes = alpaka::createView(alpaka::getDev(queue), 
-                                      cluster_indexes.view().cluster().data(), 
-                                      Vec1D{cluster_indexes.const_view().metadata().size()});
+                                      cluster_objects.view().cluster().data(), 
+                                      Vec1D{cluster_objects.const_view().metadata().size()});
 
     alpaka::memcpy(queue, dstClusterIndexes, srcClusterIndexes);
 
+    // get the seeds from the clusterer and save them in the is_seed field of points_clusters
+    auto seeds_clue = clue_algo.getSeeds();
+
+    auto srcSeeds = alpaka::createView(alpaka::getDev(queue),
+                                reinterpret_cast<const int32_t *>(seeds_clue.data()), 
+                                Vec1D{seeds_clue.size()});
+
+    auto dstSeeds = alpaka::createView(alpaka::getDev(queue), 
+                                      points_clusters.view().is_seed().data(), 
+                                      Vec1D{points_clusters.const_view().metadata().size()});
+
+    alpaka::memcpy(queue, dstSeeds, srcSeeds);
+
     /* BEGIN DEBUG */
-    // std::vector<int32_t> cidxs(static_cast<size_t>(cluster_indexes.const_view().metadata().size()));
+    // std::vector<int32_t> cidxs(static_cast<size_t>(jets.const_view().metadata().size()));
     // alpaka::memcpy(queue, cidxs, dstClusterIndexes);
     // alpaka::wait(queue);
 
-    // std::ofstream cluster_indexes_stream("cluster_indexes_new.csv", std::ios::out);
-    // cluster_indexes_stream << "cidx\n";
+    // std::ofstream jets_stream("jets_new.csv", std::ios::out);
+    // jets_stream << "cidx\n";
     // for (int i = 0; i < cidxs.size(); ++i) 
-    //   cluster_indexes_stream << cidxs[i] << std::endl;
-    // cluster_indexes_stream.close();
+    //   jets_stream << cidxs[i] << std::endl;
+    // jets_stream.close();
     /* END DEBUG */
 
     // return
-    return std::make_tuple(std::move(bx_clusters_map), std::move(cluster_indexes), std::move(clusters_cands_map));
+    return std::make_tuple(std::move(bx_clusters_map), std::move(cluster_objects), std::move(clusters_cands_map));
   }
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels

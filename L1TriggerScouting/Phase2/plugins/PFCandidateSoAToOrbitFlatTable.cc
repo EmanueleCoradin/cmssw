@@ -36,7 +36,7 @@ public:
 private:
   // the tokens to access the data
   edm::EDGetTokenT<l1sc::BxLookupHost> srcBx_;
-  edm::EDGetTokenT<l1sc::PFCandidateHostCollection> srcPF_;
+  edm::EDGetTokenT<l1sc::PFCandidateHostCollection> srcCandidates_;
 
   std::string name_, doc_;
 };
@@ -46,7 +46,7 @@ private:
 
 PFCandidateSoAToOrbitFlatTable::PFCandidateSoAToOrbitFlatTable(const edm::ParameterSet& iConfig)
     : srcBx_(consumes<l1sc::BxLookupHost>(iConfig.getParameter<edm::InputTag>("srcBx"))),
-      srcPF_(consumes<l1sc::PFCandidateHostCollection>(iConfig.getParameter<edm::InputTag>("srcPF"))),
+      srcCandidates_(consumes<l1sc::PFCandidateHostCollection>(iConfig.getParameter<edm::InputTag>("srcCandidates"))),
       name_(iConfig.getParameter<std::string>("name")),
       doc_(iConfig.getParameter<std::string>("doc")) {
   produces<l1ScoutingRun3::OrbitFlatTable>();
@@ -57,8 +57,8 @@ PFCandidateSoAToOrbitFlatTable::PFCandidateSoAToOrbitFlatTable(const edm::Parame
 void PFCandidateSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm::EventSetup const&) const {
   edm::Handle<l1sc::BxLookupHost> srcBx;
   iEvent.getByToken(srcBx_, srcBx);
-  edm::Handle<l1sc::PFCandidateHostCollection> srcPF;
-  iEvent.getByToken(srcPF_, srcPF);
+  edm::Handle<l1sc::PFCandidateHostCollection> srcCandidates;
+  iEvent.getByToken(srcCandidates_, srcCandidates);
 
   const unsigned int nbx = srcBx->const_view().offset().metadata().size() - 1;
   const auto *bx_offsets = srcBx->const_view().offset().offset().data();
@@ -77,16 +77,16 @@ void PFCandidateSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, 
   auto bxOffsets = bxOffsetsFiller.done();
 
   // fill Candidates
-  const auto *pt = srcPF->const_view().pt().data();
-  const auto *eta = srcPF->const_view().eta().data();
-  const auto *phi = srcPF->const_view().phi().data();
-  const auto *z0 = srcPF->const_view().z0().data();
-  const auto *dxy = srcPF->const_view().dxy().data();
-  const auto *puppiw = srcPF->const_view().puppiw().data();
-  const auto *quality = srcPF->const_view().quality().data();
-  const auto *pdgid = srcPF->const_view().pdgid().data();
+  const auto *pt = srcCandidates->const_view().pt().data();
+  const auto *eta = srcCandidates->const_view().eta().data();
+  const auto *phi = srcCandidates->const_view().phi().data();
+  const auto *z0 = srcCandidates->const_view().z0().data();
+  const auto *dxy = srcCandidates->const_view().dxy().data();
+  const auto *puppiw = srcCandidates->const_view().puppiw().data();
+  const auto *quality = srcCandidates->const_view().quality().data();
+  const auto *pdgid = srcCandidates->const_view().pdgid().data();
 
-  const unsigned int npf = srcPF->const_view().metadata().size();
+  const unsigned int npf = srcCandidates->const_view().metadata().size();
 
   std::vector<float> pf_pt{pt, pt + npf};
   std::vector<float> pf_eta{eta, eta + npf};
@@ -113,7 +113,7 @@ void PFCandidateSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, 
 void PFCandidateSoAToOrbitFlatTable::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("srcBx");
-  desc.add<edm::InputTag>("srcPF");
+  desc.add<edm::InputTag>("srcCandidates");
   desc.add<std::string>("name");
   desc.add<std::string>("doc", "");
   descriptions.addDefault(desc);

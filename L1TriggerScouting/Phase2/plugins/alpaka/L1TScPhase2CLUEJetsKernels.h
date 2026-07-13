@@ -1,5 +1,5 @@
-#ifndef L1TriggerScouting_TauTagging_plugins_alpaka_CLUEsteringAlgo_h
-#define L1TriggerScouting_TauTagging_plugins_alpaka_CLUEsteringAlgo_h
+#ifndef L1TriggerScouting_Phase2_plugins_alpaka_L1TScPhase2CLUEJetsKernels_h
+#define L1TriggerScouting_Phase2_plugins_alpaka_L1TScPhase2CLUEJetsKernels_h
 
 #include <alpaka/alpaka.hpp>
 #include <fmt/core.h> 
@@ -25,13 +25,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   class CLUEsteringAlgo {
   public:
     explicit CLUEsteringAlgo(float dc, float rhoc, float dm, bool wrap_coords);
-    typedef std::tuple<BxLookupDevice, ClustersDeviceCollection, AssociationMapDevice> return_type;
+    typedef std::tuple<BxLookupDevice, ClusterObjDeviceCollection, AssociationMapDevice> return_type;
 
     return_type run(Queue& queue,
                     const PFCandidateDeviceCollection& pf,
                     const BxLookupDevice& bx_sizes,
                     ClustersDeviceCollection& points_clusters) const;
-
 
   private:
     float dc_, rhoc_, dm_;
@@ -40,4 +39,4 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels
 
-#endif  // L1TriggerScouting_TauTagging_plugins_alpaka_CLUEsteringAlgo_h
+#endif  // L1TriggerScouting_TauTagging_plugins_alpaka_L1TScPhase2CLUEJetsKernel_h

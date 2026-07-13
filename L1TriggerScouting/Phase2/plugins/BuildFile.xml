@@ -20,4 +20,9 @@
   <use name="HeterogeneousCore/AlpakaInterface"/>
   <flags ALPAKA_BACKENDS="serial cuda"/>
   <flags EDM_PLUGIN="1"/>
+  <!-- CLUEstering lib -->
+  <flags CXXFLAGS="-Wno-sign-compare"/>
+  <flags CXXFLAGS="-Wno-type-limits"/>
+  <flags CXXFLAGS="-I${CLUESTERING_BASE}/include"/>
+  <flags ADDINCLUDE="-I${CLUESTERING_BASE}/src/CLUEstering/include"/>
 </library>

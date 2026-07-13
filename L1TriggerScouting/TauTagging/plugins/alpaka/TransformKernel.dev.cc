@@ -95,7 +95,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
           uint32_t* keys
       ) const {
           const auto gridDim = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0]; // this should correspond to the number of bx = 3564
-          assert(gridDim == bx_clusters.bx().metadata().size() && "[BuildKeysBxWiseKernel] gridDim is not equal to the number of bxs");
+          assert(gridDim == static_cast<uint32_t>(bx_clusters.bx().metadata().size()) && "[BuildKeysBxWiseKernel] gridDim is not equal to the number of bxs");
 
           if (cms::alpakatools::once_per_grid(acc)) {
               bx_clustered_cands_offset[0] = 0;
@@ -116,9 +116,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                   const auto cand_idx = clusters_cands.index()[cand_local_idx].index(); // retrieve the global candidate index
                   const auto gcl = clusters.cluster()[cand_idx]; // get the global cluster ID of the current candidate
                   
-                  assert(gcl > -1 && "[BuildKeysBxWiseKernel] Found a -1 global cluster index inside the clustered candidates");
-                  assert(gcl >= cluster_range_start && "[BuildKeysBxWiseKernel] Global cluster index should be greater or equal than the base cluster index for the current bx");
-                  assert(gcl < cluster_range_end && "[BuildKeysBxWiseKernel] Global cluster index should be smaller than the base cluster index for the following bx");
+                  assert(gcl >= 0 && "[BuildKeysBxWiseKernel] Found a -1 global cluster index inside the clustered candidates");
+                  assert(gcl >= static_cast<int32_t>(cluster_range_start) && "[BuildKeysBxWiseKernel] Global cluster index should be greater or equal than the base cluster index for the current bx");
+                  assert(gcl < static_cast<int32_t>(cluster_range_end) && "[BuildKeysBxWiseKernel] Global cluster index should be smaller than the base cluster index for the following bx");
                   const auto lcl = gcl - cluster_range_start;
                   const auto pt_cand = cands.pt()[cand_idx];
                   const uint16_t pt_code = static_cast<uint16_t>(alpaka::math::max(acc, 65535.f - pt_cand * 32.f, 0.f));
@@ -179,7 +179,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
             shPy = 0.0f;
             shPz = 0.0f;
 
-            for (auto ii = 0; ii < block_size; ii++) {
+            for (auto ii = 0u; ii < block_size; ii++) {
               auto p = clusters_cands.index()[ii + begin].index();
               auto px_v = px(acc, pf.pt()[p], pf.phi()[p]);
               auto py_v = py(acc, pf.pt()[p], pf.phi()[p]);

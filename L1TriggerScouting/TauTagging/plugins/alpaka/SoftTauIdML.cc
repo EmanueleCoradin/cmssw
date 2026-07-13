@@ -6,6 +6,7 @@
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/Utilities/interface/Exception.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EDPutToken.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/Event.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
@@ -23,6 +24,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     cms::torch::alpakatools::TensorCollection<Queue> outputs;
   };
 
+  enum class Substep : uint8_t {
+    Sorting = 0, 
+    Reshaping = 1, 
+    Tagging = 2
+  };
+
+  Substep parseSubstep(std::string_view value) {
+    if (value == "sorting") {
+      return Substep::Sorting;
+    }
+    if (value == "reshaping") {
+      return Substep::Reshaping;
+    }
+    if (value == "tagging") {
+      return Substep::Tagging;
+    }
+
+    throw cms::Exception("Configuration")
+        << "Invalid substep value '" << value << "'. "
+        << "Allowed values are: sorting, reshaping, tagging.";
+  }
+
   class SoftTauIdML : public stream::EDProducer<> {
   public:
     SoftTauIdML(const edm::ParameterSet &params)
@@ -31,11 +54,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           bx_clusters_map_token_{consumes(params.getParameter<edm::InputTag>("srcBxClustersMap"))},
           cluster_cands_map_token_{consumes(params.getParameter<edm::InputTag>("srcClustersCandsMap"))},
           clusters_token_{consumes(params.getParameter<edm::InputTag>("srcClusters"))},
-          cluster_cands_map_sorted_token_{produces("clusterCandsMapSorted")},
-          soft_tau_token_{produces("outputTensor")},
+          substep_{parseSubstep(
+              params.getParameter<std::string>("substep")
+            )
+          },
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
-          step_{params.getParameter<uint32_t>("step")},
-          batch_size_{params.getParameter<uint32_t>("batchSize")} {}
+          batch_size_{params.getParameter<uint32_t>("batchSize")},
+          cluster_cands_map_sorted_token_{produces("clusterCandsMapSorted")} {
+            if (substep_ >= Substep::Reshaping) {
+              soft_tau_input_token_ = produces("softTauInputs");
+            }
+            if (substep_ >= Substep::Tagging) {
+              soft_tau_output_token_ = produces("softTauOutputs");
+            }
+          }
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
@@ -44,7 +76,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       desc.add<edm::InputTag>("srcClustersCandsMap");
       desc.add<edm::InputTag>("srcClusters");
       desc.add<edm::FileInPath>("model");
-      desc.add<uint32_t>("step", 0u);
+      desc.add<std::string>("substep", "tagging");
       desc.add<uint32_t>("batchSize", 32u);
       descriptions.addWithDefaultLabel(desc);
     }
@@ -55,27 +87,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       const auto &cluster_cands_map = event.get(cluster_cands_map_token_); // clusters->candidates map
       const auto &clusters = event.get(clusters_token_); // cluster ID for each candidate
 
-      // initialize output tensor
-      const auto job_size = cluster_cands_map.const_view().offset().metadata().size() - 1; // number of elements to run the inference on, which is the number of clusters
-      auto output_tensor = SoftTauOutputDeviceTensor(event.queue(), job_size);
-      output_tensor.zeroInitialise(event.queue());
-
       // sort the clusters->candidates association map by pt
       auto cluster_cands_map_sorted = kernels::sortClustersCandsMap(event.queue(), pf, bx_clusters_map, cluster_cands_map, clusters);
-      
-      if (step_ == 0u) {
-        alpaka::wait(event.queue());
-      }
+      event.emplace(cluster_cands_map_sorted_token_, cluster_cands_map_sorted); // std::move or not?
 
-      if ((step_ == 1u) || (step_ == 2u)) {
+      if (substep_ >= Substep::Reshaping) {
         // get filled input tensor
         SoftTauInputDeviceTensor input_tensor = kernels::transform(event.queue(), pf, cluster_cands_map_sorted);
+        event.emplace(soft_tau_input_token_, input_tensor); // std::move or not?
 
-        if (step_ == 1u) {
-          alpaka::wait(event.queue());
-        }
-
-        if (step_ == 2u) {
+        if (substep_ >= Substep::Tagging) {
+          // initialize output tensor
+          const auto job_size = cluster_cands_map.const_view().offset().metadata().size() - 1; // number of elements to run the inference on, which is the number of clusters
+          auto output_tensor = SoftTauOutputDeviceTensor(event.queue(), job_size);
+          output_tensor.zeroInitialise(event.queue());
+          
           // set batch size
           assert(batch_size_ > 0 && "batch_size_ is expected to be greater than zero, as unbatched inference will probably make the device go out of memory");
           auto num_batches = (job_size + batch_size_ - 1) / batch_size_;
@@ -85,8 +111,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           auto output_records = output_tensor.view().records();
 
           std::deque<BatchIO> batches;
-          for (auto batch_idx = 0; batch_idx < num_batches; ++batch_idx) {
-            // std::cout << "Batch " << batch_idx << std::endl;
+          for (auto batch_idx = 0u; batch_idx < num_batches; ++batch_idx) {
             BatchIO batch{cms::torch::alpakatools::TensorCollection<Queue>(batch_size_, job_size),
                           cms::torch::alpakatools::TensorCollection<Queue>(batch_size_, job_size)};
             
@@ -104,12 +129,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           for (auto &batch : batches) {
             model_.forward(event.queue(), batch.inputs, batch.outputs);
           }
+
+          event.emplace(soft_tau_output_token_, std::move(output_tensor));
         }
       }
-
-      // put device-side product into event
-      event.emplace(cluster_cands_map_sorted_token_, std::move(cluster_cands_map_sorted));
-      event.emplace(soft_tau_token_, std::move(output_tensor));
     }
 
   private:
@@ -123,12 +146,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     const device::EDGetToken<ClustersDeviceCollection> clusters_token_;
     // sorted clusters -> candidates map that is emplaced in the event
     const device::EDPutToken<AssociationMapDevice> cluster_cands_map_sorted_token_;
+    // put ml input into event
+    device::EDPutToken<SoftTauInputDeviceTensor> soft_tau_input_token_;
     // put ml output into event
-    const device::EDPutToken<SoftTauOutputDeviceTensor> soft_tau_token_;
+    device::EDPutToken<SoftTauOutputDeviceTensor> soft_tau_output_token_;
     // model
     torch::AlpakaModel model_;
-    // do inference or not
-    const uint32_t step_;
+    // processing step
+    Substep substep_;
     // scouting switch
     const uint32_t batch_size_;
   };
