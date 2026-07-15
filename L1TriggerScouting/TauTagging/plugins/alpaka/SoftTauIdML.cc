@@ -51,16 +51,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     SoftTauIdML(const edm::ParameterSet &params)
         : EDProducer<>(params),
           pf_candidates_token_(consumes(params.getParameter<edm::InputTag>("srcCandidates"))),
-          bx_clusters_map_token_{consumes(params.getParameter<edm::InputTag>("srcBxClustersMap"))},
-          cluster_cands_map_token_{consumes(params.getParameter<edm::InputTag>("srcClustersCandsMap"))},
-          clusters_token_{consumes(params.getParameter<edm::InputTag>("srcClusters"))},
-          substep_{parseSubstep(
+          bx_clusters_map_token_(consumes(params.getParameter<edm::InputTag>("srcBxClustersMap"))),
+          cluster_cands_map_token_(consumes(params.getParameter<edm::InputTag>("srcClustersCandsMap"))),
+          clusters_token_(consumes(params.getParameter<edm::InputTag>("srcClusters"))),
+          cluster_cands_map_sorted_token_(produces("clusterCandsMapSorted")),
+          model_(params.getParameter<edm::FileInPath>("model").fullPath()),
+          substep_(parseSubstep(
               params.getParameter<std::string>("substep")
             )
-          },
-          model_(params.getParameter<edm::FileInPath>("model").fullPath()),
-          batch_size_{params.getParameter<uint32_t>("batchSize")},
-          cluster_cands_map_sorted_token_{produces("clusterCandsMapSorted")} {
+          ),
+          batch_size_(params.getParameter<uint32_t>("batchSize")) {
             if (substep_ >= Substep::Reshaping) {
               soft_tau_input_token_ = produces("softTauInputs");
             }
@@ -89,12 +89,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
       // sort the clusters->candidates association map by pt
       auto cluster_cands_map_sorted = kernels::sortClustersCandsMap(event.queue(), pf, bx_clusters_map, cluster_cands_map, clusters);
-      event.emplace(cluster_cands_map_sorted_token_, cluster_cands_map_sorted); // std::move or not?
 
       if (substep_ >= Substep::Reshaping) {
         // get filled input tensor
         SoftTauInputDeviceTensor input_tensor = kernels::transform(event.queue(), pf, cluster_cands_map_sorted);
-        event.emplace(soft_tau_input_token_, input_tensor); // std::move or not?
 
         if (substep_ >= Substep::Tagging) {
           // initialize output tensor
@@ -132,7 +130,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
           event.emplace(soft_tau_output_token_, std::move(output_tensor));
         }
+
+        event.emplace(soft_tau_input_token_, std::move(input_tensor));
       }
+
+      event.emplace(cluster_cands_map_sorted_token_, std::move(cluster_cands_map_sorted)); 
     }
 
   private:

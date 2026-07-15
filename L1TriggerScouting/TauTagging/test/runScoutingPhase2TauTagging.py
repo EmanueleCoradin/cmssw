@@ -5,58 +5,8 @@ process = cms.Process("ScoutingPhase2TauTagging")
 # enable alpaka and GPU support
 process.load("Configuration.StandardSequences.Accelerators_cff")
 
-# import l1scouting options
-from L1TriggerScouting.Phase2.options_cff import options, VarParsing
-
-# extra options
-options.register ("splitFactor", 
-    1, 
-    VarParsing.VarParsing.multiplicity.singleton, 
-    VarParsing.VarParsing.multiplicity.int, 
-    "Number of sub-streams in which a single data stream is divided into."
-)
-
-options.register ("pipelineStep", 
-    "tagging",
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.string,
-    "Step up to which run the pipeline (unpacking, clustering, sorting, reshaping, tagging)."
-)
-
-options.register ("model", 
-    "L1TriggerScouting/TauTagging/data/softtauid_sigmoid_col.pt", 
-    VarParsing.VarParsing.multiplicity.singleton, 
-    VarParsing.VarParsing.varType.string,
-    "PyTorch model to be used."
-)
-
-options.register ("batchSize", 
-    8192, 
-    VarParsing.VarParsing.multiplicity.singleton, 
-    VarParsing.VarParsing.multiplicity.int, 
-    "Batch size (in terms of clusters) for model inference."
-)
-
-options.register ("dump", 
-    [],
-    VarParsing.VarParsing.multiplicity.list,
-    VarParsing.VarParsing.varType.string,
-    "List of objects to dump (candidates, cluster_indexes, soft_tau_inputs, soft_tau_outputs), compatible with the selected pipelineStep."
-)
-
-options.register ("synchronize", 
-    False, 
-    VarParsing.VarParsing.multiplicity.singleton, 
-    VarParsing.VarParsing.multiplicity.bool, 
-    "Force synchronization after each module, must be used when benchmarking"
-)
-
-options.register ("reportEvery",
-    10, 
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.int, 
-    "Print message after the specified number of events (proper events in this case)"
-)
+# import TauTagging options
+from L1TriggerScouting.TauTagging.options_cff import options, VarParsing
 
 # parse arguments
 options.parseArguments()
@@ -64,10 +14,6 @@ options.parseArguments()
 # check arguments consistency
 if options.pipelineStep not in ["unpacking", "clustering", "sorting", "reshaping", "tagging"]:
     raise ValueError("pipelineStep must be one among unpacking, clustering, sorting, reshaping, tagging")
-
-for d in options.dump:
-    if d not in ["candidates", "cluster_indexes", "soft_tau_inputs", "soft_tau_outputs"]:
-        raise ValueError("dump must be one among candidates, cluster_indexes, soft_tau_inputs, soft_tau_outputs")
 
 step_mapper = {
     "unpacking": 0, 
@@ -81,12 +27,20 @@ step_mapper = {
     "soft_tau_outputs": 4
 }
 
-for d in options.dump:
-    if step_mapper[d] > step_mapper[options.pipelineStep]:
-        raise ValueError(f"Requested object dump ({d}) is not compatible with specified pipelineStep ({options.pipelineStep})")
+dump = [] # keep only dump requests compatible with the pipeline step chosen
+if options.dump != []:
+    for d in options.dump:
+        if d not in ["candidates", "cluster_indexes", "soft_tau_inputs", "soft_tau_outputs"]:
+            raise ValueError("dump must be one among candidates, cluster_indexes, soft_tau_inputs, soft_tau_outputs")
+        if step_mapper[d] > step_mapper[options.pipelineStep]:
+            print(f"Requested object dump ({d}) is not compatible with specified pipelineStep ({options.pipelineStep}) and will be removed.")
+            continue
+        dump.append(d)
+    
+    print("Dumps requested and compatible with pipeline step: ", dump)
 
-if len(buNumStreams) != len(buBaseDir):
-        raise RuntimeError("Mismatch between buNumStreams (%d) and buBaseDirs (%d)" % (len(buNumStreams), len(buBaseDir)))
+if len(options.buNumStreams) != len(options.buBaseDir):
+        raise RuntimeError("Mismatch between buNumStreams (%d) and buBaseDirs (%d)" % (len(options.buNumStreams), len(options.buBaseDir)))
 
 # timing
 process.load( "HLTrigger.Timer.FastTimerService_cfi" )
@@ -125,7 +79,7 @@ process.EvFDaqDirector = cms.Service("EvFDaqDirector",
 
 fuDir = options.fuBaseDir + ("/run%06d" % options.runNumber)
 buDirs = [b + ("/run%06d" % options.runNumber) for b in options.buBaseDir]
-for d in [fuDir, fuBaseDir] + buDirs + buBaseDir:
+for d in [fuDir, options.fuBaseDir] + buDirs + options.buBaseDir:
     if not os.path.isdir(d):
         os.makedirs(d)
 
@@ -150,13 +104,27 @@ os.system("touch " + buDirs[0] + "/" + "fu.lock")
 process.p_pipeline = cms.Path()
 
 # unpacking
+"""
+Remarks on streams unpakcer input parameter:
+streams should be a list with each entry being the stream ID of stream files inside one or multiple buBaseDir(s). 
+Since we are working with PF candidates, we care only about PF candidates stream files. The current working setup is one 
+stream file for PF barrel and one stream file for PF endcap. Hence:
+- either one specifies pfBarrelStreamIDs=0 and pfEndcapStreamIDs=1 to get streams = [0, 1]
+- or one just specifies the total number of streams contained in each buBaseDir, which is expressed by buNumStreams. 
+  Usually there is only one buBaseDir containing the stream files for PF barrel and PF endcap. Thus buNumStreams = [2] and it is
+  convenient to then automatically generate the range of stream IDs directly from it. This is convenient also if PF barrel and PF
+  endcap are going to be split among multiple streams in the same buBaseDir.
+"""
 process.unpacker = cms.EDProducer("l1sc::L1TScPhase2PuppiRawToDigi@alpaka",
     alpaka = cms.untracked.PSet(
         backend = cms.untracked.string(options.backend)
     ),
     src = cms.InputTag("rawDataCollector"),
-    streams = cms.vuint32(*list(range(sum(options.buNumStreams))) if option.streams == [] else options.streams),
-    splitFactor = options.splitFactor
+    streams = cms.vuint32(
+        *list(range(options.buNumStreams[0])) # here we assume that buNumStreams[0] corresponds to the number of streams of PF candidates
+        if options.pfBarrelStreamIDs == [] else options.pfBarrelStreamIDs + options.pfEndcapStreamIDs
+    ),
+    splitFactor = cms.uint32(options.splitFactor)
 )
 process.p_pipeline += process.unpacker
 
@@ -179,7 +147,7 @@ process.softTaus = cms.EDProducer("l1sc::SoftTauIdML@alpaka",
     srcBxClustersMap = cms.InputTag("L1TScPhase2CLUEJetsProducer", "bxClustersMap"), 
     srcClustersCandsMap = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clustersCandsMap"), 
     srcClusters = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clusters"),
-    model = cms.FileInPath(option.model), 
+    model = cms.FileInPath(options.model), 
     substep = cms.string(options.pipelineStep), 
     batchSize = cms.uint32(options.batchSize)
 )
@@ -187,16 +155,56 @@ process.softTaus = cms.EDProducer("l1sc::SoftTauIdML@alpaka",
 if step_mapper[options.pipelineStep] >= step_mapper["clustering"]:
     process.p_pipeline += process.L1TScPhase2CLUEJetsProducer
 if step_mapper[options.pipelineStep] >= step_mapper["sorting"]:
-    process.p_pipeline += p.softTaus
+    process.p_pipeline += process.softTaus
 
 # define table path
 process.p_tables = cms.Path()
 
-if "candidates" in options.dump:
-    process.candOrbitTable = cms.EDProducer("PFCandidateSoAToOrbitFlatTable", 
-        srcBx = cms.InputTag("unpacker", "bxLookup"), 
-        srcCandidates = cms.InputTag("unpacker", "candidates"), 
-        clustering_name = cms.string("CLUEstering")
-        name = cms.string("L1PF")
-    )
+process.candOrbitTable = cms.EDProducer("PFCandidateSoAToOrbitFlatTable", 
+    srcBx = cms.InputTag("unpacker", "bxLookup"), 
+    srcCandidates = cms.InputTag("unpacker", "candidates"), 
+    name = cms.string("L1PF")
+)
+process.clusterOrbitTable = cms.EDProducer("ClusterSoAToOrbitFlatTable", 
+    srcBx = cms.InputTag("unpacker", "bxLookup"), 
+    srcClusters = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clusters"), 
+    clustering_name = cms.string("CLUEstering"),
+    name = cms.string("L1PF"), 
+    extension = cms.bool(True) # extends candOrbitTable, set same name as candOrbitTable
+)
+process.softTauInputsOrbitTable = cms.EDProducer("SoftTauInputTensorToOrbitFlatTable", 
+    srcBxClustersMap = cms.InputTag("L1TScPhase2CLUEJetsProducer", "bxClustersMap"), 
+    srcInputs = cms.InputTag("softTaus", "softTauInputs"), 
+    name = cms.string("SoftTauInputs")
+)
+process.softTauOutputsOrbitTable = cms.EDProducer("SoftTauOutputTensorToOrbitFlatTable", 
+    srcBxClustersMap = cms.InputTag("L1TScPhase2CLUEJetsProducer", "bxClustersMap"), 
+    srcOutputs = cms.InputTag("softTaus", "softTauOutputs"), 
+    name = cms.string("SoftTauOutputs")
+)
+
+if "candidates" in dump:
     process.p_tables += process.candOrbitTable
+    if "cluster_indexes" in dump:
+        process.p_tables += process.clusterOrbitTable
+
+if "soft_tau_inputs" in dump:
+    process.p_tables += process.softTauInputsOrbitTable
+
+if "soft_tau_outputs" in dump:
+    process.p_tables += process.softTauOutputsOrbitTable
+
+# output
+process.out = cms.OutputModule("OrbitNanoAODOutputModule",
+    fileName = cms.untracked.string("orbitNano.root"),
+    SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),
+    outputCommands = cms.untracked.vstring("drop *", "keep l1ScoutingRun3OrbitFlatTable_*_*_*"),
+)
+process.end = cms.EndPath(process.out)
+
+# schedule
+process.schedule = cms.Schedule(
+    process.p_pipeline, 
+    process.p_tables,
+    process.end
+)

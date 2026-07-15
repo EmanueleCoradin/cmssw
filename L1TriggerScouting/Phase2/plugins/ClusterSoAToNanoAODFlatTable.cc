@@ -36,6 +36,7 @@ private:
   edm::EDGetTokenT<l1sc::ClustersHostCollection> srcClusters_;
 
   std::string name_, clustering_name_, doc_;
+  bool extension_;
 };
 // -----------------------------------------------------------------------------
 
@@ -45,7 +46,8 @@ ClusterSoAToNanoAODFlatTable::ClusterSoAToNanoAODFlatTable(const edm::ParameterS
     : srcClusters_(consumes<l1sc::ClustersHostCollection>(iConfig.getParameter<edm::InputTag>("srcClusters"))),
       name_(iConfig.getParameter<std::string>("name")),
       clustering_name_(iConfig.getParameter<std::string>("clustering_name")),
-      doc_(iConfig.getParameter<std::string>("doc")) {
+      doc_(iConfig.getParameter<std::string>("doc")),
+      extension_(iConfig.getParameter<bool>("extension")) {
   produces<nanoaod::FlatTable>();
 }
 // -----------------------------------------------------------------------------
@@ -61,7 +63,7 @@ void ClusterSoAToNanoAODFlatTable::produce(edm::StreamID, edm::Event& iEvent, ed
   std::vector<int32_t> clusters{cluster, cluster + nclusters};
   std::vector<int32_t> is_seed{seed, seed + nclusters};
 
-  auto out = std::make_unique<nanoaod::FlatTable>(clusters.size(), name_, false, true);
+  auto out = std::make_unique<nanoaod::FlatTable>(clusters.size(), name_, /* singleton */ false, /* extension */ extension_);
   out->setDoc(doc_);
   out->addColumn<int32_t>("clusterIndex" + clustering_name_, clusters, "associated cluster index for " + clustering_name_);
   out->addColumn<int32_t>("isSeed" + clustering_name_, is_seed, "cluster used as seed for " + clustering_name_);
@@ -73,7 +75,8 @@ void ClusterSoAToNanoAODFlatTable::fillDescriptions(edm::ConfigurationDescriptio
   desc.add<edm::InputTag>("srcClusters");
   desc.add<std::string>("name");
   desc.add<std::string>("clustering_name");
-  desc.add<std::string>("doc");
+  desc.add<std::string>("doc", "");
+  desc.add<bool>("extension", false);
   descriptions.addDefault(desc);
 }
 

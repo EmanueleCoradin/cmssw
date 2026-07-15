@@ -26,7 +26,7 @@ options.register ('broker',
                   "Broker: 'none' or 'hostname:port'")
 
 options.register ('buBaseDir',
-                  '/dev/shm/ramdisk', # default value
+                  ['/dev/shm/ramdisk'], # default value
                   VarParsing.VarParsing.multiplicity.list,
                   VarParsing.VarParsing.varType.string,          # string, int, or float
                   "BU base directory")

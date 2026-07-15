@@ -97,7 +97,7 @@ void PFCandidateSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, 
   std::vector<uint8_t> pf_quality{quality, quality + npf};
   std::vector<int16_t> pf_pdgid{pdgid, pdgid + npf};
   
-  auto out = std::make_unique<l1ScoutingRun3::OrbitFlatTable>(bxOffsets, name_);
+  auto out = std::make_unique<l1ScoutingRun3::OrbitFlatTable>(bxOffsets, name_); // singleton and extension set to false by default
   out->setDoc(doc_);
   out->addColumn<float>("pt", pf_pt, "L1PF pt");
   out->addColumn<float>("eta", pf_eta, "L1PF eta");

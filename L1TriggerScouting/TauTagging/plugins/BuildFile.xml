@@ -6,7 +6,13 @@
 <use name="FWCore/Framework"/>
 <use name="FWCore/ParameterSet"/>
 <use name="FWCore/PluginManager"/>
+<use name="L1TriggerScouting/Phase2"/>
 <use name="L1TriggerScouting/Utilities"/>
+
+<library file="*.cc" name="L1TScoutingTauTaggingPlugins">
+  <flags EDM_PLUGIN="1"/>
+  <use name="eigen"/>
+</library>
 
 <library file="alpaka/*.cc" name="L1TScoutingTauTaggingPluginsPortable">
   <use name="alpaka"/>
@@ -15,7 +21,6 @@
   <use name="FWCore/Utilities"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
-  <use name="L1TriggerScouting/Phase2"/>
   <use name="PhysicsTools/PyTorchAlpaka"/>
   <flags ALPAKA_BACKENDS="serial cuda"/>
   <flags EDM_PLUGIN="1"/>

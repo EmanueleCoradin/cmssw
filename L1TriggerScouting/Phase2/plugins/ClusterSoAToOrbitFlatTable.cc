@@ -37,6 +37,7 @@ private:
   edm::EDGetTokenT<l1sc::ClustersHostCollection> srcClusters_;
 
   std::string clustering_name_, name_, doc_;
+  bool extension_;
 };
 // -----------------------------------------------------------------------------
 
@@ -47,7 +48,8 @@ ClusterSoAToOrbitFlatTable::ClusterSoAToOrbitFlatTable(const edm::ParameterSet& 
       srcClusters_(consumes<l1sc::ClustersHostCollection>(iConfig.getParameter<edm::InputTag>("srcClusters"))),
       clustering_name_(iConfig.getParameter<std::string>("clustering_name")),
       name_(iConfig.getParameter<std::string>("name")),
-      doc_(iConfig.getParameter<std::string>("doc")) {
+      doc_(iConfig.getParameter<std::string>("doc")), 
+      extension_(iConfig.getParameter<bool>("extension")) {
   produces<l1ScoutingRun3::OrbitFlatTable>();
 }
 // -----------------------------------------------------------------------------
@@ -77,7 +79,7 @@ void ClusterSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm:
   const auto *is_seed = srcClusters->const_view().is_seed().data();
   std::vector<int32_t> is_seeds{is_seed, is_seed + ncands};
 
-  auto out = std::make_unique<l1ScoutingRun3::OrbitFlatTable>(bxOffsets, name_);
+  auto out = std::make_unique<l1ScoutingRun3::OrbitFlatTable>(bxOffsets, name_, /* singleton */ false,  /* extension */ extension_);
   out->setDoc(doc_);
   out->addColumn<int32_t>("clusterIndex" + clustering_name_, clusters, "associated cluster index for " + clustering_name_);
   out->addColumn<int32_t>("isSeed" + clustering_name_, is_seeds, "cluster used as seed for " + clustering_name_);
@@ -88,9 +90,10 @@ void ClusterSoAToOrbitFlatTable::fillDescriptions(edm::ConfigurationDescriptions
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("srcBx");
   desc.add<edm::InputTag>("srcClusters");
-  desc.add<edm::InputTag>("clustering_name");
+  desc.add<std::string>("clustering_name");
   desc.add<std::string>("name");
   desc.add<std::string>("doc", "");
+  desc.add<bool>("extension", false);
   descriptions.addDefault(desc);
 }
 

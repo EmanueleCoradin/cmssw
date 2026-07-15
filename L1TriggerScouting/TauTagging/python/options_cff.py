@@ -1,199 +1,52 @@
-import argparse
-from enum import IntEnum
+# import l1scouting options
+from L1TriggerScouting.Phase2.options_cff import options, VarParsing
 
-class Step(IntEnum):
-    UNPACKING = 1
-    CLUSTERING = 2
-    SORTING = 3
-    RESHAPING = 4
-    TAGGING = 5
+# extra options
+options.register ("splitFactor", 
+    1, 
+    VarParsing.VarParsing.multiplicity.singleton, 
+    VarParsing.VarParsing.varType.int, 
+    "Number of sub-streams in which a single data stream is divided into."
+)
 
-class Dump(IntEnum):
-    NONE = 0
-    CANDIDATES = 1
-    CLUSTERS = 2
-    LOGITS = 3
+options.register ("pipelineStep", 
+    "tagging",
+    VarParsing.VarParsing.multiplicity.singleton,
+    VarParsing.VarParsing.varType.string,
+    "Step up to which run the pipeline (unpacking, clustering, sorting, reshaping, tagging)."
+)
 
-def parse_step(value: str) -> Step:
-    try:
-        return Step[value.upper()]
-    except KeyError:
-        valid = ", ".join(s.name.lower() for s in Step)
-        raise argparse.ArgumentTypeError(
-            f"Invalid step '{value}'. Valid choices: {valid}"
-        )
+options.register ("model", 
+    "L1TriggerScouting/TauTagging/data/softtauid_sigmoid_col.pt", 
+    VarParsing.VarParsing.multiplicity.singleton, 
+    VarParsing.VarParsing.varType.string,
+    "PyTorch model to be used."
+)
 
-def parse_dump(value: str) -> Step:
-    try:
-        return Dump[value.upper()]
-    except KeyError:
-        valid = ", ".join(s.name.lower() for s in Dump)
-        raise argparse.ArgumentTypeError(
-            f"Invalid dump '{value}'. Valid choices: {valid}"
-        )
+options.register ("batchSize", 
+    8192, 
+    VarParsing.VarParsing.multiplicity.singleton, 
+    VarParsing.VarParsing.varType.int, 
+    "Batch size (in terms of clusters) for model inference."
+)
 
-def parse_args():
-    parser = argparse.ArgumentParser()
+options.register ("dump", 
+    [],
+    VarParsing.VarParsing.multiplicity.list,
+    VarParsing.VarParsing.varType.string,
+    "List of objects to dump (candidates, cluster_indexes, soft_tau_inputs, soft_tau_outputs), compatible with the selected pipelineStep."
+)
 
-    # Basic CMSSW settings
-    parser.add_argument(
-        "-nt", "--numberOfThreads",
-        type=int,
-        default=1,
-        help="Number of CMSSW threads"
-    )
-    parser.add_argument(
-        "-ns", "--numberOfStreams",
-        type=int,
-        default=1,
-        help="Number of CMSSW streams"
-    )
-    parser.add_argument(
-        "-ne", "--numberOfEvents",
-        type=int,
-        default=1,
-        help="Number of events to process"
-    )
-    parser.add_argument(
-        "-re", "--reportEvery", 
-        type=int, 
-        default=10,
-        help="Report to standard output at every set number of processed events"
-    )
-    
-    # pipeline 
-    parser.add_argument(
-        "--step",
-        type=parse_step,
-        default=Step.TAGGING,
-        help="Run only the specified pipeline stages: unpacking, clustering, sorting, reshaping, tagging"
-    )
+options.register ("synchronize", 
+    False, 
+    VarParsing.VarParsing.multiplicity.singleton, 
+    VarParsing.VarParsing.varType.bool, 
+    "Force synchronization after each module, must be used when benchmarking"
+)
 
-    # dump
-    parser.add_argument(
-        "-d", "--dump",
-        type=parse_dump,
-        default=Dump.NONE,
-        help="Select which artifacts to dump on NanoAOD file: none, candidates, clusters, logits"
-    )
-
-    # Backend and environment
-    parser.add_argument(
-        "-b", "--backend",
-        type=str,
-        default="serial_sync",
-        choices=["serial_sync", "cuda_async", "rocm_async"],
-        help="Hardware accelerator backend"
-    )
-
-    parser.add_argument(
-        "-ws", "--wantSummary",
-        action='store_true',
-        help="Show timing report"
-    )
-
-    # Clustering parameters
-    parser.add_argument(
-        "--dc",
-        type=float,
-        default=0.2,
-        help="Side of the box inside which the density of a point is calculated"
-    )
-    parser.add_argument(
-        "--rhoc",
-        type=float,
-        default=5.0,
-        help="Minimum rhoc required for a point to be considered a seed candidate"
-    )
-    parser.add_argument(
-        "--dm",
-        type=float,
-        default=0.4,
-        help="Side of the box inside which the followers of a point are searched"
-    )
-    parser.add_argument(
-        "-wc", "--wrapCoords",
-        action="store_true",
-        help="Wrap phi coordinate in CLUEstering"
-    )
-
-    # Scouting configuration
-    parser.add_argument(
-        "-scout", "--runScouting",
-        action="store_true",
-        help="Run scouting-based tagging"
-    )
-    parser.add_argument(
-        "-rn","--runNumber",
-        type=int,
-        default=38,
-        help="Run number"
-    )
-    parser.add_argument(
-        "-ln", "--lumiNumber",
-        type=int,
-        default=1,
-        help="Lumisection number"
-    )
-    parser.add_argument(
-        "-dsm", "--daqSourceMode",
-        type=str,
-        default="ScoutingPhase2",
-        help="DAQ source data mode"
-    )
-    parser.add_argument(
-        "-broker", "--broker",
-        type=str,
-        default="none",
-        help="Broker: 'none' or 'hostname:port'"
-    )
-
-    # Tagger
-    parser.add_argument(
-        "-m","--model",
-        type=str,
-        default="L1TriggerScouting/TauTagging/data/softtauid_sigmoid_col.pt",
-        help="Path to JIT compiled PyTorch model."
-    )
-
-    # Directories and I/O streams
-    parser.add_argument(
-        "-fbd", "--fuBaseDir",
-        type=str,
-        default="/dev/shm/ramdisk",
-        help="FU base directory"
-    )
-    parser.add_argument(
-        "-bbd", "--buBaseDir",
-        nargs="+",
-        default=["/dev/shm/ramdisk"],
-        help="BU base directory (can specify multiple)"
-    )
-    parser.add_argument(
-        "-bns", "--buNumStreams",
-        nargs="+",
-        type=int,
-        default=[],
-        help="Number of input streams (i.e. files) used simultaneously for each BU directory"
-    )
-    parser.add_argument(
-        "-sf", "--splitFactor",
-        type=int,
-        default=1
-    )
-    parser.add_argument(
-        "-s", "--streams",
-        nargs="+",
-        type=int,
-        default=[],
-        help="Input link IDs for the inputs"
-    )
-
-    # Fast Timer Service Json
-    parser.add_argument(
-        "--timer",
-        action="store_true",
-        help="Write json file with report of FastTimerService"
-    )
-
-    return parser.parse_args()
+options.register ("reportEvery",
+    10, 
+    VarParsing.VarParsing.multiplicity.singleton,
+    VarParsing.VarParsing.varType.int, 
+    "Print message after the specified number of events (proper events in this case)"
+)
