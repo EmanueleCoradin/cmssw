@@ -147,13 +147,12 @@ process.p_tables = cms.Path(
 
 # output
 process.out = cms.OutputModule("NanoAODOutputModule",
-    fileName = cms.untracked.string("plainNano.root"),
+    fileName = cms.untracked.string("cluesteringNano.root"),
     SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),
     outputCommands = cms.untracked.vstring("drop *", "keep nanoaodFlatTable_*Table_*_*"),
     compressionLevel = cms.untracked.int32(4),
     compressionAlgorithm = cms.untracked.string("ZLIB"),
 )
-
 process.end = cms.EndPath(process.out)
 
 # schedule

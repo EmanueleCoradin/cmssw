@@ -1,6 +1,11 @@
-import os
 import FWCore.ParameterSet.Config as cms
-process = cms.Process("ScoutingPhase2TauTagging")
+from Configuration.StandardSequences.Eras import eras
+process = cms.Process("ScoutingPhase2ClusteringValidation", eras.Phase2C17I13M9)
+
+# nanoaod config
+from PhysicsTools.NanoAOD.common_cff import Var, ExtVar
+def LazyVar(expr, valtype, doc=None, precision=-1):
+    return Var(expr, valtype, doc, precision, lazyEval=True)
 
 # enable alpaka and GPU support
 process.load("Configuration.StandardSequences.Accelerators_cff")
@@ -38,10 +43,6 @@ if options.dump != []:
         dump.append(d)
     
     print("Dumps requested and compatible with pipeline step: ", dump)
-
-if len(options.buNumStreams) != len(options.buBaseDir):
-        raise RuntimeError("Mismatch between buNumStreams (%d) and buBaseDirs (%d)" % (len(options.buNumStreams), len(options.buBaseDir)))
-
 
 # define process and its options
 process.options = cms.untracked.PSet(
@@ -89,15 +90,15 @@ process.l1tEmulation = cms.Task(
 
 # Pool source 
 process.source = cms.Source("PoolSource",
-    # fileNames = cms.untracked.vstring("file:/eos/cms/store/cmst3/group/l1tr/vcamagni/"
-    #                                 "L1TauID/DATA/FPinputs/m90/4STEPS/"
-    #                                 f"142Xv0/inputs140X_7099351_{i}.root" for i in range(4000))
+    fileNames = cms.untracked.vstring("file:/eos/cms/store/cmst3/group/l1tr/vcamagni/"
+                                    "L1TauID/DATA/FPinputs/m90/4STEPS/"
+                                    f"142Xv0/inputs140X_7099351_{i}.root" for i in range(4000))
     # fileNames = cms.untracked.vstring([
     #     '/store/cmst3/group/l1tr/FastPUPPI/15_1_X/fpinputs_140X/v1/caseC_m220_67/4STEPS/151Xv0/inputs151X_14682953_1699.root'
     # ])
-    fileNames = cms.untracked.vstring([
-        f"file:/eos/cms/store/cmst3/group/l1tr/FastPUPPI/15_1_X/fpinputs_140X/v1/caseC_m220_67/4STEPS/151Xv3_pu200/inputs151X_15019206_{i}.root" for i in range(1000)
-    ])
+    # fileNames = cms.untracked.vstring([
+    #     f"file:/eos/cms/store/cmst3/group/l1tr/FastPUPPI/15_1_X/fpinputs_140X/v1/caseC_m220_67/4STEPS/151Xv3_pu200/inputs151X_15019206_{i}.root" for i in range(1000)
+    # ])
 )
 
 # define pipeline path
@@ -110,6 +111,7 @@ process.packer = cms.EDProducer("ScPhase2PuppiPacker",
     splitFactor = cms.uint32(1),
     scoutingHeader = cms.bool(True)
 )
+process.p_pipeline += process.packer
 
 process.unpacker = cms.EDProducer("l1sc::L1TScPhase2PuppiRawToDigi@alpaka",
     alpaka = cms.untracked.PSet(
@@ -119,6 +121,7 @@ process.unpacker = cms.EDProducer("l1sc::L1TScPhase2PuppiRawToDigi@alpaka",
     streams = cms.vuint32(*[process.packer.fedIDs]),
     splitFactor = process.packer.splitFactor
 )
+process.p_pipeline += process.unpacker
 
 # clustering
 process.load(
@@ -149,6 +152,9 @@ if step_mapper[options.pipelineStep] >= step_mapper["clustering"]:
 if step_mapper[options.pipelineStep] >= step_mapper["sorting"]:
     process.p_pipeline += process.softTaus
 
+# associate pipeline path to l1tEmulation task
+process.p_pipeline.associate(process.l1tEmulation)
+
 # define table path
 process.p_tables = cms.Path()
 
@@ -170,40 +176,39 @@ process.candNanoAODTable = cms.EDProducer("SimpleCandidateFlatTableProducer",
         puppiw = LazyVar("puppiWeight", float, precision=16),
     )
 )
-process.clusterNanoAODTable = cms.EDProducer("ClusterSoAToOrbitFlatTable", 
-    srcBx = cms.InputTag("unpacker", "bxLookup"), 
+process.clusterNanoAODTable = cms.EDProducer("ClusterSoAToNanoAODFlatTable", 
     srcClusters = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clusters"), 
     clustering_name = cms.string("CLUEstering"),
     name = cms.string("L1PF"), 
-    extension = cms.bool(True) # extends candOrbitTable, set same name as candOrbitTable
+    extension = cms.bool(True) # extends candNanoAODTable, set same name as clusterNanoAODTable
 )
-process.softTauInputsNanoAODTable = cms.EDProducer("SoftTauInputTensorToOrbitFlatTable", 
-    srcBxClustersMap = cms.InputTag("L1TScPhase2CLUEJetsProducer", "bxClustersMap"), 
+process.softTauInputsNanoAODTable = cms.EDProducer("SoftTauInputTensorToNanoAODFlatTable", 
     srcInputs = cms.InputTag("softTaus", "softTauInputs"), 
     name = cms.string("SoftTauInputs")
 )
-process.softTauOutputsNanoAODTable = cms.EDProducer("SoftTauOutputTensorToOrbitFlatTable", 
-    srcBxClustersMap = cms.InputTag("L1TScPhase2CLUEJetsProducer", "bxClustersMap"), 
+process.softTauOutputsNanoAODTable = cms.EDProducer("SoftTauOutputTensorToNanoAODFlatTable", 
     srcOutputs = cms.InputTag("softTaus", "softTauOutputs"), 
     name = cms.string("SoftTauOutputs")
 )
 
 if "candidates" in dump:
-    process.p_tables += process.candOrbitTable
+    process.p_tables += process.candNanoAODTable
     if "cluster_indexes" in dump:
-        process.p_tables += process.clusterOrbitTable
+        process.p_tables += process.clusterNanoAODTable
 
 if "soft_tau_inputs" in dump:
-    process.p_tables += process.softTauInputsOrbitTable
+    process.p_tables += process.softTauInputsNanoAODTable
 
 if "soft_tau_outputs" in dump:
-    process.p_tables += process.softTauOutputsOrbitTable
+    process.p_tables += process.softTauOutputsNanoAODTable
 
 # output
-process.out = cms.OutputModule("OrbitNanoAODOutputModule",
-    fileName = cms.untracked.string("orbitNano.root"),
+process.out = cms.OutputModule("NanoAODOutputModule",
+    fileName = cms.untracked.string("softTauNano.root"),
     SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),
-    outputCommands = cms.untracked.vstring("drop *", "keep l1ScoutingRun3OrbitFlatTable_*_*_*"),
+    outputCommands = cms.untracked.vstring("drop *", "keep nanoaodFlatTable_*Table_*_*"),
+    compressionLevel = cms.untracked.int32(4),
+    compressionAlgorithm = cms.untracked.string("ZLIB"),
 )
 process.end = cms.EndPath(process.out)
 
