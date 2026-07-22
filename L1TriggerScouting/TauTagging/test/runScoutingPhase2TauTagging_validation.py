@@ -72,11 +72,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, '141X_mcRun4_realistic_v3', '')
 process.l1tTrackSelectionProducer.processSimulatedTracks = False # these would need stubs, and are not used anyway
 
 process.l1tEmulation = cms.Task(
-    process.l1tTkMuonsGmt,
     process.l1tSAMuonsGmt,
-    process.l1tGTTInputProducer,
-    process.l1tTrackSelectionProducer,
-    process.l1tVertexFinderEmulator,
     process.l1tPhase2L1CaloEGammaEmulator,
     process.l1tPhase2CaloPFClusterEmulator,
     process.l1tPhase2GCTBarrelToCorrelatorLayer1Emulator,    
@@ -90,15 +86,15 @@ process.l1tEmulation = cms.Task(
 
 # Pool source 
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring("file:/eos/cms/store/cmst3/group/l1tr/vcamagni/"
-                                    "L1TauID/DATA/FPinputs/m90/4STEPS/"
-                                    f"142Xv0/inputs140X_7099351_{i}.root" for i in range(4000))
+    # fileNames = cms.untracked.vstring("file:/eos/cms/store/cmst3/group/l1tr/vcamagni/"
+    #                                 "L1TauID/DATA/FPinputs/m90/4STEPS/"
+    #                                 f"142Xv0/inputs140X_7099351_{i}.root" for i in range(4000))
     # fileNames = cms.untracked.vstring([
     #     '/store/cmst3/group/l1tr/FastPUPPI/15_1_X/fpinputs_140X/v1/caseC_m220_67/4STEPS/151Xv0/inputs151X_14682953_1699.root'
     # ])
-    # fileNames = cms.untracked.vstring([
-    #     f"file:/eos/cms/store/cmst3/group/l1tr/FastPUPPI/15_1_X/fpinputs_140X/v1/caseC_m220_67/4STEPS/151Xv3_pu200/inputs151X_15019206_{i}.root" for i in range(1000)
-    # ])
+    fileNames = cms.untracked.vstring([
+        f"file:/eos/cms/store/cmst3/group/l1tr/FastPUPPI/15_1_X/fpinputs_140X/v1/caseC_m220_67/4STEPS/151Xv3_pu200/inputs151X_15019206_{i}.root" for i in range(1000)
+    ])
 )
 
 # define pipeline path
@@ -106,7 +102,7 @@ process.p_pipeline = cms.Path()
 
 # FP inputs packing/unpacking
 process.packer = cms.EDProducer("ScPhase2PuppiPacker",
-    src = cms.InputTag("l1tLayer1Extended:PF"),
+    src = cms.InputTag("l1tLayer1Extended:PF"), # l1tLayer1Extended:PF or l1tLayer1:PF
     fedIDs = cms.vuint32(0),
     splitFactor = cms.uint32(1),
     scoutingHeader = cms.bool(True)
@@ -158,22 +154,25 @@ process.p_pipeline.associate(process.l1tEmulation)
 # define table path
 process.p_tables = cms.Path()
 
+# attention here that I should check what is being dumped
 process.candNanoAODTable = cms.EDProducer("SimpleCandidateFlatTableProducer",
     name = cms.string("L1PF"),
-    src = cms.InputTag("l1tLayer1Extended:PF"),
+    src = cms.InputTag("l1tLayer1Extended:PF"), # l1tLayer1Extended:PF or l1tLayer1:PF
     cut = cms.string(""),
     doc = cms.string(""),
     singleton = cms.bool(False), # the number of entries is variable
     extension = cms.bool(False), # this is the main table
     variables = cms.PSet(
-        pt  = Var("pt",  float, precision=16),
-        eta  = Var("eta", float, precision=16),
-        phi = Var("phi", float, precision=16),
+        pt  = Var("pt",  float),
+        eta  = Var("eta", float),
+        phi = Var("phi", float),
+        mass = Var("mass", float),
+        z0 = LazyVar("vz", float),
+        dxy = LazyVar("dxy", float),
+        charge = Var("charge", int),
         pdgId = Var("pdgId", int),
-        z0 = Var("vz", float, precision=16),
-        dxy = LazyVar("dxy", float, precision=16),
         quality = LazyVar("hwQual", int),
-        puppiw = LazyVar("puppiWeight", float, precision=16),
+        puppiWeight = LazyVar("puppiWeight", float),
     )
 )
 process.clusterNanoAODTable = cms.EDProducer("ClusterSoAToNanoAODFlatTable", 

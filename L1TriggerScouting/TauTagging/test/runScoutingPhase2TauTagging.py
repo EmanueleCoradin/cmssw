@@ -196,7 +196,7 @@ if "soft_tau_outputs" in dump:
 
 # output
 process.out = cms.OutputModule("OrbitNanoAODOutputModule",
-    fileName = cms.untracked.string("softTauOrbitNano.root"),
+    fileName = cms.untracked.string("msjCaseCOrbitNano.root"),
     SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),
     outputCommands = cms.untracked.vstring("drop *", "keep l1ScoutingRun3OrbitFlatTable_*_*_*"),
 )

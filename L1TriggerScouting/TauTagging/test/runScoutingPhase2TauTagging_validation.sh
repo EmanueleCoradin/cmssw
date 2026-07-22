@@ -22,16 +22,16 @@ fi
 
 if [ "${TARGET}" == "cpu" ]; then
   echo "Running CPU-only test"
-  cmsRun "${SCRIPT}" maxEvents=$2 pipelineStep=$3 backend=serial_sync
+  cmsRun "${SCRIPT}" reportEvery=1 maxEvents=$2 pipelineStep=$3 backend=serial_sync
 elif [ "${TARGET}" == "cpu-dump" ]; then
   echo "Running CPU-only test with dumps"
-  cmsRun "${SCRIPT}" maxEvents=$2 pipelineStep=$3 dump=candidates,cluster_indexes,soft_tau_inputs,soft_tau_outputs backend=serial_sync
+  cmsRun "${SCRIPT}" reportEvery=1 maxEvents=$2 pipelineStep=$3 dump=candidates,cluster_indexes,soft_tau_inputs,soft_tau_outputs backend=serial_sync
 elif [ "${TARGET}" == "cuda" ]; then
   echo "Running CUDA test"
-  cmsRun "${SCRIPT}" maxEvents=$2 pipelineStep=$3 backend=cuda_async
+  cmsRun "${SCRIPT}" reportEvery=1 maxEvents=$2 pipelineStep=$3 backend=cuda_async
 elif [ "${TARGET}" == "cuda-dump" ]; then
   echo "Running CUDA test with dumps"
-  cmsRun "${SCRIPT}" maxEvents=$2 pipelineStep=$3 dump=candidates,cluster_indexes,soft_tau_inputs,soft_tau_outputs backend=cuda_async
+  cmsRun "${SCRIPT}" reportEvery=1 maxEvents=$2 pipelineStep=$3 dump=candidates,cluster_indexes,soft_tau_inputs,soft_tau_outputs backend=cuda_async
 elif [ "${TARGET}" == "rocm" ]; then
   die "rocm not curently supported" 1 
 fi
