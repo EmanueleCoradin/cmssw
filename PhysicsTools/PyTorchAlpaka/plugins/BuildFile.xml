@@ -1,14 +1,4 @@
-<library file="*.cc" name="PhysicsToolsPyTorchAlpakaTestPlugins">
-  <use name="fmt"/>
-  <use name="DataFormats/PortableTestObjects"/>
-  <use name="FWCore/Framework"/>
-  <use name="FWCore/MessageLogger"/>
-  <use name="FWCore/ParameterSet"/>
-  <use name="FWCore/Utilities"/>
-  <flags EDM_PLUGIN="1"/>
-</library>
-
-<library file="alpaka/*.cc" name="PhysicsToolsPyTorchAlpakaTestPluginsPortable">
+<library file="alpaka/PyTorchAlpakaService.cc" name="PhysicsToolsPyTorchAlpakaServicePlugins">
   <use name="alpaka"/>
   <use name="pytorch"/>
   <use name="pytorch-cuda" for="alpaka/cuda"/>
@@ -20,15 +10,14 @@
   <use name="hipsolver" for="alpaka/rocm"/>
   <use name="hipsparse" for="alpaka/rocm"/>
 
-  <use name="DataFormats/PortableTestObjects"/>
   <use name="FWCore/MessageLogger"/>
   <use name="FWCore/ParameterSet"/>
-  <use name="FWCore/Utilities"/>
-  <use name="HeterogeneousCore/AlpakaCore"/>
+  <use name="FWCore/ServiceRegistry"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="HeterogeneousCore/AlpakaServices"/>
   <use name="PhysicsTools/PyTorchAlpaka"/>
-  
+
   <flags CXXFLAGS="-Wno-error=strict-aliasing -Wno-error=unused-but-set-variable -I/cvmfs/cms-ib.cern.ch/sw/x86_64/nweek-02961/el9_amd64_gcc14/external/hipblas-common/7.14-284173ec0c454c5561c1094c1cfc675d/include"/>
-  <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
+  <flags ALPAKA_BACKENDS="1"/>
 </library>
