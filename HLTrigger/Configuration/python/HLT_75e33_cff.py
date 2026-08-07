@@ -301,6 +301,9 @@ fragment.load("HLTrigger/Configuration/HLT_75e33/services/MessageLogger_cfi")
 fragment.load("HLTrigger/Configuration/HLT_75e33/services/ThroughputService_cfi")
 fragment.load("HLTrigger/Configuration/HLT_75e33/services/PyTorchService_cfi")
 
+from HLT_75e33.services.PyTorchAlpakaService_cff import loadPyTorchAlpakaService
+loadPyTorchAlpakaService(fragment)
+
 fragment.schedule = cms.Schedule(*[
 
     fragment.DST_PFScouting,
