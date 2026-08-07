@@ -4,6 +4,10 @@
 <use name="pytorch-cuda" for="alpaka/cuda"/>
 <use name="PhysicsTools/PyTorch"/>
 <use name="HeterogeneousCore/AlpakaInterface"/>
+<use name="FWCore/MessageLogger"/>
+<use name="FWCore/ParameterSet"/>
+<use name="FWCore/Utilities"/>
+
 <flags ALPAKA_BACKENDS="1"/>
 <export>
   <lib name="1"/>
