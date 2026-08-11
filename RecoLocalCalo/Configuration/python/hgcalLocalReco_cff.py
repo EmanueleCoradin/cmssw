@@ -18,7 +18,29 @@ from RecoTICL.Geometry.TICLGeom_cff import (ticlGeomESProducer,
 # (for now until global reco is going with some sort of clustering)
 from RecoParticleFlow.PFClusterProducer.particleFlowRecHitHGC_cfi import *
 from RecoParticleFlow.PFClusterProducer.particleFlowClusterHGC_cfi import *
-from RecoTICL.LayerClustering.hgcalLayerClusters_cff import hgcalLayerClustersHFNose, hgcalLayerClustersEE, hgcalLayerClustersHSi, hgcalLayerClustersHSci, hgcalMergeLayerClusters
+
+from RecoTICL.LayerClustering.hgcalLayerClusters_cff import (
+    hgcalLayerClustersHFNose,
+    hgcalLayerClustersEE,
+    hgcalLayerClustersHSi,
+    hgcalLayerClustersHSci,
+    hgcalMergeLayerClusters,
+)
+
+# Device (alpaka) CLUEstering producers.
+from RecoTICL.LayerClustering.hgcalLayerClusters_cff import (
+    hgcalLayerClustersAlpakaTask,
+    hgcalLayerClustersHFNoseAlpakaTask,
+)
+
+# Expose the device producers so they can be discovered when scheduled
+# through the reconstruction Task.
+from RecoTICL.LayerClustering.hgcalLayerClusters_cff import (
+    hgcalSoARecHitsEE, hgcalCLUEsteringEE, hgcalSoALayerClustersEE,
+    hgcalSoARecHitsHSi, hgcalCLUEsteringHSi, hgcalSoALayerClustersHSi,
+    hgcalSoARecHitsHSci, hgcalCLUEsteringHSci, hgcalSoALayerClustersHSci,
+    hgcalSoARecHitsHFNose, hgcalCLUEsteringHFNose, hgcalSoALayerClustersHFNose,
+)
 
 hgcalLocalRecoTask = cms.Task( HGCalUncalibRecHit,
                                        HGCalRecHit,
@@ -41,5 +63,8 @@ _hfnose_hgcalLocalRecoTask.add(hgcalLayerClustersHFNose)
 from Configuration.Eras.Modifier_phase2_hfnose_cff import phase2_hfnose
 phase2_hfnose.toReplaceWith(
     hgcalLocalRecoTask, _hfnose_hgcalLocalRecoTask )
+
+hgcalLocalRecoTask.add(hgcalLayerClustersAlpakaTask)
+_hfnose_hgcalLocalRecoTask.add(hgcalLayerClustersHFNoseAlpakaTask)
 
 hgcalLocalRecoSequence = cms.Sequence(hgcalLocalRecoTask)
