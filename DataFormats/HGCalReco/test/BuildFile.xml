@@ -2,3 +2,17 @@
   <use name="catch2"/>
   <use name="DataFormats/HGCalReco" />
 </bin>
+<bin name="TracksterSoA_t" file="TracksterSoA_t.cpp">
+  <use name="catch2"/>
+  <use name="DataFormats/HGCalReco"/>
+</bin>
+<bin name="TracksterDevice_t" file="alpaka/TracksterDevice_t.cpp">
+  <use name="DataFormats/HGCalReco"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
+<bin name="TracksterDeviceCopy_t" file="alpaka/TracksterDeviceCopy_t.cpp">
+  <use name="DataFormats/HGCalReco"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
