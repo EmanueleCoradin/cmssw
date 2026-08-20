@@ -107,8 +107,8 @@
   </bin>
 </iftool>
 
-<!-- <iftool name="cuda-gcc-support">
-  <bin name="testModelAot" file="testModelAot.cc testRunner.cc">
+<iftool name="cuda-gcc-support">
+  <bin name="testModelAotFatBins" file="testModelAotFatBins.cc testRunner.cc">
 	<use name="boost_filesystem"/>
 	<use name="cppunit"/>
 	<use name="cuda"/>
@@ -118,7 +118,7 @@
 	<use name="HeterogeneousCore/CUDAUtilities"/>
 	<use name="PhysicsTools/PyTorch"/>
   </bin> 
-</iftool> -->
+</iftool>
 
 <iftool name="cuda-gcc-support">
   <bin name="testModelJit" file="testModelJit.cc testRunner.cc">
