@@ -43,7 +43,6 @@ namespace torchtest {
       inputs_tensor.push_back(val.toTensor());
 
     auto outputs = m.forward(inputs_tensor);
-
   }
 
   void testModelAotFatBins::testCuda() {
@@ -62,7 +61,6 @@ namespace torchtest {
       inputs_tensor.push_back(val.toTensor());
 
     auto outputs = m.forward(inputs_tensor);
-
   }
 
   void testModelAotFatBins::testAsyncExecutionExplicitStream() {
@@ -77,7 +75,7 @@ namespace torchtest {
 
     auto dev = ::torch::Device(::torch::kCUDA, 0);
     auto m_path = edm::FileInPath("PhysicsTools/PyTorch/models/model.pt2").fullPath();
-    
+
     // async model load and inference check
     auto m = cms::torch::ModelAOT(m_path);
 

@@ -26,6 +26,9 @@ namespace cms::torch {
 
     explicit ModelAOT(const std::string &precompiled_lib_path)
         : pkg_loader_(precompiled_lib_path), device_(::torch::Device(pkg_loader_.get_metadata()["AOTI_DEVICE_KEY"])) {}
+    explicit ModelAOT(const std::string &precompiled_lib_path, ::torch::Device device)
+        : pkg_loader_(precompiled_lib_path), device_(device.type(), device.index()){}
+    
 
     // Forward pass (inference) of model, returns std::vector<at::Tensor> (multi output support). Thread safety not verified yet.
     // Match native torchlib interface. cudaStream_t can be passed to run inference on specific stream.

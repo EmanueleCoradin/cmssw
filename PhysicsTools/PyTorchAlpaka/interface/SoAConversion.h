@@ -22,12 +22,12 @@ namespace cms::torch::alpakatools::detail {
     auto options = ::torch::TensorOptions().dtype(tensor_handle.type()).device(device).pinned_memory(true);
     return ::torch::from_blob(tensor_handle.data(), tensor_handle.sizes(), tensor_handle.strides(), options);
   }
-
-  template <typename TQueue>
-  inline std::vector<::torch::IValue> convertInput(TensorCollection<TQueue>& inputs,
-                                                   ::torch::Device device,
-                                                   std::optional<::torch::Dtype> dtype = std::nullopt) {
-    std::vector<::torch::IValue> tensors(inputs.size());
+  //::torch::IValue
+  template <typename TQueue, typename TType = ::torch::IValue>
+  inline std::vector<TType> convertInput(TensorCollection<TQueue>& inputs,
+                                         ::torch::Device device,
+                                         std::optional<::torch::Dtype> dtype = std::nullopt) {
+    std::vector<TType> tensors(inputs.size());
     for (size_t i = 0; i < inputs.size(); i++) {
       if (dtype)
         tensors[i] = cms::torch::alpakatools::detail::arrayToTensor(device, inputs[i]).to(*dtype);
@@ -63,6 +63,15 @@ namespace cms::torch::alpakatools::detail {
       }
     }
   }
+
+  template <typename TQueue>
+  inline void convertOutput(const std::vector<::torch::Tensor>& tensors,
+                          TensorCollection<TQueue>& outputs,
+                            ::torch::Device device) {
+    for (size_t i = 0; i < outputs.size(); ++i) {
+      cms::torch::alpakatools::detail::arrayToTensor(device, outputs[i]) = tensors[i];
+    }
+}
 
 }  // namespace cms::torch::alpakatools::detail
 

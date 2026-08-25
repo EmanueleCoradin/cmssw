@@ -27,6 +27,19 @@ namespace alpaka_serial_sync::torch {
   class AlpakaModel;
 }
 
+namespace alpaka_cuda_async::torch {
+  class AlpakaModelAOT;
+}
+
+namespace alpaka_rocm_async::torch {
+  class AlpakaModelAOT;
+}
+
+namespace alpaka_serial_sync::torch {
+  class AlpakaModelAOT;
+}
+
+
 namespace cms::torch::alpakatools {
 
   template <typename T>
@@ -98,6 +111,10 @@ namespace cms::torch::alpakatools {
     friend class alpaka_cuda_async::torch::AlpakaModel;
     friend class alpaka_rocm_async::torch::AlpakaModel;
     friend class alpaka_serial_sync::torch::AlpakaModel;
+
+    friend class alpaka_cuda_async::torch::AlpakaModelAOT;
+    friend class alpaka_rocm_async::torch::AlpakaModelAOT;
+    friend class alpaka_serial_sync::torch::AlpakaModelAOT;
 
     explicit TensorCollection(int total_size) : batch_size_(total_size), total_size_(total_size) { assert_sizes(); }
     explicit TensorCollection(int batch_size, int total_size) : batch_size_(batch_size), total_size_(total_size) {

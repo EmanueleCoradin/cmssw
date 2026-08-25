@@ -38,3 +38,16 @@
   <use name="PhysicsTools/PyTorchAlpaka"/>
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
+
+<bin file="alpaka/testAlpakaModelAOT.cc testRunner.cc" name="testAlpakaModelAOT">
+  <use name="alpaka"/>
+  <use name="boost_filesystem"/>
+  <use name="cppunit"/>
+  <use name="eigen"/>
+  <use name="pytorch"/>
+  <use name="pytorch-cuda" for="alpaka/cuda"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="PhysicsTools/PyTorch"/>
+  <use name="PhysicsTools/PyTorchAlpaka"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>

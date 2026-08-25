@@ -1,0 +1,29 @@
+>> Local Products Rules ..... started
+>> Local Products Rules ..... done
+>> Creating project symlinks
+Creating test log file logs/el9_amd64_gcc13/testing.log
+Pass    5s ... PhysicsTools/PyTorch/pytorch-create_simple_dnn-cpu
+Skip    0s ... PhysicsTools/PyTorch/pytorch-create_simple_dnn-gpu (Failed to run rocmIsEnabled)
+Pass    6s ... PhysicsTools/PyTorch/pytorch-test_simple_dnn-cpu
+Fail    5s ... PhysicsTools/PyTorch/pytorch-test_simple_dnn-cuda
+Skip    0s ... PhysicsTools/PyTorch/pytorch-test_simple_dnn-rocm (Failed to run rocmIsEnabled)
+Pass   13s ... PhysicsTools/PyTorch/test-torch-control-flow
+Pass   24s ... PhysicsTools/PyTorch/test-torch-cpu
+Pass   15s ... PhysicsTools/PyTorch/test-torch-cpu-cuda
+Pass   15s ... PhysicsTools/PyTorch/test-torch-cpu-gpu
+Skip    0s ... PhysicsTools/PyTorch/test-torch-cpu-rocm (Failed to run rocmIsEnabled)
+Pass    5s ... PhysicsTools/PyTorch/test-torch-cuda
+Pass   11s ... PhysicsTools/PyTorch/test-torch-mini-nn-cpu
+Pass    8s ... PhysicsTools/PyTorch/test-torch-mini-nn-cuda
+Skip    0s ... PhysicsTools/PyTorch/test-torch-mini-nn-rocm (Failed to run rocmIsEnabled)
+Pass    6s ... PhysicsTools/PyTorch/test-torch-tensor-cpu
+Pass    8s ... PhysicsTools/PyTorch/test-torch-tensor-cuda
+Skip    0s ... PhysicsTools/PyTorch/test-torch-tensor-rocm (Failed to run rocmIsEnabled)
+Pass    1s ... PhysicsTools/PyTorch/testJitLoad
+Fail    1s ... PhysicsTools/PyTorch/testModelAot
+Pass    1s ... PhysicsTools/PyTorch/testModelJit
+Pass    1s ... PhysicsTools/PyTorch/testTorchFromBlobStride
+Pass    2s ... PhysicsTools/PyTorch/testTorchFromBufferPinnedMemory
+Pass    1s ... PhysicsTools/PyTorch/testTorchTensorStride
+Pass    1s ... PhysicsTools/PyTorch/testTorchlibModelsCpu
+Pass    1s ... PhysicsTools/PyTorch/testTorchlibModelsCuda
