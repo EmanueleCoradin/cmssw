@@ -10,7 +10,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 
 namespace ticl {
-  using TracksterHost = PortableHostCollection<ticl::TracksterBlocks>;
+  using TracksterHost = PortableHostCollection<ticl::TracksterSoA>;
 } 
 
 #endif 
