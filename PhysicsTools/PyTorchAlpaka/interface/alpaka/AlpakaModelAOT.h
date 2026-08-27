@@ -27,7 +27,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torch {
                  cms::torch::alpakatools::TensorCollection<Queue> &inputs,
                  cms::torch::alpakatools::TensorCollection<Queue> &outputs,
                  std::optional<::torch::Dtype> dtype = std::nullopt) {
-      cms::torch::alpakatools::QueueGuard<Queue> guard(queue);
 #ifdef ALPAKA_ACC_GPU_HIP_ENABLED
       inputs.copy(queue, cms::torch::alpakatools::detail::MemcpyKind::DeviceToHost);
       outputs.copy(queue, cms::torch::alpakatools::detail::MemcpyKind::DeviceToHost);

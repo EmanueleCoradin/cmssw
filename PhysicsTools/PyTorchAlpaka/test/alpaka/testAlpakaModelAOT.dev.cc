@@ -13,7 +13,7 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
-  constexpr auto modelPath = "PhysicsTools/PyTorchAlpaka/models/model-cuda.pt2";
+  constexpr auto modelPath = "PhysicsTools/PyTorchAlpaka/models/cpp-lxplus.pt2";
 
   using namespace ALPAKA_ACCELERATOR_NAMESPACE::torch;
 
