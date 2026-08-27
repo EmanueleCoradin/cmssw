@@ -1,11 +1,13 @@
 #ifndef DataFormats_HGCalReco_TracksterSoA_h
 #define DataFormats_HGCalReco_TracksterSoA_h
 
-#include <cmath>
-#include <alpaka/alpaka.hpp>
-#include <Eigen/Core>
 #include "DataFormats/SoATemplate/interface/SoALayout.h"
 #include "DataFormats/SoATemplate/interface/SoABlocks.h"
+
+#include <cstdint>
+#include <alpaka/alpaka.hpp>
+#include <Eigen/Core>
+#include <xtd/xtd.h>
 
 namespace ticl {
 
@@ -53,66 +55,46 @@ namespace ticl {
                       SOA_COLUMN(uint8_t, iterationIndex))
 
   GENERATE_SOA_LAYOUT(TracksterVerticesLayout,
-                      SOA_COLUMN(unsigned int, vertices),
-                      SOA_COLUMN(unsigned int, tracksterId),
+                      SOA_COLUMN(uint32_t, vertices),
+                      SOA_COLUMN(uint32_t, tracksterId),
                       SOA_COLUMN(float, multiplicity))
 
   GENERATE_SOA_LAYOUT(TracksterEdgesLayout,
-                      SOA_COLUMN(unsigned int, edges_inner),
-                      SOA_COLUMN(unsigned int, edges_outer),
-                      SOA_COLUMN(unsigned int, tracksterId))
+                      SOA_COLUMN(uint32_t, edges_inner),
+                      SOA_COLUMN(uint32_t, edges_outer),
+                      SOA_COLUMN(uint32_t, tracksterId))
 
-  GENERATE_SOA_LAYOUT(TracksterTrackIdxsLayout,
-                      SOA_COLUMN(int, track_idxs),
-                      SOA_COLUMN(unsigned int, tracksterId))
+  GENERATE_SOA_LAYOUT(TracksterTrackIdxsLayout, SOA_COLUMN(int, track_idxs), SOA_COLUMN(uint32_t, tracksterId))
 
-  GENERATE_SOA_LAYOUT(TracksterGsfTrackIdxsLayout,
-                      SOA_COLUMN(int, gsftrack_idxs),
-                      SOA_COLUMN(unsigned int, tracksterId))
+  GENERATE_SOA_LAYOUT(TracksterGsfTrackIdxsLayout, SOA_COLUMN(int, gsftrack_idxs), SOA_COLUMN(uint32_t, tracksterId))
 
+  // clang-format off
   GENERATE_SOA_BLOCKS(TracksterBlocksLayout,
                       SOA_BLOCK(trackster, TracksterLayout),
                       SOA_BLOCK(tracksterVertices, TracksterVerticesLayout),
                       SOA_BLOCK(tracksterEdge, TracksterEdgesLayout),
                       SOA_BLOCK(tracksterTrackIdxs, TracksterTrackIdxsLayout),
-                      SOA_BLOCK(tracksterGsfTrackIdxs, TracksterGsfTrackIdxsLayout))
+                      SOA_BLOCK(tracksterGsfTrackIdxs, TracksterGsfTrackIdxsLayout),
+                      SOA_CONST_VIEW_METHODS(
+                        constexpr SOA_HOST_DEVICE inline float barycenterEta(std::integral auto idx) {
+                          const auto x = t[idx].barycenterX(), y = t[idx].barycenterY(), z = t[idx].barycenterZ();
+                          return -xtd::log(xtd::tan(0.5f * xtd::acos(z / xtd::sqrt(x * x + y * y + z * z))));
+                        }
+                      )
+  )
+  // clang-format on
 
-  using TracksterSoA = TracksterLayout<>;
-  using TracksterSoAView = TracksterSoA::View;
-  using TracksterSoAConstView = TracksterSoA::ConstView;
+  using TracksterSoA = TracksterBlocksLayout<>;
+  using TracksterSoAView = TracksterBlocks::View;
+  using TracksterSoAConstView = TracksterBlocks::ConstView;
 
-  using TracksterVerticesSoA = TracksterVerticesLayout<>;
-  using TracksterVerticesSoAView = TracksterVerticesSoA::View;
-  using TracksterVerticesSoAConstView = TracksterVerticesSoA::ConstView;
+  /* ALPAKA_FN_HOST_ACC inline void calculateRawPt(TracksterSoAView &t, int32_t i) { */
+  /*   t[i].raw_pt() = t[i].raw_energy() / std::cosh(barycenterEta(t, i)); */
+  /* } */
 
-  using TracksterEdgesSoA = TracksterEdgesLayout<>;
-  using TracksterEdgesSoAView = TracksterEdgesSoA::View;
-  using TracksterEdgesSoAConstView = TracksterEdgesSoA::ConstView;
-
-  using TracksterTrackIdxsSoA = TracksterTrackIdxsLayout<>;
-  using TracksterTrackIdxsSoAView = TracksterTrackIdxsSoA::View;
-  using TracksterTrackIdxsSoAConstView = TracksterTrackIdxsSoA::ConstView;
-
-  using TracksterGsfTrackIdxsSoA = TracksterGsfTrackIdxsLayout<>;
-  using TracksterGsfTrackIdxsSoAView = TracksterGsfTrackIdxsSoA::View;
-  using TracksterGsfTrackIdxsSoAConstView = TracksterGsfTrackIdxsSoA::ConstView;
-
-  using TracksterBlocks = TracksterBlocksLayout<>;
-  using TracksterBlocksView = TracksterBlocks::View;
-  using TracksterBlocksConstView = TracksterBlocks::ConstView;
-
-  ALPAKA_FN_HOST_ACC inline float barycenterEta(const TracksterSoAConstView &t, int32_t i) {
-    float x = t[i].barycenterX(), y = t[i].barycenterY(), z = t[i].barycenterZ();
-    return -std::log(std::tan(0.5f * std::acos(z / std::sqrt(x * x + y * y + z * z))));
-  }
-
-  ALPAKA_FN_HOST_ACC inline void calculateRawPt(TracksterSoAView &t, int32_t i) {
-    t[i].raw_pt() = t[i].raw_energy() / std::cosh(barycenterEta(t, i));
-  }
-
-  ALPAKA_FN_HOST_ACC inline void calculateRawEmPt(TracksterSoAView &t, int32_t i) {
-    t[i].raw_em_pt() = t[i].raw_em_energy() / std::cosh(barycenterEta(t, i));
-  }
+  /* ALPAKA_FN_HOST_ACC inline void calculateRawEmPt(TracksterSoAView &t, int32_t i) { */
+  /*   t[i].raw_em_pt() = t[i].raw_em_energy() / std::cosh(barycenterEta(t, i)); */
+  /* } */
 
 }  // namespace ticl
 
