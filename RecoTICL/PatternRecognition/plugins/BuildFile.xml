@@ -19,3 +19,18 @@
 <library file="*.cc" name="RecoTICLPatternRecognitionPlugins">
   <flags EDM_PLUGIN="1"/>
 </library>
+
+<library file="alpaka/*.cc" name="RecoTICLPatternRecognitionPluginsPortable">
+  <use name="alpaka"/>
+  <use name="cluestering"/>
+  <use name="CondFormats/HGCalObjects"/>
+  <use name="DataFormats/DetId"/>
+  <use name="DataFormats/ForwardDetId"/>
+  <use name="Geometry/CaloGeometry"/>
+  <use name="Geometry/Records"/>
+  <use name="HeterogeneousCore/AlpakaCore"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="RecoLocalCalo/HGCalRecAlgos"/>
+  <flags ALPAKA_BACKENDS="1"/>
+  <flags EDM_PLUGIN="1"/>
+</library>
