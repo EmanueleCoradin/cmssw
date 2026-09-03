@@ -12,7 +12,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     using ::ticl::TracksterHost;
 
-    using TracksterDevice = PortableCollection<TracksterBlocks>;
+    using TracksterDevice = PortableCollection<TracksterSoA>;
   } 
 }  
 
