@@ -17,8 +17,8 @@ namespace ticl {
                       SOA_COLUMN(float, raw_energy),
                       SOA_COLUMN(float, boundTime),
                       SOA_COLUMN(float, time),
-                      SOA_COLUMN(float, raw_pt),
-                      SOA_COLUMN(float, raw_em_pt),
+                      /* SOA_COLUMN(float, raw_pt), */     // keep?
+                      /* SOA_COLUMN(float, raw_em_pt), */  // keep?
                       SOA_COLUMN(float, raw_em_energy),
                       SOA_COLUMN(float, timeError),
                       SOA_COLUMN(int, seedIndex),
@@ -74,7 +74,7 @@ namespace ticl {
 
   // clang-format off
   GENERATE_SOA_BLOCKS(TracksterBlocksLayout,
-                      SOA_BLOCK(trackster, TracksterLayout),
+                      SOA_BLOCK(tracksters, TracksterLayout),
                       // TODO: can these two maps be one map containing {vertex, multiplicity} pairs?
                       SOA_BLOCK(vertices, VerticesLayout),
                       SOA_BLOCK(multiplicity, MultiplicityLayout),
@@ -82,11 +82,19 @@ namespace ticl {
                       SOA_BLOCK(tracks, TracksAssocLayout),
                       SOA_BLOCK(globalSeedingTracks, GlobalSeedingTracksAssocLayout),
                       SOA_CONST_VIEW_METHODS(
-                        constexpr SOA_HOST_DEVICE inline float barycenterEta(std::integral auto idx) {
-                          const auto x = this->TracksterLayout()[idx].barycenterX();
-                          const auto y = this->TracksterLayout()[idx].barycenterY();
-                          const auto z = this->TracksterLayout()[idx].barycenterZ();
+                        inline constexpr SOA_HOST_DEVICE auto barycenterEta(std::integral auto idx) {
+                          const auto x = this->tracksters()[idx].barycenterX();
+                          const auto y = this->tracksters()[idx].barycenterY();
+                          const auto z = this->tracksters()[idx].barycenterZ();
                           return -xtd::log(xtd::tan(0.5f * xtd::acos(z / xtd::sqrt(x * x + y * y + z * z))));
+                        }
+                        inline constexpr SOA_HOST_DEVICE auto rawPt(std::integral auto idx) {
+                            const auto barycenter = this->barycenterEta(idx);
+                            return this->tracksters()[idx].raw_energy() / xtd::cosh(barycenter);
+                        }
+                        inline constexpr SOA_HOST_DEVICE auto rawEmPt(std::integral auto idx) {
+                            const auto barycenter = this->barycenterEta(idx);
+                            return this->tracksters()[idx].raw_em_energy() / xtd::cosh(barycenter);
                         }
                       )
   )
@@ -95,14 +103,6 @@ namespace ticl {
   using TracksterSoA = TracksterBlocksLayout<>;
   using TracksterSoAView = TracksterSoA::View;
   using TracksterSoAConstView = TracksterSoA::ConstView;
-
-  /* ALPAKA_FN_HOST_ACC inline void calculateRawPt(TracksterSoAView &t, int32_t i) { */
-  /*   t[i].raw_pt() = t[i].raw_energy() / std::cosh(barycenterEta(t, i)); */
-  /* } */
-
-  /* ALPAKA_FN_HOST_ACC inline void calculateRawEmPt(TracksterSoAView &t, int32_t i) { */
-  /*   t[i].raw_em_pt() = t[i].raw_em_energy() / std::cosh(barycenterEta(t, i)); */
-  /* } */
 
 }  // namespace ticl
 
