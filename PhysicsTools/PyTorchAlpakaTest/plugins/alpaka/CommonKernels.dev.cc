@@ -26,6 +26,51 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
         particles.view());
   }
 
+  void randomFillHitCollection(Queue& queue, portabletest::HitDeviceCollection& hits, portabletest::HitOffsetsDeviceCollection& hit_offsets) {
+    const auto n_hits = hits.view().metadata().size();
+    const auto n_offsets = hit_offsets.view().metadata().size();
+
+    const auto n_tracks = n_offsets - 1;;
+
+    const auto number_of_elements = std::max(n_hits, n_offsets);
+
+    constexpr uint32_t threads_per_block = 64;
+    const auto blocks_per_grid = cms::alpakatools::divide_up_by(number_of_elements, threads_per_block);
+
+    const auto grid = cms::alpakatools::make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
+
+    alpaka::exec<Acc1D>(
+        queue,
+        grid,
+        [] ALPAKA_FN_ACC(
+            Acc1D const& acc,
+            portabletest::HitDeviceCollection::View hits_view,
+            portabletest::HitOffsetsDeviceCollection::View hit_offsets_view) {
+          const auto n_hits = hits_view.metadata().size();
+          const auto n_offsets = hit_offsets_view.metadata().size();
+          const auto n_tracks = n_offsets - 1;
+
+          const auto hits_per_track = n_tracks == 0 ? 0 : n_hits / n_tracks;
+
+          for (auto hit_idx : cms::alpakatools::uniform_elements(acc, n_hits)) {
+            auto rnd_gen = alpaka::rand::engine::createDefault(acc, 43, hit_idx);
+
+            auto dist = alpaka::rand::distribution::createUniformReal<float>(acc);
+
+            hits_view[hit_idx].x() = dist(rnd_gen);
+            hits_view[hit_idx].y() = dist(rnd_gen);
+            hits_view[hit_idx].z() = dist(rnd_gen);
+          }
+
+          for (auto offset_idx : cms::alpakatools::uniform_elements(acc, n_offsets)) {
+            hit_offsets_view[offset_idx].offset() = offset_idx * hits_per_track;
+          }
+        },
+        hits.view(),
+        hit_offsets.view());
+  }
+
+
   struct RandomFillImageCollectionKernel {
     ALPAKA_FN_ACC void operator()(Acc3D const& acc, portabletest::ImageDeviceCollection::View images_view) const {
       Vec3D size = Vec3D{images_view.metadata().size(), 9, 9};

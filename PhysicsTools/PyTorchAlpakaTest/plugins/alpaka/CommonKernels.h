@@ -3,6 +3,7 @@
 
 #include <alpaka/alpaka.hpp>
 #include "DataFormats/PortableTestObjects/interface/alpaka/ParticleDeviceCollection.h"
+#include "DataFormats/PortableTestObjects/interface/alpaka/HitDeviceCollection.h"
 #include "DataFormats/PortableTestObjects/interface/alpaka/ImageDeviceCollection.h"
 #include "DataFormats/PortableTestObjects/interface/alpaka/MaskDeviceCollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
@@ -10,6 +11,7 @@
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
 
   void randomFillParticleCollection(Queue& queue, portabletest::ParticleDeviceCollection& particles);
+  void randomFillHitCollection(Queue& queue, portabletest::HitDeviceCollection& hits, portabletest::HitOffsetsDeviceCollection& hit_offsets);
   void randomFillImageCollection(Queue& queue, portabletest::ImageDeviceCollection& images);
   void fillMask(Queue& queue, portabletest::MaskDeviceCollection& mask);
 

@@ -33,6 +33,7 @@ process.path = cms.Path()
 # data provider
 process.DataSource = torchtest_DataSource_alpaka(
     totalSize = cms.uint32(args.totalSize if args.totalSize >= 0 else 0),
+    hitsPerTrack = cms.uint32(args.hitsPerTrack if args.hitsPerTrack >= 1 else 1),
     alpaka = cms.untracked.PSet(
         backend = cms.untracked.string(args.backend)
     ),
