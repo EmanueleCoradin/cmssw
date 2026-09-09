@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "FWCore/Utilities/interface/Exception.h"
 #include "PhysicsTools/PyTorch/interface/TorchInterface.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorHandle.h"
@@ -18,7 +19,9 @@ namespace cms::torch::alpakatools::detail {
     //
     // TODO: open issue to `pytorch` repo:
     //  - see if they can add const correctness, or get to know why const is currently prevented?
-    assert(reinterpret_cast<intptr_t>(tensor_handle.data()) % tensor_handle.alignment() == 0);
+    if (reinterpret_cast<intptr_t>(tensor_handle.data()) % tensor_handle.alignment() != 0)
+      throw cms::Exception("SoA Conversion") << "Alignment is violated";
+
     auto options = ::torch::TensorOptions().dtype(tensor_handle.type()).device(device).pinned_memory(true);
     return ::torch::from_blob(tensor_handle.data(), tensor_handle.sizes(), tensor_handle.strides(), options);
   }
