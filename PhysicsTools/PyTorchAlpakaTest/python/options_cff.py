@@ -43,6 +43,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--hitsPerTrack",
+        type=int,
+        default=4,
+        help="Hits per Track"
+    )
+
+    parser.add_argument(
         "-bs", "--batchSize",
         type=int,
         default=32,
