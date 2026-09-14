@@ -69,12 +69,17 @@ namespace cms::torch::alpakatools {
       TensorSlice() = default;
     
       TensorSlice(uint batch_id, uint batch_size)
-        : batch_id_{batch_id}, batch_size_{batch_size}, full_{false} {}
+        : batch_id_{batch_id}, batch_size_{batch_size}, full_{false} {
+          assert(batch_size!=0 && "Batch size should be greater than zero");
+        }
 
       Bounds resolve(uint total_size) const {
         if(full_)
           return {.offset=0, .size=total_size};
+        if(total_size==0)
+          return {.offset=0, .size=0}; 
         
+        assert(batch_id_ <= (total_size - 1) / batch_size_ && "Batch id is out of bounds!");
         const auto offset = batch_id_*batch_size_;
         return {.offset = offset, .size = std::min(batch_size_, total_size - offset)};
       }
@@ -248,24 +253,6 @@ namespace cms::torch::alpakatools {
                             std::make_unique<cms::torch::alpakatools::detail::TensorHandle<TQueue, T>>(
                                 alignment, sizeof(T), ptr, batch_size, total_size, std::move(dims), is_scalar));
       order_.push_back(name);
-    }
-
-    void assert_sizes() {
-      /*
-      assert(total_size_ >= 0 && "Total size must be positive!");
-      if (batch_size_ == 0) {
-        assert(total_size_ == 0 && "Batch size 0 only allowed when total size is 0");
-        return;
-      }
-      assert(batch_size_ > 0 && "Batch size must be positive!");
-      */
-    }
-
-    void assert_batch_id(int batch_id) {
-      /*
-      assert(batch_id >= 0 && "Batch id must be non-negative!");
-      assert((total_size_ == 0 || (batch_id * batch_size_ < total_size_)) && "Batch id is out of bounds!");
-      */
     }
 
     std::vector<std::string> order_;

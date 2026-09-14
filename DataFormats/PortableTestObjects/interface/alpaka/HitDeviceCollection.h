@@ -15,14 +15,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     using namespace ::portabletest;
 
     using HitDeviceCollection = PortableCollection<HitSoA>;
-    using HitOffsetsDeviceCollection = PortableCollection<HitOffsetsSoA>;
-
+    using HitToTrackDeviceCollection = PortableCollection<HitToTrackSoA>;
+    using TrackBeginDeviceCollection = PortableCollection<TrackBeginSoA>;
   }  // namespace portabletest
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
 // heterogeneous ml data checks
 ASSERT_DEVICE_MATCHES_HOST_COLLECTION(portabletest::HitDeviceCollection, portabletest::HitHostCollection);
-ASSERT_DEVICE_MATCHES_HOST_COLLECTION(portabletest::HitOffsetsDeviceCollection, portabletest::HitOffsetsHostCollection);
+ASSERT_DEVICE_MATCHES_HOST_COLLECTION(portabletest::HitToTrackDeviceCollection, portabletest::HitToTrackHostCollection);
+ASSERT_DEVICE_MATCHES_HOST_COLLECTION(portabletest::TrackBeginDeviceCollection, portabletest::TrackBeginHostCollection);
 
 #endif  // DataFormats_PortableTestObjects_interface_alpaka_HitDeviceCollection_h

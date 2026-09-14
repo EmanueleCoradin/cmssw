@@ -323,14 +323,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   void PixelTrackTorchHighPuritySelector::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
     desc.add<edm::InputTag>("pixelTrackSrc", {"hltPhase2PixelTracksSoA"});
-    desc.add<int>("maxNumberOfTracks", 100000);
-    desc.add<int>("maxPreselectedTracks", 10000);
-    desc.add<int>("minNumberOfHits", 0);
-    desc.add<int>("avgHitsPerTrack", 8);
+    desc.add<uint>("maxNumberOfTracks", 100000);
+    desc.add<uint>("maxPreselectedTracks", 10000);
+    desc.add<uint>("minNumberOfHits", 0);
+    desc.add<uint>("avgHitsPerTrack", 8);
     desc.add<std::string>("minimumTrackQuality", "tight");
     desc.add<edm::FileInPath>("model");
     desc.add<double>("scoreThreshold", 0.5);
-    desc.add<int>("batchSize", 10);
+    desc.add<uint>("batchSize", 10);
     descriptions.addWithDefaultLabel(desc);
   }
 };  // namespace ALPAKA_ACCELERATOR_NAMESPACE

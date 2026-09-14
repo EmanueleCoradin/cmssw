@@ -33,7 +33,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
           particles_token_(consumes(params.getParameter<edm::InputTag>("particles"))),
           simple_net_token_{produces()},
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
-          batch_size_(params.getParameter<int>("batchSize")),
+          batch_size_(params.getParameter<uint32_t>("batchSize")),
           environment_{static_cast<::torchtest::Environment>(params.getUntrackedParameter<int>("environment"))} {}
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {

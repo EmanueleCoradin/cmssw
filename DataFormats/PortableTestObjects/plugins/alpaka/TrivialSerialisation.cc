@@ -24,8 +24,10 @@ DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::MaskHostCollection, port
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::MultiHeadNetHostCollection,
                                           portabletest::MultiHeadNetDeviceCollection);
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::HitDeviceCollection, portabletest::HitHostCollection);
-DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::HitOffsetsDeviceCollection, 
-                                          portabletest::HitOffsetsHostCollection);
+DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::HitToTrackDeviceCollection, 
+                                          portabletest::HitToTrackHostCollection);
+DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::TrackBeginDeviceCollection, 
+                                          portabletest::TrackBeginHostCollection);
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::ParticleHostCollection, portabletest::ParticleDeviceCollection);
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::SimpleNetHostCollection,
                                           portabletest::SimpleNetDeviceCollection);

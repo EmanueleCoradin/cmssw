@@ -108,10 +108,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--trackHitDeepSet",
+        type=str,
+        default="PhysicsTools/PyTorchAlpakaTest/data/TrackHitDeepSet.pt",
+        help="TrackHitDeepSet model (just-in-time compiled)"
+    )
+
+    parser.add_argument(
         "-o", "--only",
         nargs="+",
-        default=["SimpleNet", "SimpleNetMiniBatch", "MultiHeadNet", "MaskedNet", "TinyResNet", "TinyResNetMiniBatch"],
-        choices=["SimpleNet", "SimpleNetMiniBatch", "MultiHeadNet", "MaskedNet", "TinyResNet", "TinyResNetMiniBatch"],
+        default=["SimpleNet", "SimpleNetMiniBatch", "MultiHeadNet", "MaskedNet", "TinyResNet", "TinyResNetMiniBatch","TrackHitDeepSet"],
+        choices=["SimpleNet", "SimpleNetMiniBatch", "MultiHeadNet", "MaskedNet", "TinyResNet", "TinyResNetMiniBatch","TrackHitDeepSet"],
         help="Run selected test(s). Default: all modules run in parallel."
     )
 
