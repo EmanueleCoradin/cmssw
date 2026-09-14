@@ -29,7 +29,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
           images_token_(consumes(params.getParameter<edm::InputTag>("images"))),
           logits_token_{produces()},
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
-          batch_size_(params.getParameter<int>("batchSize")),
+          batch_size_(params.getParameter<uint32_t>("batchSize")),
           environment_{static_cast<::torchtest::Environment>(params.getUntrackedParameter<int>("environment"))} {}
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
@@ -47,7 +47,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
       const auto total_size = images.const_view().metadata().size();
       auto logits = portabletest::LogitsDeviceCollection(event.queue(), total_size);
 
-      int n_batches;
+      uint32_t n_batches;
       if (batch_size_ == 0) {
         assert(total_size == 0 && "Batch size can be 0 only if the total size is 0");
         n_batches = 1;
