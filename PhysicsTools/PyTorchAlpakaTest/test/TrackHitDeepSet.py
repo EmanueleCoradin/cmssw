@@ -62,61 +62,28 @@ class TrackHitDeepSet(nn.Module):
         hit_to_track: torch.Tensor,
         track_begin: torch.Tensor,
     ) -> torch.Tensor:
-        """
-        Arguments
-        ---------
-        track_features:
-            [batch_size, track_feature_dim]
+        # One-column SoAs arrive as [N, 1].
+        # These indexing operations create views, not copies.
+        hit_to_track = hit_to_track[:, 0]  # [nhits]
+        track_begin = track_begin[0, 0]    # scalar tensor
 
-            Contains only the tracks in the current mini-batch.
-
-        hit_features:
-            [nhits, hit_feature_dim]
-
-            Contains all the event hits.
-
-        hit_to_track:
-            [nhits]
-
-            Global track index associated with each hit. It is precomputed
-            once before running the mini-batches.
-
-        track_begin:
-            Scalar int64 tensor containing the global index of the first
-            track in the current batch.
-
-        Returns
-        -------
-        scores:
-            [batch_size, 1]
-        """
         batch_size = track_features.size(0)
         track_end = track_begin + batch_size
 
-        # Select the hits associated with tracks in this batch.
-        #
-        # This scans hit_to_track, but the expensive hit_encoder below is
-        # evaluated only for the selected hits.
-        hit_mask = torch.logical_and(
-            hit_to_track >= track_begin,
-            hit_to_track < track_end,
-        )
+        hit_mask = (
+            (hit_to_track >= track_begin)
+            & (hit_to_track < track_end)
+        )  # [nhits]
 
         batch_hit_features = hit_features[hit_mask]
-
-        # Convert global track indices into batch-local indices [0, B).
         batch_hit_to_track = hit_to_track[hit_mask] - track_begin
 
-        # Only hits belonging to the current batch are embedded.
         hit_embeddings = self.hit_encoder(batch_hit_features)
 
-        pooled_hits = torch.zeros(
-            (batch_size, hit_embeddings.size(1)),
-            dtype=hit_embeddings.dtype,
-            device=hit_embeddings.device,
+        pooled_hits = hit_embeddings.new_zeros(
+            (batch_size, hit_embeddings.size(1))
         )
 
-        # Sum the embeddings belonging to each track.
         pooled_hits.index_add_(
             0,
             batch_hit_to_track,
@@ -130,10 +97,7 @@ class TrackHitDeepSet(nn.Module):
             dim=1,
         )
 
-        logits = self.classifier(combined_embeddings)
-
-        return torch.sigmoid(logits)
-
+        return torch.sigmoid(self.classifier(combined_embeddings))
 
 def main() -> int:
     torch.manual_seed(1234)
@@ -142,22 +106,19 @@ def main() -> int:
     track_feature_dim = 3
     hit_feature_dim = 3
 
-    # Number of hits associated with each track:
     hit_counts = torch.tensor(
-        [2, 3, 1, 4, 1, 2, 3],
+        [2, 3, 1, 4, 1, 2, 3, 0],
         dtype=torch.int64,
     )
 
-    # hits of track i are:
-    #     hit_offsets[i] ... hit_offsets[i + 1] - 1
     hit_offsets = torch.cat(
         (
             torch.zeros(1, dtype=torch.int64),
             torch.cumsum(hit_counts, dim=0),
         )
     )
-    
-    nhits = int(hit_offsets[-1])
+
+    nhits = int(hit_offsets[-1].item())
 
     track_features = torch.randn(
         ntracks,
@@ -169,10 +130,14 @@ def main() -> int:
         hit_feature_dim,
     )
 
-    # This operation is performed only once per event.
-    hit_to_track = build_hit_to_track(hit_offsets)
-    
-    track_begin = torch.tensor([0])
+    # Match the [N, 1] shape produced from a single-column SoA.
+    hit_to_track = build_hit_to_track(hit_offsets).unsqueeze(1)
+
+    # Match the [1, 1] shape of the one-element metadata SoA.
+    track_begin = torch.tensor(
+        [[0]],
+        dtype=torch.int64,
+    )
 
     model = TrackHitDeepSet(
         track_feature_dim=track_feature_dim,
