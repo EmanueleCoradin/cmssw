@@ -29,9 +29,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
   void randomFillHitCollection(Queue& queue, portabletest::HitDeviceCollection& hits, portabletest::HitOffsetsDeviceCollection& hit_offsets) {
     const auto n_hits = hits.view().metadata().size();
     const auto n_offsets = hit_offsets.view().metadata().size();
-
-    const auto n_tracks = n_offsets - 1;;
-
     const auto number_of_elements = std::max(n_hits, n_offsets);
 
     constexpr uint32_t threads_per_block = 64;

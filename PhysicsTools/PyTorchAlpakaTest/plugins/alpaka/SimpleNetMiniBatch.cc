@@ -24,6 +24,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     cms::torch::alpakatools::TensorCollection<Queue> outputs;
   };
 
+  using TensorSlice = cms::torch::alpakatools::TensorSlice;
+
   class SimpleNetMiniBatch : public stream::EDProducer<> {
   public:
     SimpleNetMiniBatch(const edm::ParameterSet &params)
@@ -37,7 +39,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
       desc.add<edm::FileInPath>("model");
-      desc.add<int>("batchSize");
+      desc.add<uint32_t>("batchSize");
       desc.add<edm::InputTag>("particles");
       desc.addUntracked<int>("environment", static_cast<int>(::torchtest::Environment::kProduction));
       descriptions.addWithDefaultLabel(desc);
@@ -49,7 +51,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
       const auto total_size = particles.const_view().metadata().size();
       auto regression_collection = portabletest::SimpleNetDeviceCollection(event.queue(), total_size);
 
-      int n_batches;
+      uint32_t n_batches;
       if (batch_size_ == 0) {
         assert(total_size == 0 && "Batch size can be 0 only if the total size is 0");
         n_batches = 1;
@@ -62,14 +64,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
       // input and output tensor definitions
       std::deque<BatchIO> batches;
-      for (int i_batch = 0; i_batch < n_batches; ++i_batch) {
-        BatchIO batch{cms::torch::alpakatools::TensorCollection<Queue>(batch_size_, total_size),
-                      cms::torch::alpakatools::TensorCollection<Queue>(batch_size_, total_size)};
+      for (auto i_batch = 0u; i_batch < n_batches; ++i_batch) {
+        BatchIO batch{cms::torch::alpakatools::TensorCollection<Queue>(),
+                      cms::torch::alpakatools::TensorCollection<Queue>()};
 
         batch.inputs.add<portabletest::ParticleSoA>(
-            "particles", i_batch, input_records.pt(), input_records.eta(), input_records.phi());
+            "particles", TensorSlice{i_batch, batch_size_}, input_records.pt(), input_records.eta(), input_records.phi());
 
-        batch.outputs.add<portabletest::SimpleNetSoA>("regression_head", i_batch, output_records.reco_pt());
+        batch.outputs.add<portabletest::SimpleNetSoA>("regression_head", TensorSlice{i_batch, batch_size_}, output_records.reco_pt());
         batches.push_back(std::move(batch));
       }
       // forward pass on mini-batches
@@ -86,7 +88,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     const device::EDPutToken<portabletest::SimpleNetDeviceCollection> simple_net_token_;
     // model
     torch::AlpakaModel model_;
-    const int batch_size_;
+    const uint32_t batch_size_;
     // debug mode flag
     const ::torchtest::Environment environment_;
   };
