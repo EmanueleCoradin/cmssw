@@ -67,7 +67,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
         hit_offsets.view());
   }
 
-
   struct RandomFillImageCollectionKernel {
     ALPAKA_FN_ACC void operator()(Acc3D const& acc, portabletest::ImageDeviceCollection::View images_view) const {
       Vec3D size = Vec3D{images_view.metadata().size(), 9, 9};
