@@ -124,7 +124,21 @@ if "TinyResNetMiniBatch" in args.only:
         environment = cms.untracked.int32(args.environment)
     )
     process.path += process.TinyResNetMiniBatch
-
+# --only TrackHitDeepSet
+if "TrackHitDeepSet" in args.only:
+    from PhysicsTools.PyTorchAlpakaTest.modules import torchtest_TrackHitDeepSet_alpaka
+    process.TrackHitDeepSet = torchtest_TrackHitDeepSet_alpaka(
+        model = cms.FileInPath(args.trackHitDeepSet),
+        batchSize = cms.uint32(args.batchSize),
+        particles = 'DataSource',
+        hits='DataSource',
+        hit_to_track='DataSource',
+        alpaka = cms.untracked.PSet(
+            backend = cms.untracked.string(args.backend)
+        ),
+        environment = cms.untracked.int32(args.environment)
+    )
+    process.path += process.TrackHitDeepSet
 # debug (if --environment < 1 only assertions are checked)
 process.InspectionSink = torchtest_InspectionSink(
     particles = 'DataSource',

@@ -17,6 +17,7 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 #include "PhysicsTools/PyTorchAlpakaTest/interface/Environment.h"
+#include "PhysicsTools/PyTorchAlpakaTest/plugins/alpaka/CommonKernels.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
@@ -33,66 +34,72 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
         : EDProducer<>(params),
           particles_token_(consumes(params.getParameter<edm::InputTag>("particles"))),
           hits_token_(consumes(params.getParameter<edm::InputTag>("hits"))),
-          hit_offsets_token_(consumes(params.getParameter<edm::InputTag>("hit_offsets"))),
+          hit_to_track_token_(consumes(params.getParameter<edm::InputTag>("hit_to_track"))),
           simple_net_token_{produces()},
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
-          batch_size_(params.getParameter<int>("batchSize")),
+          batch_size_(params.getParameter<uint>("batchSize")),
           environment_{static_cast<::torchtest::Environment>(params.getUntrackedParameter<int>("environment"))} {}
     
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
       desc.add<edm::FileInPath>("model");
-      desc.add<int>("batchSize");
+      desc.add<uint>("batchSize");
       desc.add<edm::InputTag>("particles");
       desc.add<edm::InputTag>("hits");
-      desc.add<edm::InputTag>("hit_offsets");
+      desc.add<edm::InputTag>("hit_to_track");
       desc.addUntracked<int>("environment", static_cast<int>(::torchtest::Environment::kProduction));
       descriptions.addWithDefaultLabel(desc);
     }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
+      auto& queue = event.queue();
       // in/out collections
       const auto &particles = event.get(particles_token_);
       const auto &hits = event.get(hits_token_);
-      const auto &hit_offsets = event.get(hit_offsets_token_);
+      const auto &hit_to_track = event.get(hit_to_track_token_);
 
       const auto total_size = particles.const_view().metadata().size();
-      const auto hit_size = hits.const_view().metadata().size();
-      auto regression_collection = portabletest::SimpleNetDeviceCollection(event.queue(), total_size);
+      auto regression_collection = portabletest::SimpleNetDeviceCollection(queue, total_size);
 
-      int n_batches;
+      uint n_batches;
       if (batch_size_ == 0) {
         assert(total_size == 0 && "Batch size can be 0 only if the total size is 0");
         n_batches = 1;
       } else
         n_batches = (total_size + batch_size_ - 1) / batch_size_;
 
+      auto track_begin = portabletest::TrackBeginDeviceCollection(queue, n_batches);
+      kernels::fillTrackBegin(queue, track_begin, n_batches);
+
       // records
       auto input_records = particles.const_view().records();
       auto hit_records = hits.const_view().records();
-      auto hit_offsets_records = hit_offsets.const_view().records();
+      auto hit_to_track_records = hit_to_track.const_view().records();
+      auto track_begin_records = track_begin.const_view().records();
 
       auto output_records = regression_collection.view().records();
 
       // input and output tensor definitions
       std::deque<BatchIO> batches;
-      for (int i_batch = 0; i_batch < n_batches; ++i_batch) {
+      for (auto i_batch = 0u; i_batch < n_batches; ++i_batch) {
         BatchIO batch{cms::torch::alpakatools::TensorCollection<Queue>(),
                       cms::torch::alpakatools::TensorCollection<Queue>()};
 
         batch.inputs.add<portabletest::ParticleSoA>(
-            "particles", TensorSlice{i_batch,batch_size_}, input_records.pt(), input_records.eta(), input_records.phi());
+            "track_features", TensorSlice{i_batch,batch_size_}, input_records.pt(), input_records.eta(), input_records.phi());
         batch.inputs.add<portabletest::HitSoA>(
-            "hits", hit_records.x(), hit_records.y(), hit_records.z());
-        batch.inputs.add<portabletest::HitOffsetsSoA>(
-            "hit_offsets", TensorSlice{i_batch,batch_size_}, hit_offsets.offset());
+            "hit_features", hit_records.x(), hit_records.y(), hit_records.z());
+        batch.inputs.add<portabletest::HitToTrackSoA>(
+            "hit_to_track", hit_to_track_records.trackIndex());
+        batch.inputs.add<portabletest::TrackBeginSoA>(
+            "track_begin", TensorSlice{i_batch,1}, track_begin_records.trackBegin());
 
         batch.outputs.add<portabletest::SimpleNetSoA>("regression_head", TensorSlice{i_batch,batch_size_}, output_records.reco_pt());
         batches.push_back(std::move(batch));
       }
       // forward pass on mini-batches
       for (auto &batch : batches) {
-        model_.forward(event.queue(), batch.inputs, batch.outputs);
+        model_.forward(queue, batch.inputs, batch.outputs);
       }
       // put device-side product into event
       event.emplace(simple_net_token_, std::move(regression_collection));
@@ -102,11 +109,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     // event query tokens
     const device::EDGetToken<portabletest::ParticleDeviceCollection> particles_token_;
     const device::EDGetToken<portabletest::HitDeviceCollection> hits_token_;
-    const device::EDGetToken<portabletest::HitOffsetsDeviceCollection> hit_offsets_token_;
+    const device::EDGetToken<portabletest::HitToTrackDeviceCollection> hit_to_track_token_;
     const device::EDPutToken<portabletest::SimpleNetDeviceCollection> simple_net_token_;
     // model
     torch::AlpakaModel model_;
-    const int batch_size_;
+    const uint batch_size_;
     // debug mode flag
     const ::torchtest::Environment environment_;
   };

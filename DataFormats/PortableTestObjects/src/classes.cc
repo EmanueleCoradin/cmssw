@@ -18,7 +18,8 @@ SET_PORTABLEHOSTOBJECT_READ_RULES(portabletest::TestHostObject);
 
 SET_PORTABLEHOSTCOLLECTION_READ_RULES(portabletest::ParticleHostCollection);
 SET_PORTABLEHOSTCOLLECTION_READ_RULES(portabletest::HitHostCollection);
-SET_PORTABLEHOSTCOLLECTION_READ_RULES(portabletest::HitOffsetsHostCollection);
+SET_PORTABLEHOSTCOLLECTION_READ_RULES(portabletest::HitToTrackHostCollection);
+SET_PORTABLEHOSTCOLLECTION_READ_RULES(portabletest::TrackBeginHostCollection);
 SET_PORTABLEHOSTCOLLECTION_READ_RULES(portabletest::SimpleNetHostCollection);
 SET_PORTABLEHOSTCOLLECTION_READ_RULES(portabletest::MultiHeadNetHostCollection);
 SET_PORTABLEHOSTCOLLECTION_READ_RULES(portabletest::ImageHostCollection);
