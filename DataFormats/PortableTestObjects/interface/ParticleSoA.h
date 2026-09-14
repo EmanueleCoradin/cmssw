@@ -11,7 +11,6 @@
 namespace portabletest {
 
   GENERATE_SOA_LAYOUT(ParticleLayout, SOA_COLUMN(float, pt), SOA_COLUMN(float, eta), SOA_COLUMN(float, phi))
-
   using ParticleSoA = ParticleLayout<>;
 
 }  // namespace portabletest
