@@ -68,7 +68,7 @@ if "SimpleNet" in args.only:
     if "SimpleNetMiniBatch" in args.only:
         process.SimpleNetMiniBatch = torchtest_SimpleNetMiniBatch_alpaka(
             model = cms.FileInPath(args.simpleNet),
-            batchSize = cms.int32(args.batchSize),
+            batchSize = cms.uint32(args.batchSize),
             particles = 'DataSource',
             alpaka = cms.untracked.PSet(
                 backend = cms.untracked.string("serial_sync")
@@ -116,7 +116,7 @@ if "TinyResNet" in args.only:
 if "TinyResNetMiniBatch" in args.only:
     process.TinyResNetMiniBatch = torchtest_TinyResNetMiniBatch_alpaka(
         model = cms.FileInPath(args.tinyResNet),
-        batchSize = cms.int32(args.batchSize),
+        batchSize = cms.uint32(args.batchSize),
         images = 'DataSource',
         alpaka = cms.untracked.PSet(
             backend = cms.untracked.string(args.backend)
