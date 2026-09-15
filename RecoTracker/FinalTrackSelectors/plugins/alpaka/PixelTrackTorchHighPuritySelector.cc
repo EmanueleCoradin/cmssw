@@ -98,29 +98,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void beginStream(edm::StreamID /*sid*/, Queue queue) override;
 
     const device::EDGetToken<TkSoADevice> pixelTrackToken_;
-    const uint maxNumberOfTracks_;
-    const uint maxPreselectedTracks_;
-    const uint minNumberOfHits_;
-    const uint avgHitsPerTrack_;
+    const uint32_t maxNumberOfTracks_;
+    const uint32_t maxPreselectedTracks_;
+    const uint32_t minNumberOfHits_;
+    const uint32_t avgHitsPerTrack_;
     const pixelTrack::Quality minimumTrackQuality_;
     const double scoreThreshold_;
     torch::AlpakaModel model_;
-    const uint batchSize_;
-    const uint warmupIterations_ = 3;
+    const uint32_t batchSize_;
+    const uint32_t warmupIterations_ = 3;
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
   };
 
   PixelTrackTorchHighPuritySelector::PixelTrackTorchHighPuritySelector(const edm::ParameterSet& iConfig)
       : FixedQueueEDProducer(iConfig),
         pixelTrackToken_(consumes(iConfig.getParameter<edm::InputTag>("pixelTrackSrc"))),
-        maxNumberOfTracks_(iConfig.getParameter<uint>("maxNumberOfTracks")),
-        maxPreselectedTracks_(iConfig.getParameter<uint>("maxPreselectedTracks")),
-        minNumberOfHits_(iConfig.getParameter<uint>("minNumberOfHits")),
-        avgHitsPerTrack_(iConfig.getParameter<uint>("avgHitsPerTrack")),
+        maxNumberOfTracks_(iConfig.getParameter<uint32_t>("maxNumberOfTracks")),
+        maxPreselectedTracks_(iConfig.getParameter<uint32_t>("maxPreselectedTracks")),
+        minNumberOfHits_(iConfig.getParameter<uint32_t>("minNumberOfHits")),
+        avgHitsPerTrack_(iConfig.getParameter<uint32_t>("avgHitsPerTrack")),
         minimumTrackQuality_(pixelTrack::qualityByName(iConfig.getParameter<std::string>("minimumTrackQuality"))),
         scoreThreshold_(iConfig.getParameter<double>("scoreThreshold")),
         model_(iConfig.getParameter<edm::FileInPath>("model").fullPath()),
-        batchSize_(iConfig.getParameter<uint>("batchSize")),
+        batchSize_(iConfig.getParameter<uint32_t>("batchSize")),
         tokenTrackOut_(produces()) {
     if (minimumTrackQuality_ == pixelTrack::Quality::notQuality) {
       throw cms::Exception("PixelTrackConfiguration")
@@ -323,14 +323,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   void PixelTrackTorchHighPuritySelector::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
     desc.add<edm::InputTag>("pixelTrackSrc", {"hltPhase2PixelTracksSoA"});
-    desc.add<uint>("maxNumberOfTracks", 100000);
-    desc.add<uint>("maxPreselectedTracks", 10000);
-    desc.add<uint>("minNumberOfHits", 0);
-    desc.add<uint>("avgHitsPerTrack", 8);
+    desc.add<uint32_t>("maxNumberOfTracks", 100000);
+    desc.add<uint32_t>("maxPreselectedTracks", 10000);
+    desc.add<uint32_t>("minNumberOfHits", 0);
+    desc.add<uint32_t>("avgHitsPerTrack", 8);
     desc.add<std::string>("minimumTrackQuality", "tight");
     desc.add<edm::FileInPath>("model");
     desc.add<double>("scoreThreshold", 0.5);
-    desc.add<uint>("batchSize", 10);
+    desc.add<uint32_t>("batchSize", 10);
     descriptions.addWithDefaultLabel(desc);
   }
 };  // namespace ALPAKA_ACCELERATOR_NAMESPACE

@@ -62,31 +62,29 @@ namespace cms::torch::alpakatools {
   class TensorSlice {
     public: 
       struct Bounds {
-        uint offset;
-        uint size;
+        uint32_t offset;
+        uint32_t size;
       };
 
       TensorSlice() = default;
     
-      TensorSlice(uint batch_id, uint batch_size)
-        : batch_id_{batch_id}, batch_size_{batch_size}, full_{false} {
-          assert(batch_size!=0 && "Batch size should be greater than zero");
-        }
+      TensorSlice(uint32_t batch_id, uint32_t batch_size)
+        : batch_id_{batch_id}, batch_size_{batch_size}, full_{false} {}
 
-      Bounds resolve(uint total_size) const {
+      Bounds resolve(uint32_t total_size) const {
         if(full_)
           return {.offset=0, .size=total_size};
         if(total_size==0)
           return {.offset=0, .size=0}; 
-        
+        assert(batch_size_!=0 && "Batch size should be greater than zero");
         assert(batch_id_ <= (total_size - 1) / batch_size_ && "Batch id is out of bounds!");
         const auto offset = batch_id_*batch_size_;
         return {.offset = offset, .size = std::min(batch_size_, total_size - offset)};
       }
     
     private:
-      uint batch_id_ = 0;
-      uint batch_size_ = 0;
+      uint32_t batch_id_ = 0;
+      uint32_t batch_size_ = 0;
       bool full_ = true;
   };
 

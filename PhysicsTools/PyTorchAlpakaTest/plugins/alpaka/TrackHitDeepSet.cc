@@ -37,13 +37,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
           hit_to_track_token_(consumes(params.getParameter<edm::InputTag>("hit_to_track"))),
           simple_net_token_{produces()},
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
-          batch_size_(params.getParameter<uint>("batchSize")),
+          batch_size_(params.getParameter<uint32_t>("batchSize")),
           environment_{static_cast<::torchtest::Environment>(params.getUntrackedParameter<int>("environment"))} {}
     
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
       desc.add<edm::FileInPath>("model");
-      desc.add<uint>("batchSize");
+      desc.add<uint32_t>("batchSize");
       desc.add<edm::InputTag>("particles");
       desc.add<edm::InputTag>("hits");
       desc.add<edm::InputTag>("hit_to_track");
@@ -61,7 +61,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
       const auto total_size = particles.const_view().metadata().size();
       auto regression_collection = portabletest::SimpleNetDeviceCollection(queue, total_size);
 
-      uint n_batches;
+      uint32_t n_batches;
       if (batch_size_ == 0) {
         assert(total_size == 0 && "Batch size can be 0 only if the total size is 0");
         n_batches = 1;
@@ -69,7 +69,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
         n_batches = (total_size + batch_size_ - 1) / batch_size_;
 
       auto track_begin = portabletest::TrackBeginDeviceCollection(queue, n_batches);
-      kernels::fillTrackBegin(queue, track_begin, n_batches);
+      kernels::fillTrackBegin(queue, track_begin, batch_size_);
 
       // records
       auto input_records = particles.const_view().records();
@@ -113,7 +113,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     const device::EDPutToken<portabletest::SimpleNetDeviceCollection> simple_net_token_;
     // model
     torch::AlpakaModel model_;
-    const uint batch_size_;
+    const uint32_t batch_size_;
     // debug mode flag
     const ::torchtest::Environment environment_;
   };
