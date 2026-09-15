@@ -54,7 +54,6 @@ namespace ticl {
                       SOA_COLUMN(float, id_probabilities7),
 
                       SOA_COLUMN(uint8_t, iterationIndex))
-
   struct EdgePair {
     uint32_t inner;
     uint32_t outer;
@@ -69,8 +68,9 @@ namespace ticl {
   template <std::size_t Size, bool Boolean>
   using TracksAssocLayout = typename ticl::AssociationMapLayout<uint32_t, int>::template Layout<Size, Boolean>;
   template <std::size_t Size, bool Boolean>
-  using GlobalSeedingTracksAssocLayout =
-      typename ticl::AssociationMapLayout<uint32_t, int>::template Layout<Size, Boolean>;
+  using GlobalSeedingTracksAssocLayout = typename ticl::AssociationMapLayout<uint32_t, int>::template Layout<Size, Boolean>;
+  template <std::size_t Size, bool Boolean>
+  using TracksterGsfTrackAssocLayout = typename ticl::AssociationMapLayout<uint32_t, int>::template Layout<Size, Boolean>;
 
   // clang-format off
   GENERATE_SOA_BLOCKS(TracksterBlocksLayout,
@@ -80,6 +80,7 @@ namespace ticl {
                       SOA_BLOCK(multiplicity, MultiplicityLayout),
                       SOA_BLOCK(edges, EdgesLayout),
                       SOA_BLOCK(tracks, TracksAssocLayout),
+                      SOA_BLOCK(tracksterGsfTrack, TracksterGsfTrackAssocLayout),
                       SOA_BLOCK(globalSeedingTracks, GlobalSeedingTracksAssocLayout),
                       SOA_CONST_VIEW_METHODS(
                         inline constexpr SOA_HOST_DEVICE auto barycenterEta(std::integral auto idx) {
