@@ -26,7 +26,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
         particles.view());
   }
 
-  void randomFillHitCollection(Queue& queue, portabletest::HitDeviceCollection& hits, portabletest::HitToTrackDeviceCollection& hit_to_track, uint hits_per_track) {
+  void randomFillHitCollection(Queue& queue, portabletest::HitDeviceCollection& hits, portabletest::HitToTrackDeviceCollection& hit_to_track, uint32_t hits_per_track) {
     const auto n_hits = hits.view().metadata().size();
     constexpr uint32_t threads_per_block = 64;
     const auto blocks_per_grid = cms::alpakatools::divide_up_by(n_hits, threads_per_block);
@@ -39,7 +39,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
             Acc1D const& acc,
             portabletest::HitDeviceCollection::View hits_view,
             portabletest::HitToTrackDeviceCollection::View hit_to_track_view,
-            uint hits_per_track) {
+            uint32_t hits_per_track) {
           const auto n_hits = hits_view.metadata().size();
               
           for (auto hit_idx : cms::alpakatools::uniform_elements(acc, n_hits)) {
@@ -51,7 +51,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
             hits_view[hit_idx].y() = dist(rnd_gen);
             hits_view[hit_idx].z() = dist(rnd_gen);
 
-            hit_to_track_view[hit_idx] = hit_idx / hits_per_track;
+            hit_to_track_view[hit_idx].trackIndex() = hit_idx / hits_per_track;
           }
         },
         hits.view(),
@@ -128,7 +128,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
         mask.view());
   }
 
-  void fillTrackBegin(Queue& queue, portabletest::TrackBeginDeviceCollection& track_begin, uint batch_size){
+  void fillTrackBegin(Queue& queue, portabletest::TrackBeginDeviceCollection& track_begin, uint32_t batch_size){
     const auto n_batches = track_begin.view().metadata().size();
     constexpr uint32_t threads_per_block = 64;
     const auto blocks_per_grid = cms::alpakatools::divide_up_by(n_batches, threads_per_block);
@@ -138,7 +138,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest::kernels {
         queue,
         grid,
         [] ALPAKA_FN_ACC(
-            Acc1D const& acc, portabletest::TrackBeginDeviceCollection::View track_begin_view, uint batch_size) {
+            Acc1D const& acc, portabletest::TrackBeginDeviceCollection::View track_begin_view, uint32_t batch_size) {
           for (auto batch_id : cms::alpakatools::uniform_elements(acc, track_begin_view.metadata().size())) {
             track_begin_view[batch_id].trackBegin() = batch_id * batch_size;
           }
