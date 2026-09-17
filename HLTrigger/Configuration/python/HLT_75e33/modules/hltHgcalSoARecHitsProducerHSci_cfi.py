@@ -8,7 +8,7 @@ hltHgcalSoARecHitsProducerHSci = cms.EDProducer("HGCalSoARecHitsProducer@alpaka"
     ),
     dEdXweights = HGCAL_reco_constants.dEdXweights,
     detector = cms.string('BH'),
-    ecut = cms.double(3),
+    ecut = cms.float(3),
     fcPerEle = HGCAL_reco_constants.fcPerEle,
     fcPerMip = HGCAL_reco_constants.fcPerMip,
     maxNumberOfThickIndices = HGCAL_reco_constants.maxNumberOfThickIndices,
