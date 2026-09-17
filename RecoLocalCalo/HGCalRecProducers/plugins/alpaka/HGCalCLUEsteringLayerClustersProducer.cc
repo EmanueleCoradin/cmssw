@@ -25,9 +25,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           getTokenLayerSizes_{consumes<std::vector<uint32_t>>(
               edm::InputTag(config.getParameter<edm::InputTag>("hgcalRecHitsSoA").label(), "layerSizes"))},
           deviceToken_{produces()},
-          deltac_(config.getParameter<float>("deltac")),
-          kappa_(config.getParameter<float>("kappa")),
-          outlierDeltaFactor_(config.getParameter<float>("outlierDeltaFactor")),
+          deltac_(config.getParameter<double>("deltac")),
+          kappa_(config.getParameter<double>("kappa")),
+          outlierDeltaFactor_(config.getParameter<double>("outlierDeltaFactor")),
           isScintillator_(config.getParameter<std::string>("detector") == "BH") {}
 
     ~HGCalCLUEsteringLayerClustersProducer() override = default;
@@ -59,9 +59,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       desc.add<edm::InputTag>("hgcalRecHitsSoA", edm::InputTag("TO BE DEFINED"));
       desc.add<std::string>("detector", "EE")
           ->setComment("HGCAL component; 'BH' selects the periodic (eta,phi) scintillator metric.");
-      desc.add<float>("deltac", 1.3);
-      desc.add<float>("kappa", 9.);
-      desc.add<float>("outlierDeltaFactor", 2.);
+      desc.add<double>("deltac", 1.3);
+      desc.add<double>("kappa", 9.);
+      desc.add<double>("outlierDeltaFactor", 2.);
       descriptions.addWithDefaultLabel(desc);
     }
 
@@ -70,9 +70,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::EDGetTokenT<std::vector<uint32_t>> const getTokenLayerSizes_;
     device::EDPutToken<HGCalSoARecHitsExtraDeviceCollection> const deviceToken_;
     HGCalCLUEsteringAlgoWrapper algo_;
-    const float deltac_;
-    const float kappa_;
-    const float outlierDeltaFactor_;
+    const double deltac_;
+    const double kappa_;
+    const double outlierDeltaFactor_;
     const bool isScintillator_;
   };
 

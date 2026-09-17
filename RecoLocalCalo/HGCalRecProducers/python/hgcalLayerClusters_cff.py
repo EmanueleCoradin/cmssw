@@ -138,6 +138,7 @@ hgcalLayerClustersHSi    = _fromSoAFH
 hgcalLayerClustersHSci   = _fromSoABH
 hgcalLayerClustersHFNose = _fromSoAHFNose
 
+'''
 from Configuration.Eras.Modifier_phase2_hgcalV19_cff import phase2_hgcalV19
 from RecoLocalCalo.HGCalRecProducers.HGCalUncalibRecHit_cfi import fCPerMIP_mean_V19
 from SimCalorimetry.HGCalSimProducers.hgcalDigitizer_cfi import nonAgedNoises_v9_v19
@@ -156,9 +157,8 @@ _v19SiPlugin = dict(
 )
 for _clusters in (hgcalLayerClustersEE, hgcalLayerClustersHSi, hgcalLayerClustersHSci):
     phase2_hgcalV19.toModify(_clusters, plugin = dict(**_v19SiPlugin))
-
-hgcalMergeLayerClusters = hgcalMergeLayerClusters_.clone(
-)
+'''
+hgcalMergeLayerClusters = hgcalMergeLayerClusters_.clone()
 
 layerClusters = cms.VInputTag('hgcalLayerClustersEE', 'hgcalLayerClustersHSi', 'hgcalLayerClustersHSci', 'barrelLayerClustersEB', 'barrelLayerClustersHB')
 time_layerClusters = cms.VInputTag('hgcalLayerClustersEE:timeLayerCluster', 'hgcalLayerClustersHSi:timeLayerCluster', 'hgcalLayerClustersHSci:timeLayerCluster', 'barrelLayerClustersEB:timeLayerCluster', 'barrelLayerClustersHB:timeLayerCluster')
