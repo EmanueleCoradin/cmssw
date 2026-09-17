@@ -31,8 +31,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           ecut_(config.getParameter<float>("ecut")),
           fcPerMip_(config.getParameter<std::vector<float>>("fcPerMip")),
           nonAgedNoises_(config.getParameter<std::vector<float>>("noises")),
-          dEdXweights_(config.getParameter<std::vector<float>>("dEdXweights")),
-          thicknessCorrection_(config.getParameter<std::vector<float>>("thicknessCorrection")),
+          dEdXweights_(config.getParameter<std::vector<double>>("dEdXweights")),
+          thicknessCorrection_(config.getParameter<std::vector<double>>("thicknessCorrection")),
           noiseMip_(config.getParameter<double>("noiseMip")),
           sciThicknessCorrection_(config.getParameter<double>("sciThicknessCorrection")),
           ticlGeomToken_(consumesCollector().esConsumes<TICLGeomHost, CaloGeometryRecord>(edm::ESInputTag("", ""))),
@@ -187,12 +187,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       desc.add<unsigned int>("maxNumberOfThickIndices", 6);
       desc.add<float>("fcPerEle", 0.00016020506);
       desc.add<std::vector<float>>("fcPerMip");
-      desc.add<std::vector<float>>("thicknessCorrection");
+      desc.add<std::vector<double>>("thicknessCorrection");
       desc.add<std::vector<float>>("noises");
-      desc.add<std::vector<float>>("dEdXweights");
+      desc.add<std::vector<double>>("dEdXweights");
       desc.add<double>("noiseMip", 0.2);
       desc.add<double>("sciThicknessCorrection", 1.0);
-      desc.add<double>("ecut", 3.);
+      desc.add<float>("ecut", 3.);
       descriptions.addWithDefaultLabel(desc);
     }
 
@@ -207,8 +207,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     float ecut_;
     std::vector<float> fcPerMip_;
     std::vector<float> nonAgedNoises_;
-    std::vector<float> dEdXweights_;
-    std::vector<float> thicknessCorrection_;
+    std::vector<double> dEdXweights_;
+    std::vector<double> thicknessCorrection_;
     double noiseMip_;
     double sciThicknessCorrection_;
     std::vector<std::vector<double>> thresholds_;

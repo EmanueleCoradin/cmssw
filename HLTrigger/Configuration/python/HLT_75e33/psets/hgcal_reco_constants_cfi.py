@@ -14,12 +14,12 @@ HGCAL_reco_constants = cms.PSet(
         83.52000000000001, 83.61, 83.61, 83.61, 83.61,
         83.61, 83.61, 83.61
     ),
-    fcPerEle = cms.double(0.00016020506),
-    fcPerMip = cms.vdouble(
+    fcPerEle = cms.float(0.00016020506),
+    fcPerMip = cms.vfloat(
             2.06, 3.43, 5.15, 2.06, 3.43,
             5.15
         ),
-    noises = cms.vdouble(
+    noises = cms.vfloat(
             2000.0, 2400.0, 2000.0, 2000.0, 2400.0,
             2000.0
         ),
@@ -29,7 +29,7 @@ HGCAL_reco_constants = cms.PSet(
         ),
     thresholdW0 = cms.vdouble(2.9, 2.9, 2.9),
     sciThicknessCorrection = cms.double(0.69),
-    positionDeltaRho2 = cms.double(1.69),
+    positionDeltaRho2 = cms.float(1.69),
     maxNumberOfThickIndices = cms.uint32(6),
     noiseMip = cms.PSet(
       scaleByDose = cms.bool(False),

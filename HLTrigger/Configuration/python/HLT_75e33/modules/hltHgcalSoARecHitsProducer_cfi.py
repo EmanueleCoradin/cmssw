@@ -6,7 +6,7 @@ hltHgcalSoARecHitsProducer = cms.EDProducer("HGCalSoARecHitsProducer@alpaka",
     alpaka = cms.untracked.PSet(
         backend = cms.untracked.string('')
     ),
-    dEdXweights = cms.vfloat(HGCAL_reco_constants.dEdXweights.value()),
+    dEdXweights = cms.vdouble(HGCAL_reco_constants.dEdXweights.value()),
     detector = cms.string('EE'),
     ecut = cms.float(3),
     fcPerEle = cms.float(HGCAL_reco_constants.fcPerEle.value()),
@@ -14,7 +14,7 @@ hltHgcalSoARecHitsProducer = cms.EDProducer("HGCalSoARecHitsProducer@alpaka",
     maxNumberOfThickIndices = HGCAL_reco_constants.maxNumberOfThickIndices,
     noises = cms.vfloat(HGCAL_reco_constants.noises.value()),
     recHits = cms.InputTag("hltHGCalRecHit","HGCEERecHits"),
-    thicknessCorrection = cms.vfloat(HGCAL_reco_constants.thicknessCorrection.value()),
+    thicknessCorrection = cms.vdouble(HGCAL_reco_constants.thicknessCorrection.value()),
 )
 
 hltHgcalSoARecHitsProducerSerialSync = makeSerialClone(hltHgcalSoARecHitsProducer)

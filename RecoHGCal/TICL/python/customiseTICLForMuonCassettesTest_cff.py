@@ -44,7 +44,7 @@ def customiseTICLForMuonCassettesTest(process):
         mightGet = cms.optional.untracked.vstring,
         nHitsTime = cms.uint32(3),
         plugin = cms.PSet(
-            dEdXweights = cms.vfloat(
+            dEdXweights = cms.vdouble(
                 0.0, 9.205, 11.129999999999999, 11.129999999999999, 11.129999999999999,
                 11.129999999999999, 11.129999999999999, 11.129999999999999, 11.129999999999999, 11.129999999999999,
                 11.129999999999999, 11.129999999999999, 11.129999999999999, 11.129999999999999, 11.129999999999999,
