@@ -43,6 +43,7 @@
 
 <library file="alpaka/*.cc" name="RecoHGCalTICLPluginsPortable">
   <use name="alpaka"/>
+  <use name="pytorch-cuda" for="alpaka/cuda"/>
   <use name="CondFormats/HGCalObjects"/>
   <use name="DataFormats/DetId"/>
   <use name="DataFormats/ForwardDetId"/>
@@ -50,6 +51,7 @@
   <use name="Geometry/Records"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="PhysicsTools/PyTorchAlpaka"/>
   <use name="RecoLocalCalo/HGCalRecAlgos"/>
   <use name="cluestering"/>
   <flags ALPAKA_BACKENDS="1"/>

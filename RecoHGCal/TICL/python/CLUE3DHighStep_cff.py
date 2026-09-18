@@ -4,6 +4,8 @@ from RecoHGCal.TICL.TICLSeedingRegions_cff import ticlSeedingGlobal, ticlSeeding
 from RecoHGCal.TICL.trackstersProducer_cfi import trackstersProducer as _trackstersProducer
 from RecoHGCal.TICL.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoHGCal.TICL.trackstersToSoAProducer_cfi import trackstersToSoAProducer as _trackstersToSoAProducer
+from RecoHGCal.TICL.tracksterInferenceByCNNTorch_cfi import tracksterInferenceByCNNTorch as _tracksterInferenceByCNNTorch
+
 
 # CLUSTER FILTERING/MASKING
 
@@ -78,10 +80,22 @@ ticlTrackstersToSoAProducer = _trackstersToSoAProducer.clone(
     src=cms.InputTag("ticlTrackstersCLUE3DHigh")
 )
 
+ticlTracksterInferenceByCNNTorch = _tracksterInferenceByCNNTorch.clone(
+    tracksters = cms.InputTag("ticlTrackstersToSoAProducer"),
+    layerClusters = cms.InputTag("hgcalMergeLayerClusters"),
+    detector = cms.string("HGCAL"),
+    model = cms.FileInPath("RecoHGCal/TICL/data/trackster_pid_cnn.pt"),
+    minClusterEnergy = cms.double(3),
+    batchSize = cms.int32(64),
+    convertToFP16 = cms.bool(False),
+    warmupIterations = cms.int32(3),
+)
+
 ticlCLUE3DHighStepTask = cms.Task(ticlSeedingGlobal
     ,filteredLayerClustersCLUE3DHigh
     ,ticlTrackstersCLUE3DHigh
-    ,ticlTrackstersToSoAProducer)
+    ,ticlTrackstersToSoAProducer,
+    ticlTracksterInferenceByCNNTorch)
 
 
 # with ticl_dev 3D pattern recognition swapped to CLUEstering.
@@ -104,5 +118,6 @@ ticl_dev.toReplaceWith(ticlCLUE3DHighStepTask, cms.Task(ticlSeedingGlobal
     ,filteredLayerClustersCLUE3DHigh
     ,ticlTrackstersCLUEsteringAssignment
     ,ticlTrackstersCLUE3DHigh
-    ,ticlTrackstersToSoAProducer))
+    ,ticlTrackstersToSoAProducer
+    ,ticlTracksterInferenceByCNNTorch))
 
