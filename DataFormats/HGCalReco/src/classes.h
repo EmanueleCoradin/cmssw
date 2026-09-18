@@ -1,5 +1,6 @@
 #include <vector>
 #include <array>
+#include <Eigen/Core>
 #include "DataFormats/HGCalReco/interface/MtdSoA.h"
 #include "DataFormats/HGCalReco/interface/MtdHostCollection.h"
 #include "DataFormats/HGCalReco/interface/Trackster.h"
@@ -13,3 +14,4 @@
 #include "DataFormats/HGCalReco/interface/HGCalSoARecHitsExtraHostCollection.h"
 #include "DataFormats/HGCalReco/interface/HGCalSoAClusters.h"
 #include "DataFormats/HGCalReco/interface/HGCalSoAClustersHostCollection.h"
+#include "DataFormats/HGCalReco/interface/TracksterHost.h"
