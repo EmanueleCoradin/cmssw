@@ -10,7 +10,7 @@ namespace ticl {
   inline constexpr int kTracksterCNNLayers = 50;
   inline constexpr int kTracksterCNNClusters = 10;
 
-  using TracksterCNNImage = Eigen::Matrix<float, kTracksterCNNLayers, kTracksterCNNClusters, Eigen::RowMajor>;
+  using TracksterCNNImage = Eigen::Matrix<float, kTracksterCNNLayers, kTracksterCNNClusters, Eigen::ColMajor>;
 
   GENERATE_SOA_LAYOUT(TracksterInferenceFeaturesLayout,
       SOA_EIGEN_COLUMN(TracksterCNNImage, energy),

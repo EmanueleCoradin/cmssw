@@ -5,6 +5,7 @@
 
 #include <Eigen/Core>
 
+#include "DataFormats/Portable/interface/PortableCollection.h"
 #include "DataFormats/HGCalReco/interface/Trackster.h"
 #include "DataFormats/HGCalReco/interface/TracksterHost.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"

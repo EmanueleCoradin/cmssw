@@ -82,12 +82,15 @@ ticlTrackstersToSoAProducer = _trackstersToSoAProducer.clone(
 
 ticlTracksterInferenceByCNNTorch = _tracksterInferenceByCNNTorch.clone(
     tracksters = cms.InputTag("ticlTrackstersToSoAProducer"),
-    layerClusters = cms.InputTag("hgcalMergeLayerClusters"),
+    layerClusters = cms.VInputTag(
+        "hgcalSoALayerClustersEE",
+        "hgcalSoALayerClustersHSi",
+        "hgcalSoALayerClustersHSci"),
     detector = cms.string("HGCAL"),
     model = cms.FileInPath("RecoHGCal/TICL/data/trackster_pid_cnn.pt"),
     minClusterEnergy = cms.double(1),
     batchSize = cms.int32(64),
-    convertToFP16 = cms.bool(True),
+    convertToFP16 = cms.bool(False),
     warmupIterations = cms.int32(3),
 )
 

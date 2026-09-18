@@ -1,14 +1,12 @@
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <iomanip>
 #include <limits>
-#include <numeric>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <Eigen/Core>
@@ -17,8 +15,7 @@
 #include "CondFormats/HGCalObjects/interface/TICLGeomHost.h"
 #include "CondFormats/HGCalObjects/interface/TICLGeomLayersHost.h"
 #include "CondFormats/HGCalObjects/interface/TICLGeomLookupHost.h"
-#include "DataFormats/CaloRecHit/interface/CaloCluster.h"
-#include "DataFormats/HGCalReco/interface/TracksterHost.h"
+#include "DataFormats/CaloRecHit/interface/alpaka/CaloClusterDeviceCollection.h"
 #include "DataFormats/HGCalReco/interface/TracksterSoA.h"
 #include "DataFormats/HGCalReco/interface/alpaka/TracksterDevice.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
@@ -26,6 +23,7 @@
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/Utilities/interface/EDGetToken.h"
 #include "FWCore/Utilities/interface/ESGetToken.h"
 #include "FWCore/Utilities/interface/ESInputTag.h"
 #include "FWCore/Utilities/interface/Exception.h"
@@ -38,11 +36,11 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/FixedQueueEDProducer.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
-#include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
-#include "RecoHGCal/TICL/interface/TracksterInferenceHost.h"
+#include "RecoHGCal/TICL/interface/TracksterInferenceSoA.h"
 #include "RecoHGCal/TICL/interface/alpaka/TracksterInferenceDevice.h"
+#include "RecoHGCal/TICL/plugins/alpaka/TracksterInferenceKernels.h"
 #include "RecoLocalCalo/HGCalRecAlgos/interface/TICLGeomTools.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
@@ -64,44 +62,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     template <typename TracksterView>
     std::array<int32_t, ::ticl::TracksterSoA::blocksNumber> tracksterSizes(TracksterView const& view) {
-      return {
-          checkedSize(view.tracksters().metadata().size(), "tracksters"),
-          checkedSize(view.vertices().keys(), "vertices keys"),
-          checkedSize(view.vertices().content().metadata().size(), "vertices content"),
-          checkedSize(view.multiplicity().keys(), "multiplicity keys"),
-          checkedSize(view.multiplicity().content().metadata().size(), "multiplicity content"),
-          checkedSize(view.edges().keys(), "edges keys"),
-          checkedSize(view.edges().content().metadata().size(), "edges content"),
-          checkedSize(view.tracks().keys(), "tracks keys"),
-          checkedSize(view.tracks().content().metadata().size(), "tracks content"),
-          checkedSize(view.tracksterGsfTrack().keys(), "GSF-track keys"),
-          checkedSize(view.tracksterGsfTrack().content().metadata().size(), "GSF-track content"),
-          checkedSize(view.globalSeedingTracks().keys(), "global-seeding-track keys"),
-          checkedSize(view.globalSeedingTracks().content().metadata().size(), "global-seeding-track content")};
+      return {checkedSize(view.tracksters().metadata().size(), "tracksters"),
+              checkedSize(view.vertices().keys(), "vertices keys"),
+              checkedSize(view.vertices().content().metadata().size(), "vertices content"),
+              checkedSize(view.multiplicity().keys(), "multiplicity keys"),
+              checkedSize(view.multiplicity().content().metadata().size(), "multiplicity content"),
+              checkedSize(view.edges().keys(), "edges keys"),
+              checkedSize(view.edges().content().metadata().size(), "edges content"),
+              checkedSize(view.tracks().keys(), "tracks keys"),
+              checkedSize(view.tracks().content().metadata().size(), "tracks content"),
+              checkedSize(view.tracksterGsfTrack().keys(), "GSF-track keys"),
+              checkedSize(view.tracksterGsfTrack().content().metadata().size(), "GSF-track content"),
+              checkedSize(view.globalSeedingTracks().keys(), "global-seeding-track keys"),
+              checkedSize(view.globalSeedingTracks().content().metadata().size(),
+                          "global-seeding-track content")};
     }
-
-    struct ScatterPIDProbabilities {
-      template <typename TAcc, typename ScoreView, typename OutputView>
-      ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                    uint32_t const* tracksterIndices,
-                                    ScoreView scores,
-                                    OutputView output,
-                                    uint32_t size) const {
-        for (auto row : cms::alpakatools::uniform_elements(acc, size)) {
-          auto const source = scores[row];
-          auto destination = output[tracksterIndices[row]];
-
-          destination.id_probabilities0() = source.id_probabilities0();
-          destination.id_probabilities1() = source.id_probabilities1();
-          destination.id_probabilities2() = source.id_probabilities2();
-          destination.id_probabilities3() = source.id_probabilities3();
-          destination.id_probabilities4() = source.id_probabilities4();
-          destination.id_probabilities5() = source.id_probabilities5();
-          destination.id_probabilities6() = source.id_probabilities6();
-          destination.id_probabilities7() = source.id_probabilities7();
-        }
-      }
-    };
 
   }  // namespace
 
@@ -118,17 +93,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           ticlGeomLayersToken_{esConsumes<TICLGeomLayersHost, CaloGeometryRecord, edm::Transition::BeginRun>(
               edm::ESInputTag("", ""))},
           trackstersToken_{consumes(config.getParameter<edm::InputTag>("tracksters"))},
-          layerClustersToken_{consumes(config.getParameter<edm::InputTag>("layerClusters"))},
           model_{config.getParameter<edm::FileInPath>("model").fullPath()},
           minClusterEnergy_{static_cast<float>(config.getParameter<double>("minClusterEnergy"))},
           batchSize_{config.getParameter<int>("batchSize")},
           convertToFP16_{config.getParameter<bool>("convertToFP16")},
           warmupIterations_{config.getParameter<int>("warmupIterations")},
           trackstersOutToken_{produces()} {
+      auto const layerClusterTags = config.getParameter<std::vector<edm::InputTag>>("layerClusters");
+      if (layerClusterTags.size() != 3) {
+        throw cms::Exception("TracksterInferenceByCNNTorch")
+            << "layerClusters must contain exactly three device products in merged order: "
+               "EE, HSi, HSci; got "
+            << layerClusterTags.size() << ".";
+      }
+      for (auto const& tag : layerClusterTags) {
+        layerClustersTokens_.emplace_back(consumes(tag));
+      }
       if (batchSize_ <= 0) {
         throw cms::Exception("TracksterInferenceByCNNTorch") << "batchSize must be positive, got " << batchSize_;
       }
-
       if (warmupIterations_ < 0) {
         throw cms::Exception("TracksterInferenceByCNNTorch")
             << "warmupIterations must be non-negative, got " << warmupIterations_;
@@ -139,7 +122,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       edm::ParameterSetDescription description;
       description.add<std::string>("detector", "HGCAL");
       description.add<edm::InputTag>("tracksters", edm::InputTag("ticlTrackstersToSoAProducer"));
-      description.add<edm::InputTag>("layerClusters", edm::InputTag("hgcalMergeLayerClusters"));
+      description.add<std::vector<edm::InputTag>>(
+          "layerClusters",
+          {edm::InputTag("hgcalSoALayerClustersEE"),
+           edm::InputTag("hgcalSoALayerClustersHSi"),
+           edm::InputTag("hgcalSoALayerClustersHSci")});
       description.add<edm::FileInPath>("model");
       description.add<double>("minClusterEnergy", 1.0);
       description.add<int>("batchSize", 64);
@@ -152,12 +139,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       rhtools_.setGeometry(eventSetup.getData(ticlGeomToken_),
                            eventSetup.getData(ticlGeomLookupToken_),
                            eventSetup.getData(ticlGeomLayersToken_));
+      layersPerEndcap_ = checkedSize(rhtools_.lastLayer(false), "layers per HGCAL endcap");
     }
 
     void beginStream(edm::StreamID, Queue queue) override {
       ticl::TracksterInferenceDevice features(queue, batchSize_);
       ticl::TracksterInferencePIDScoresDevice scores(queue, batchSize_);
-
       features.zeroInitialise(queue);
       scores.zeroInitialise(queue);
 
@@ -167,7 +154,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       for (int iteration = 0; iteration < warmupIterations_; ++iteration) {
         cms::torch::alpakatools::TensorCollection<Queue> inputs(batchSize_);
         cms::torch::alpakatools::TensorCollection<Queue> outputs(batchSize_);
-
         inputs.add<::ticl::TracksterInferenceSoA>(
             "input", featureRecords.energy(), featureRecords.absEta(), featureRecords.phi());
         outputs.add<::ticl::TracksterInferencePIDScoresSoA>("pid_output",
@@ -179,11 +165,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                             scoreRecords.id_probabilities5(),
                                                             scoreRecords.id_probabilities6(),
                                                             scoreRecords.id_probabilities7());
-
         forward(queue, inputs, outputs);
-
-        // Keep the warm-up tensors and their backing buffers alive until the
-        // asynchronous model execution has completed.
         alpaka::wait(queue);
       }
     }
@@ -192,124 +174,93 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto& queue = event.queue();
       auto const& inputTracksters = event.get(trackstersToken_);
       auto const inputView = inputTracksters.const_view();
-      auto const& layerClusters = event.get(layerClustersToken_);
+      auto const& layerClustersEE = event.get(layerClustersTokens_[0]);
+      auto const& layerClustersHSi = event.get(layerClustersTokens_[1]);
+      auto const& layerClustersHSci = event.get(layerClustersTokens_[2]);
+      auto const layerClustersEEView = layerClustersEE.view();
+      auto const layerClustersHSiView = layerClustersHSi.view();
+      auto const layerClustersHSciView = layerClustersHSci.view();
 
-      auto const nTracksters = static_cast<std::size_t>(inputView.tracksters().metadata().size());
-      if (static_cast<std::size_t>(inputView.vertices().keys()) != nTracksters ||
-          static_cast<std::size_t>(inputView.multiplicity().keys()) != nTracksters) {
-        throw cms::Exception("TracksterInferenceByCNNTorch")
-            << "Inconsistent TracksterSoA key counts: tracksters=" << nTracksters
-            << ", vertices=" << inputView.vertices().keys()
-            << ", multiplicities=" << inputView.multiplicity().keys() << '.';
-      }
+      auto const nTracksters = checkedSize(inputView.tracksters().metadata().size(), "Tracksters");
+      auto const nLayerClustersEE = checkedSize(layerClustersEEView.metadata().size()[0], "EE LayerClusters");
+      auto const nLayerClustersHSi = checkedSize(layerClustersHSiView.metadata().size()[0], "HSi LayerClusters");
+      auto const nLayerClustersHSci = checkedSize(layerClustersHSciView.metadata().size()[0], "HSci LayerClusters");
+      auto const nLayerClusters64 = static_cast<std::size_t>(nLayerClustersEE) +
+                                    static_cast<std::size_t>(nLayerClustersHSi) +
+                                    static_cast<std::size_t>(nLayerClustersHSci);
+      auto const nLayerClusters = checkedSize(nLayerClusters64, "all HGCAL LayerClusters");
 
-      // Preserve all scalar fields and all association blocks. Only the PID
-      // probability columns of selected Tracksters are replaced below.
+      // Preserve all Trackster fields and association blocks. The final kernel
+      // overwrites only the PID columns of selected Tracksters.
       ticl::TracksterDevice outputTracksters(queue, tracksterSizes(inputView));
       alpaka::memcpy(queue, outputTracksters.buffer(), inputTracksters.buffer());
 
-      std::vector<uint32_t> selectedTracksters;
-      selectedTracksters.reserve(nTracksters);
-
-      for (std::size_t tracksterIndex = 0; tracksterIndex < nTracksters; ++tracksterIndex) {
-        float clusterEnergy = 0.f;
-        for (auto vertex : inputView.vertices()[tracksterIndex]) {
-          if (vertex >= layerClusters.size()) {
-            throw cms::Exception("TracksterInferenceByCNNTorch")
-                << "Trackster " << tracksterIndex << " references layer cluster " << vertex
-                << ", but the collection contains " << layerClusters.size() << " entries.";
-          }
-
-          clusterEnergy += static_cast<float>(layerClusters[vertex].energy());
-          if (clusterEnergy >= minClusterEnergy_) {
-            selectedTracksters.push_back(static_cast<uint32_t>(tracksterIndex));
-            break;
-          }
-        }
-      }
-
-      auto const total = checkedSize(selectedTracksters.size(), "selected Tracksters");
-      if (total == 0) {
+      if (nTracksters == 0) {
         event.emplace(trackstersOutToken_, std::move(outputTracksters));
         return;
       }
 
-      ::ticl::TracksterInferenceHost featuresHost(queue, total);
-      featuresHost.zeroInitialise();
-      auto featuresView = featuresHost.view();
+      // Allocate to the worst-case number of selected Tracksters. Compact rows
+      // occupy [0, selectedCount) after fillInputFeatures().
+      ticl::TracksterInferenceDevice featuresDevice(queue, nTracksters);
+      featuresDevice.zeroInitialise(queue);
+      auto selectedTrackstersDevice = cms::alpakatools::make_device_buffer<uint32_t[]>(queue, nTracksters);
+      auto selectedCountDevice = cms::alpakatools::make_device_buffer<uint32_t>(queue);
+      auto errorMaskDevice = cms::alpakatools::make_device_buffer<uint32_t>(queue);
+      auto selectedCountHost = cms::alpakatools::make_host_buffer<uint32_t>(queue);
+      auto errorMaskHost = cms::alpakatools::make_host_buffer<uint32_t>(queue);
 
-      auto selectedTrackstersHost = cms::alpakatools::make_host_buffer<uint32_t[]>(queue, total);
-      std::copy(selectedTracksters.begin(), selectedTracksters.end(), alpaka::getPtrNative(selectedTrackstersHost));
+      alpaka::memset(queue, selectedCountHost, 0);
+      alpaka::memset(queue, errorMaskHost, 0);
+      alpaka::memcpy(queue, selectedCountDevice, selectedCountHost);
+      alpaka::memcpy(queue, errorMaskDevice, errorMaskHost);
 
-      std::array<int, ::ticl::kTracksterCNNLayers> seenClusters;
-      std::vector<int> clusterIndices;
+      fillInputFeatures(queue,
+                        inputView,
+                        layerClustersEEView,
+                        layerClustersHSiView,
+                        layerClustersHSciView,
+                        static_cast<uint32_t>(nLayerClustersEE),
+                        static_cast<uint32_t>(nLayerClustersHSi),
+                        static_cast<uint32_t>(nLayerClustersHSci),
+                        static_cast<uint32_t>(layersPerEndcap_),
+                        minClusterEnergy_,
+                        alpaka::getPtrNative(selectedTrackstersDevice),
+                        alpaka::getPtrNative(selectedCountDevice),
+                        alpaka::getPtrNative(errorMaskDevice),
+                        featuresDevice.view(),
+                        static_cast<uint32_t>(nTracksters),
+                        static_cast<uint32_t>(nLayerClusters));
 
-      for (int row = 0; row < total; ++row) {
-        auto const tracksterIndex = selectedTracksters[row];
-        auto const vertices = inputView.vertices()[tracksterIndex];
-        auto const multiplicities = inputView.multiplicity()[tracksterIndex];
+      // The compact size is needed on the CPU to construct TensorCollection
+      // batches. This is the only preprocessing readback: two uint32_t values.
+      alpaka::memcpy(queue, selectedCountHost, selectedCountDevice);
+      alpaka::memcpy(queue, errorMaskHost, errorMaskDevice);
+      alpaka::wait(queue);
 
-        if (vertices.size() != multiplicities.size()) {
-          throw cms::Exception("TracksterInferenceByCNNTorch")
-              << "Trackster " << tracksterIndex << " has " << vertices.size() << " vertices but "
-              << multiplicities.size() << " multiplicities.";
-        }
-
-        for (auto vertex : vertices) {
-          if (vertex >= layerClusters.size()) {
-            throw cms::Exception("TracksterInferenceByCNNTorch")
-                << "Trackster " << tracksterIndex << " references layer cluster " << vertex
-                << ", but the collection contains " << layerClusters.size() << " entries.";
-          }
-        }
-
-        clusterIndices.resize(vertices.size());
-        std::iota(clusterIndices.begin(), clusterIndices.end(), 0);
-        std::sort(clusterIndices.begin(), clusterIndices.end(), [&](int a, int b) {
-          return layerClusters[vertices[a]].energy() > layerClusters[vertices[b]].energy();
-        });
-        seenClusters.fill(0);
-
-        auto feature = featuresView[row];
-        for (auto k : clusterIndices) {
-          auto const vertex = vertices[k];
-          auto const& cluster = layerClusters[vertex];
-
-          if (cluster.hitsAndFractions().empty()) {
-            throw cms::Exception("TracksterInferenceByCNNTorch")
-                << "Layer cluster " << vertex << " has no hits, so its layer cannot be determined.";
-          }
-
-          auto const layer =
-              static_cast<int>(rhtools_.getLayerWithOffset(cluster.hitsAndFractions()[0].first)) - 1;
-          if (layer < 0 || layer >= ::ticl::kTracksterCNNLayers ||
-              seenClusters[layer] >= ::ticl::kTracksterCNNClusters) {
-            continue;
-          }
-
-          auto const slot = seenClusters[layer]++;
-          if (multiplicities[k] == 0.f) {
-            throw cms::Exception("TracksterInferenceByCNNTorch")
-                << "Trackster " << tracksterIndex << " has zero multiplicity for layer cluster " << vertex << '.';
-          }
-          feature.energy()(layer, slot) =
-              static_cast<float>(cluster.energy() / static_cast<float>(multiplicities[k]));
-          feature.absEta()(layer, slot) = static_cast<float>(std::abs(cluster.eta()));
-          feature.phi()(layer, slot) = static_cast<float>(cluster.phi());
-        }
+      auto const errorMask = *alpaka::getPtrNative(errorMaskHost);
+      if (errorMask != kNoPreprocessingError) {
+        throw cms::Exception("TracksterInferenceByCNNTorch")
+            << "Device preprocessing failed with error mask 0x" << std::hex << errorMask << std::dec
+            << " (invalid LC index=" << bool(errorMask & kInvalidLayerClusterIndex)
+            << ", vertices/multiplicities mismatch="
+            << bool(errorMask & kMismatchedVerticesAndMultiplicities)
+            << ", zero multiplicity=" << bool(errorMask & kZeroMultiplicity)
+            << ", invalid layer=" << bool(errorMask & kInvalidLayer) << ").";
       }
 
-      ticl::TracksterInferenceDevice featuresDevice(queue, total);
+      auto const total = checkedSize(*alpaka::getPtrNative(selectedCountHost), "selected Tracksters");
+      if (total == 0) {
+        event.emplace(trackstersOutToken_, std::move(outputTracksters));
+        return;
+      }
+      if (total > nTracksters) {
+        throw cms::Exception("TracksterInferenceByCNNTorch")
+            << "Device preprocessing selected " << total << " rows from only " << nTracksters << " Tracksters.";
+      }
+
       ticl::TracksterInferencePIDScoresDevice scoresDevice(queue, total);
-      auto selectedTrackstersDevice = cms::alpakatools::make_device_buffer<uint32_t[]>(queue, total);
-
       scoresDevice.zeroInitialise(queue);
-      alpaka::memcpy(queue, featuresDevice.buffer(), featuresHost.buffer());
-      alpaka::memcpy(queue, selectedTrackstersDevice, selectedTrackstersHost);
-
-      // The two host staging buffers are local to produce(). Keep them alive
-      // until their asynchronous H2D copies are complete.
-      alpaka::wait(queue);
 
       auto featureRecords = featuresDevice.view().records();
       auto scoreRecords = scoresDevice.view().records();
@@ -320,12 +271,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         batches.emplace_back(BatchIO{cms::torch::alpakatools::TensorCollection<Queue>(batchSize_, total),
                                      cms::torch::alpakatools::TensorCollection<Queue>(batchSize_, total)});
         auto& batch = batches.back();
-
         batch.inputs.add<::ticl::TracksterInferenceSoA>("input",
-                                                                batchIndex,
-                                                                featureRecords.energy(),
-                                                                featureRecords.absEta(),
-                                                                featureRecords.phi());
+                                                         batchIndex,
+                                                         featureRecords.energy(),
+                                                         featureRecords.absEta(),
+                                                         featureRecords.phi());
         batch.outputs.add<::ticl::TracksterInferencePIDScoresSoA>("pid_output",
                                                                   batchIndex,
                                                                   scoreRecords.id_probabilities0(),
@@ -339,25 +289,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         forward(queue, batch.inputs, batch.outputs);
       }
 
-      // The inference output is compact. Scatter each row to the corresponding
-      // Trackster in the cloned output collection.
-      /*
-      constexpr uint32_t elementsPerBlock = 256;
-      auto const blocks = (static_cast<uint32_t>(total) + elementsPerBlock - 1) / elementsPerBlock;
-      auto const workDiv = cms::alpakatools::make_workdiv<Acc1D>(blocks, 1);
-      alpaka::exec<Acc1D>(queue,
-                          workDiv,
-                          ScatterPIDProbabilities{},
-                          alpaka::getPtrNative(selectedTrackstersDevice),
-                          scoresDevice.const_view(),
-                          outputTracksters.view().tracksters(),
-                          static_cast<uint32_t>(total));
+      fillPIDProbabilities(queue,
+                           alpaka::getPtrNative(selectedTrackstersDevice),
+                           scoresDevice.const_view(),
+                           outputTracksters.view(),
+                           total);
 
-      // scoresDevice, the index buffer, and the TensorCollections are local
-      // temporaries used by queued work, so they must remain alive until the
-      // scatter has completed.*/
+      // Keep temporary TensorCollections and all backing device allocations
+      // alive until inference and scatter complete.
       alpaka::wait(queue);
-
       event.emplace(trackstersOutToken_, std::move(outputTracksters));
     }
 
@@ -379,14 +319,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::ESGetToken<TICLGeomLayersHost, CaloGeometryRecord> const ticlGeomLayersToken_;
     ticlgeom::Tools rhtools_;
 
-    edm::EDGetTokenT<::ticl::TracksterHost> const trackstersToken_;
-    edm::EDGetTokenT<std::vector<reco::CaloCluster>> const layerClustersToken_;
+    device::EDGetToken<ticl::TracksterDevice> const trackstersToken_;
+    std::vector<device::EDGetToken<reco::CaloClusterDeviceCollection>> layerClustersTokens_;
     torch::AlpakaModel model_;
     float const minClusterEnergy_;
     int const batchSize_;
     bool const convertToFP16_;
     int const warmupIterations_;
     device::EDPutToken<ticl::TracksterDevice> const trackstersOutToken_;
+    int32_t layersPerEndcap_ = 0;
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
