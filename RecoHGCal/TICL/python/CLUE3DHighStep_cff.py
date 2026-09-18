@@ -87,7 +87,7 @@ ticlTracksterInferenceByCNNTorch = _tracksterInferenceByCNNTorch.clone(
     model = cms.FileInPath("RecoHGCal/TICL/data/trackster_pid_cnn.pt"),
     minClusterEnergy = cms.double(1),
     batchSize = cms.int32(64),
-    convertToFP16 = cms.bool(True),
+    convertToFP16 = cms.bool(False),
     warmupIterations = cms.int32(3),
 )
 

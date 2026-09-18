@@ -43,6 +43,7 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 #include "RecoHGCal/TICL/interface/TracksterInferenceHost.h"
 #include "RecoHGCal/TICL/interface/alpaka/TracksterInferenceDevice.h"
+#include "RecoHGCal/TICL/plugins/alpaka/TracksterInferenceKernels.h"
 #include "RecoLocalCalo/HGCalRecAlgos/interface/TICLGeomTools.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
@@ -339,6 +340,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         forward(queue, batch.inputs, batch.outputs);
       }
 
+      fillPIDProbabilities(queue,
+                     alpaka::getPtrNative(selectedTrackstersDevice),
+                     scoresDevice.const_view(),
+                     outputTracksters.view(),
+                     total);
       // The inference output is compact. Scatter each row to the corresponding
       // Trackster in the cloned output collection.
       /*
