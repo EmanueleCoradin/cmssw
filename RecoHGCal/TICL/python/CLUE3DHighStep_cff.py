@@ -5,7 +5,7 @@ from RecoHGCal.TICL.trackstersProducer_cfi import trackstersProducer as _trackst
 from RecoHGCal.TICL.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoHGCal.TICL.trackstersToSoAProducer_cfi import trackstersToSoAProducer as _trackstersToSoAProducer
 from RecoHGCal.TICL.tracksterInferenceByCNNTorch_cfi import tracksterInferenceByCNNTorch as _tracksterInferenceByCNNTorch
-
+from RecoHGCal.TICL.tracksterPIDComparisonAnalyzer_cfi import tracksterPIDComparisonAnalyzer as _tracksterPIDComparisonAnalyzer
 
 # CLUSTER FILTERING/MASKING
 
@@ -85,10 +85,22 @@ ticlTracksterInferenceByCNNTorch = _tracksterInferenceByCNNTorch.clone(
     layerClusters = cms.InputTag("hgcalMergeLayerClusters"),
     detector = cms.string("HGCAL"),
     model = cms.FileInPath("RecoHGCal/TICL/data/trackster_pid_cnn.pt"),
-    minClusterEnergy = cms.double(3),
+    minClusterEnergy = cms.double(1),
     batchSize = cms.int32(64),
-    convertToFP16 = cms.bool(False),
+    convertToFP16 = cms.bool(True),
     warmupIterations = cms.int32(3),
+)
+
+ticlTracksterPIDComparison = _tracksterPIDComparisonAnalyzer.clone(
+    reference="ticlTrackstersToSoAProducer",
+    candidate="ticlTracksterInferenceByCNNTorch",
+    # Start loose enough to accommodate the different inference runtimes.
+    # Tighten these after inspecting the measured maximum differences.
+    absoluteTolerance=1.e-5,
+    relativeTolerance=1.e-4,
+    maxMismatchesToPrint=3,
+    failOnMismatch=False,
+    reportEveryEvent=True,
 )
 
 ticlCLUE3DHighStepTask = cms.Task(ticlSeedingGlobal
