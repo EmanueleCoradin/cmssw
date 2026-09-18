@@ -10,6 +10,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ticl {
   using TracksterInferenceDevice = PortableCollection<::ticl::TracksterInferenceSoA>;
   using TracksterInferencePIDScoresDevice = PortableCollection<::ticl::TracksterInferencePIDScoresSoA>;
 
-}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE::ticl
 
 #endif

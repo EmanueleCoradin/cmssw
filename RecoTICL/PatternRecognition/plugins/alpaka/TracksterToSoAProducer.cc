@@ -5,6 +5,7 @@
 
 #include <Eigen/Core>
 
+#include "DataFormats/Portable/interface/PortableCollection.h"
 #include "DataFormats/HGCalReco/interface/Trackster.h"
 #include "DataFormats/HGCalReco/interface/TracksterHost.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
@@ -23,9 +24,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   namespace {
 
-    Eigen::Vector3f toEigen(::ticl::Trackster::Vector const& vector) {
-      return {vector.x(), vector.y(), vector.z()};
-    }
+    Eigen::Vector3f toEigen(::ticl::Trackster::Vector const& vector) { return {vector.x(), vector.y(), vector.z()}; }
 
   }  // namespace
 
@@ -69,12 +68,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       const auto nTracksters = static_cast<int32_t>(input.size());
       std::array<int32_t, ::ticl::TracksterSoA::blocksNumber> const sizes{
           nTracksters,
-          nTracksters, nVertices,
-          nTracksters, nMultiplicities,
-          nTracksters, nEdges,
-          nTracksters, nTrackIndices,
-          nTracksters, nGsfTrackIndices,
-          nTracksters, 0 // Legacy Trackster has no globalSeedingTracks vector (?).
+          nTracksters,
+          nVertices,
+          nTracksters,
+          nMultiplicities,
+          nTracksters,
+          nEdges,
+          nTracksters,
+          nTrackIndices,
+          nTracksters,
+          nGsfTrackIndices,
+          nTracksters,
+          0  // Legacy Trackster has no globalSeedingTracks vector (?).
       };
 
       ::ticl::TracksterHost output(event.queue(), sizes);

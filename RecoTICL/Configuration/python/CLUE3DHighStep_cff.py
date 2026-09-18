@@ -4,6 +4,7 @@ from RecoTICL.SeedingRegions.TICLSeedingRegions_cff import ticlSeedingGlobal, ti
 from RecoTICL.PatternRecognition.trackstersProducer_cfi import trackstersProducer as _trackstersProducer
 from RecoTICL.ClusterFilters.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoTICL.PatternRecognition.trackstersToSoAProducer_cfi import trackstersToSoAProducer as _trackstersToSoAProducer
+from RecoTICL.Configuration.tracksterInferenceFeaturesProducer_cfi import tracksterInferenceFeaturesProducer as _tracksterInferenceFeaturesProducer
 from RecoTICL.Inference.tracksterInferenceByCNNTorch_cfi import tracksterInferenceByCNNTorch as _tracksterInferenceByCNNTorch
 from RecoTICL.Configuration.tracksterPIDComparisonAnalyzer_cfi import tracksterPIDComparisonAnalyzer as _tracksterPIDComparisonAnalyzer
 
@@ -80,14 +81,22 @@ ticlTrackstersToSoAProducer = _trackstersToSoAProducer.clone(
     src=cms.InputTag("ticlTrackstersCLUE3DHigh")
 )
 
+ticlTracksterInferenceFeaturesProducer = _tracksterInferenceFeaturesProducer.clone(
+    tracksters = cms.InputTag("ticlTrackstersToSoAProducer"),
+    layerClusters = cms.VInputTag(
+        "hgcalSoALayerClustersEE",
+        "hgcalSoALayerClustersHSi",
+        "hgcalSoALayerClustersHSci"),
+    detector = cms.string("HGCAL"),
+    minClusterEnergy = cms.double(1.0),
+)
+
 ticlTracksterInferenceByCNNTorch = _tracksterInferenceByCNNTorch.clone(
     tracksters = cms.InputTag("ticlTrackstersToSoAProducer"),
-    layerClusters = cms.InputTag("hgcalMergeLayerClusters"),
-    detector = cms.string("HGCAL"),
+    features = cms.InputTag("ticlTracksterInferenceFeaturesProducer", "features"),
     model = cms.FileInPath("RecoHGCal/TICL/data/trackster_pid_cnn.pt"),
-    minClusterEnergy = cms.double(1),
     batchSize = cms.int32(64),
-    convertToFP16 = cms.bool(True),
+    convertToFP16 = cms.bool(False),
     warmupIterations = cms.int32(3),
 )
 
@@ -103,12 +112,14 @@ ticlTracksterPIDComparison = _tracksterPIDComparisonAnalyzer.clone(
     reportEveryEvent=True,
 )
 
-ticlCLUE3DHighStepTask = cms.Task(ticlSeedingGlobal
-    ,filteredLayerClustersCLUE3DHigh
-    ,ticlTrackstersCLUE3DHigh
-    ,ticlTrackstersToSoAProducer,
-    ticlTracksterInferenceByCNNTorch)
-
+ticlCLUE3DHighStepTask = cms.Task(
+    ticlSeedingGlobal,
+    filteredLayerClustersCLUE3DHigh,
+    ticlTrackstersCLUE3DHigh,
+    ticlTrackstersToSoAProducer,
+    ticlTracksterInferenceFeaturesProducer,
+    ticlTracksterInferenceByCNNTorch,
+)
 
 # with ticl_dev 3D pattern recognition swapped to CLUEstering.
 from Configuration.ProcessModifiers.ticl_dev import ticl_dev
@@ -126,10 +137,15 @@ ticl_dev.toModify(ticlTrackstersCLUE3DHigh,
     )
 )
 
-ticl_dev.toReplaceWith(ticlCLUE3DHighStepTask, cms.Task(ticlSeedingGlobal
-    ,filteredLayerClustersCLUE3DHigh
-    ,ticlTrackstersCLUEsteringAssignment
-    ,ticlTrackstersCLUE3DHigh
-    ,ticlTrackstersToSoAProducer
-    ,ticlTracksterInferenceByCNNTorch))
-
+ticl_dev.toReplaceWith(
+    ticlCLUE3DHighStepTask,
+    cms.Task(
+        ticlSeedingGlobal,
+        filteredLayerClustersCLUE3DHigh,
+        ticlTrackstersCLUEsteringAssignment,
+        ticlTrackstersCLUE3DHigh,
+        ticlTrackstersToSoAProducer,
+        ticlTracksterInferenceFeaturesProducer,
+        ticlTracksterInferenceByCNNTorch,
+    )
+)
