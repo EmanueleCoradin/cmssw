@@ -25,6 +25,7 @@
   <use name="Geometry/Records"/>
   <use name="MagneticField/Engine"/>
   <use name="MagneticField/Records"/>
+  <use name="PerfTools/Perfetto"/>
   <use name="PhysicsTools/UtilAlgos"/>
   <use name="PhysicsTools/ONNXRuntime" />
   <use name="RecoEcal/EgammaCoreTools" />

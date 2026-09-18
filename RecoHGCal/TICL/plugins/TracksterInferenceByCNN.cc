@@ -8,6 +8,7 @@
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
 #include "RecoLocalCalo/HGCalRecAlgos/interface/TICLGeomTools.h"
 
 namespace ticl {
@@ -36,7 +37,7 @@ namespace ticl {
     if (!enabled_ || tracksters.empty()) {
       return;
     }
-
+    CMS_PERFETTO_SCOPE("ONNX CNN total");
     std::vector<int> indices;
     indices.reserve(tracksters.size());
 
@@ -117,10 +118,12 @@ namespace ticl {
       }
 
       ortScratch.outputs.clear();
-
+      {
+      CMS_PERFETTO_SCOPE("ONNX CNN runInto");
       onnxSession_->runInto(
           inputNames_, ortScratch.inputs, ortScratch.input_shapes, outputNames_, ortScratch.outputs, {}, n);
 
+      }
       if (!ortScratch.outputs.empty() && !outputNames_.empty()) {
         float* probs = ortScratch.outputs[0].data();
         for (int bi = 0; bi < n; ++bi) {
