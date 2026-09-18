@@ -22,6 +22,8 @@
 
 <library file="alpaka/*.cc" name="RecoTICLPatternRecognitionPluginsPortable">
   <use name="alpaka"/>
+  <use name="pytorch-cuda" for="alpaka/cuda"/>
+  <use name="pytorch-rocm" for="alpaka/rocm"/>
   <use name="cluestering"/>
   <use name="CondFormats/HGCalObjects"/>
   <use name="DataFormats/DetId"/>
@@ -30,6 +32,7 @@
   <use name="Geometry/Records"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="PhysicsTools/PyTorchAlpaka"/>
   <use name="RecoLocalCalo/HGCalRecAlgos"/>
   <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
