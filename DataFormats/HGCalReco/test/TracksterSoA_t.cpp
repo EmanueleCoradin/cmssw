@@ -6,26 +6,32 @@
 
 int main() {
   constexpr int32_t nTracksters = 4;
-  constexpr int32_t nVertices   = 10;
-  constexpr int32_t nEdges      = 6;
-  constexpr int32_t nTrackIdxs  = 3;
-  constexpr int32_t nGsfIdxs    = 2;
+  constexpr int32_t nVertices = 10;
+  constexpr int32_t nEdges = 6;
+  constexpr int32_t nTrackIdxs = 3;
+  constexpr int32_t nGsfIdxs = 2;
   constexpr int32_t nGlobalSeedingTrackIdxs = 2;
 
   constexpr std::array<int32_t, ticl::TracksterSoA::blocksNumber> sizes{
-      nTracksters,                          // tracksters
-      nTracksters, nVertices,               // vertices
-      nTracksters, nVertices,               // multiplicity
-      nTracksters, nEdges,                  // edges
-      nTracksters, nTrackIdxs,              // tracks
-      nTracksters, nGsfIdxs,                // tracksterGsfTrack
-      nTracksters, nGlobalSeedingTrackIdxs  // globalSeedingTracks
+      nTracksters,  // tracksters
+      nTracksters,
+      nVertices,  // vertices
+      nTracksters,
+      nVertices,  // multiplicity
+      nTracksters,
+      nEdges,  // edges
+      nTracksters,
+      nTrackIdxs,  // tracks
+      nTracksters,
+      nGsfIdxs,  // tracksterGsfTrack
+      nTracksters,
+      nGlobalSeedingTrackIdxs  // globalSeedingTracks
   };
 
   auto const& host = cms::alpakatools::host();
   ticl::TracksterHost collection(host, sizes);
 
-  // Test trackster 
+  // Test trackster
   auto view = collection.view();
 
   view.tracksters().raw_energy()[0] = 42.5f;
@@ -68,7 +74,7 @@ int main() {
 
   std::printf("vertices association round-trip OK\n");
 
-  // Test GSF-tracks 
+  // Test GSF-tracks
   auto gsfTracks = view.tracksterGsfTrack();
   gsfTracks.offsets().keys_offsets()[0] = 0;
   for (int32_t i = 1; i <= nTracksters; ++i) {

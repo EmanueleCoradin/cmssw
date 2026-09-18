@@ -11,7 +11,7 @@ using namespace ticl;
 
 template <typename TILES>
 PatternRecognitionbyCLUEstering<TILES>::PatternRecognitionbyCLUEstering(const edm::ParameterSet &conf,
-                                                                       edm::ConsumesCollector iC)
+                                                                        edm::ConsumesCollector iC)
     : PatternRecognitionAlgoBaseT<TILES>(conf, iC),
       assignmentToken_(iC.consumes<std::vector<int32_t>>(conf.getParameter<edm::InputTag>("tracksterAssignment"))),
       maskOutliers_(conf.getParameter<bool>("maskOutliers")),
@@ -65,11 +65,10 @@ void PatternRecognitionbyCLUEstering<TILES>::makeTracksters(
 
   // Same size cut as PatternRecognitionbyCLUE3D (minNumLayerCluster, not inclusive), so that trackster
   // multiplicities are defined identically in the two algorithms.
-  result.erase(std::remove_if(result.begin(),
-                              result.end(),
-                              [this](Trackster const &t) {
-                                return static_cast<int>(t.vertices().size()) < minNumLayerCluster_;
-                              }),
+  result.erase(std::remove_if(
+                   result.begin(),
+                   result.end(),
+                   [this](Trackster const &t) { return static_cast<int>(t.vertices().size()) < minNumLayerCluster_; }),
                result.end());
 
   // Fills raw energy, barycenter, timing, PCA eigenvalues, eigenvectors and sigmas: without

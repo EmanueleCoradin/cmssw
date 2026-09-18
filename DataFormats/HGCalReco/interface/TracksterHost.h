@@ -11,6 +11,6 @@
 
 namespace ticl {
   using TracksterHost = PortableHostCollection<ticl::TracksterSoA>;
-} 
+}
 
-#endif 
+#endif

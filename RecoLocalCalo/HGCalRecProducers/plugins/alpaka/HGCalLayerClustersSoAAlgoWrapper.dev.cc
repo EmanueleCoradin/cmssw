@@ -12,7 +12,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using namespace hgcal::constants;
 
   // Scintillator (BH) rechits store (eta, phi) in (dim1, dim2). Recover the
-  // cartesian transverse position from them and the cell z. 
+  // cartesian transverse position from them and the cell z.
   ALPAKA_FN_ACC ALPAKA_FN_INLINE static void etaPhiZToXY(
       const float eta, const float phi, const float z, float& x, float& y) {
     const float r = z / std::sinh(eta);

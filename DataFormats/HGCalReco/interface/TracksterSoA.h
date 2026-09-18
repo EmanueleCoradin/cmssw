@@ -68,9 +68,11 @@ namespace ticl {
   template <std::size_t Size, bool Boolean>
   using TracksAssocLayout = typename ticl::AssociationMapLayout<uint32_t, int>::template Layout<Size, Boolean>;
   template <std::size_t Size, bool Boolean>
-  using GlobalSeedingTracksAssocLayout = typename ticl::AssociationMapLayout<uint32_t, int>::template Layout<Size, Boolean>;
+  using GlobalSeedingTracksAssocLayout =
+      typename ticl::AssociationMapLayout<uint32_t, int>::template Layout<Size, Boolean>;
   template <std::size_t Size, bool Boolean>
-  using TracksterGsfTrackAssocLayout = typename ticl::AssociationMapLayout<uint32_t, int>::template Layout<Size, Boolean>;
+  using TracksterGsfTrackAssocLayout =
+      typename ticl::AssociationMapLayout<uint32_t, int>::template Layout<Size, Boolean>;
 
   // clang-format off
   GENERATE_SOA_BLOCKS(TracksterBlocksLayout,
