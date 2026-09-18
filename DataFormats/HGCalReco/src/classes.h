@@ -1,5 +1,6 @@
 #include <vector>
 #include <array>
+#include <Eigen/Core>
 #include "DataFormats/HGCalReco/interface/MtdSoA.h"
 #include "DataFormats/HGCalReco/interface/MtdHostCollection.h"
 #include "DataFormats/HGCalReco/interface/Trackster.h"

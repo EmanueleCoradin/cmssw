@@ -92,9 +92,40 @@
   <class name="HGCalSoAClusters"/>
   <class name="edm::Wrapper<HGCalSoAClustersHostCollection>" splitLevel="0"/>
 
-  <class name="TracksterHost" rntupleStreamerMode="true"/>
-  <!-- TracksterHost::Layout must be listed before the aliased-to type -->
-  <class name="TracksterHost::Layout"/>
-  <class name="TracksterSoA"/>
-  <class name="edm::Wrapper<TracksterHost>" splitLevel="0"/>
+  <class name="ticl::TracksterHost" rntupleStreamerMode="true"/>
+  <!-- ticl::TracksterHost::Layout must be listed before the aliased-to type -->
+  <class name="ticl::TracksterHost::Layout"/>
+  <class name="ticl::TracksterSoA"/>
+    <class name="ticl::TracksterSoA::View"/>
+
+  <!-- Main trackster block -->
+  <class name="ticl::TracksterLayout<128,false>"/>
+
+  <!-- AssociationMap<unsigned int, unsigned int> -->
+  <class name="ticl::AssociationMapLayout<unsigned int,unsigned int>::ContentBuffersLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,unsigned int>::OffsetBufferLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,unsigned int>::OffsetsLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,unsigned int>::Layout<128,false>"/>
+
+  <!-- AssociationMap<unsigned int, float> -->
+  <class name="ticl::AssociationMapLayout<unsigned int,float>::ContentBuffersLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,float>::OffsetBufferLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,float>::OffsetsLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,float>::Layout<128,false>"/>
+
+  <!-- AssociationMap<unsigned int, int> -->
+  <class name="ticl::AssociationMapLayout<unsigned int,int>::ContentBuffersLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,int>::OffsetBufferLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,int>::OffsetsLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,int>::Layout<128,false>"/>
+
+  <class name="ticl::EdgePair"/>
+
+  <class name="ticl::AssociationMapLayout<unsigned int,ticl::EdgePair>::ContentBuffersLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,ticl::EdgePair>::OffsetBufferLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,ticl::EdgePair>::OffsetsLayout<128,false>"/>
+  <class name="ticl::AssociationMapLayout<unsigned int,ticl::EdgePair>::Layout<128,false>"/>
+
+  <class name="edm::Wrapper<ticl::TracksterHost>" splitLevel="0"/>
+
 </lcgdict>

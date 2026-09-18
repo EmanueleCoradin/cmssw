@@ -1,3 +1,4 @@
+#include <Eigen/Core>
 #include "DataFormats/HGCalReco/interface/HGCalSoAClustersHostCollection.h"
 #include "DataFormats/HGCalReco/interface/HGCalSoARecHitsExtraHostCollection.h"
 #include "DataFormats/HGCalReco/interface/HGCalSoARecHitsHostCollection.h"
@@ -10,6 +11,5 @@
 
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(HGCalSoAClustersHostCollection, HGCalSoAClustersDeviceCollection);
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(HGCalSoARecHitsExtraHostCollection, HGCalSoARecHitsExtraDeviceCollection);
-DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(HGCalSoARecHitsHostCollection, HGCalSoARecHitsDeviceCollection);
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(HGCalSoARecHitsHostCollection, HGCalSoARecHitsDeviceCollection);
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(ticl::TracksterHost, ticl::TracksterDevice);
