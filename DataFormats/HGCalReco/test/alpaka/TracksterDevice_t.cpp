@@ -3,6 +3,4 @@
 
 using namespace ALPAKA_ACCELERATOR_NAMESPACE;
 
-int main() {
-  return 0;
-}
+int main() { return 0; }

@@ -46,7 +46,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       // Offset to jump from the CE-E silicon thickness indices to the CE-H ones
       // in the thresholds array. It equals the number of CE-E silicon thickness
       // categories, (half of the total number of silicon thickness indices)
-      // (3 for the pre-v19 geometries, 4 for v19). 
+      // (3 for the pre-v19 geometries, 4 for v19).
       deltasi_index_regemfac_ = maxNumberOfThickIndices_ / 2;
     }
 
@@ -65,7 +65,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // The rechit SoA is emitted layer-contiguous: hits are grouped by their
       // global layer index (layerOnSide + zside * maxlayer_), so both endcaps
-      // together span 2 * maxlayer_ layer slots. 
+      // together span 2 * maxlayer_ layer slots.
       const unsigned int numberOfLayers = 2 * maxlayer_;
 
       std::vector<uint32_t> hitsPerLayer(numberOfLayers, 0);

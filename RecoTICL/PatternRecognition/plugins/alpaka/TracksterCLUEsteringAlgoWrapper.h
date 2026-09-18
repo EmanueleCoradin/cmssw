@@ -30,7 +30,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       float rhocPivotRadius;
     };
 
-        void run(Queue& queue,
+    void run(Queue& queue,
              std::span<const ::reco::CaloClusterSoAConstView> inputs,
              std::span<const uint32_t> offsets,
              const float* mask,

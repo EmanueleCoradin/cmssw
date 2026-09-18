@@ -1,10 +1,13 @@
+#include <Eigen/Core>
 #include "DataFormats/HGCalReco/interface/HGCalSoAClustersHostCollection.h"
 #include "DataFormats/HGCalReco/interface/HGCalSoARecHitsExtraHostCollection.h"
 #include "DataFormats/HGCalReco/interface/HGCalSoARecHitsHostCollection.h"
 #include "DataFormats/HGCalReco/interface/MtdHostCollection.h"
+#include "DataFormats/HGCalReco/interface/TracksterHost.h"
 #include "HeterogeneousCore/TrivialSerialisation/interface/SerialiserFactory.h"
 
 DEFINE_TRIVIAL_SERIALISER_PLUGIN(HGCalSoAClustersHostCollection);
 DEFINE_TRIVIAL_SERIALISER_PLUGIN(HGCalSoARecHitsExtraHostCollection);
 DEFINE_TRIVIAL_SERIALISER_PLUGIN(HGCalSoARecHitsHostCollection);
 DEFINE_TRIVIAL_SERIALISER_PLUGIN(MtdHostCollection);
+DEFINE_TRIVIAL_SERIALISER_PLUGIN(ticl::TracksterHost);
