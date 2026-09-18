@@ -6,12 +6,11 @@
 
 #include <array>
 #include <vector>
+#include <Eigen/Core>
 
 #include "DataFormats/Provenance/interface/ProductID.h"
 #include "DataFormats/Math/interface/Vector3D.h"
 #include "DataFormats/Common/interface/MultiSpan.h"
-
-#include <Eigen/Core>
 
 // A Trackster is a Direct Acyclic Graph created when
 // pattern recognition algorithms connect hits or

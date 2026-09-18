@@ -3,6 +3,7 @@ import FWCore.ParameterSet.Config as cms
 from RecoHGCal.TICL.TICLSeedingRegions_cff import ticlSeedingGlobal, ticlSeedingGlobalHFNose
 from RecoHGCal.TICL.trackstersProducer_cfi import trackstersProducer as _trackstersProducer
 from RecoHGCal.TICL.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
+from RecoHGCal.TICL.trackstersToSoAProducer_cfi import trackstersToSoAProducer as _trackstersToSoAProducer
 
 # CLUSTER FILTERING/MASKING
 
@@ -73,9 +74,14 @@ ticlTrackstersCLUE3DHigh = _trackstersProducer.clone(
 
 )
 
+ticlTrackstersToSoAProducer = _trackstersToSoAProducer.clone(
+    src=cms.InputTag("ticlTrackstersCLUE3DHigh")
+)
+
 ticlCLUE3DHighStepTask = cms.Task(ticlSeedingGlobal
     ,filteredLayerClustersCLUE3DHigh
-    ,ticlTrackstersCLUE3DHigh)
+    ,ticlTrackstersCLUE3DHigh
+    ,ticlTrackstersToSoAProducer)
 
 
 # with ticl_dev 3D pattern recognition swapped to CLUEstering.
@@ -97,5 +103,6 @@ ticl_dev.toModify(ticlTrackstersCLUE3DHigh,
 ticl_dev.toReplaceWith(ticlCLUE3DHighStepTask, cms.Task(ticlSeedingGlobal
     ,filteredLayerClustersCLUE3DHigh
     ,ticlTrackstersCLUEsteringAssignment
-    ,ticlTrackstersCLUE3DHigh))
+    ,ticlTrackstersCLUE3DHigh
+    ,ticlTrackstersToSoAProducer))
 
