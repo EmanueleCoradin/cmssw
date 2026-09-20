@@ -75,3 +75,4 @@
   <use name="HeterogeneousCore/AlpakaInterface"/>
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
+
