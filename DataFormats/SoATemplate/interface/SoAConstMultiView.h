@@ -128,12 +128,13 @@ public:
   [[nodiscard]] SOA_HOST_DEVICE SOA_INLINE size_type numViews() const { return n_; }
 
 private:
-  SOA_HOST_DEVICE SOA_INLINE size_type viewIndex(const size_type globalIndex) const {
-    size_type viewIdx = 1;
-    for (size_type i = 1; i < MaxSize; ++i) {
-      viewIdx += static_cast<size_type>(n_ > i && globalIndex < offsets_[i - 1]);
+  SOA_HOST_DEVICE SOA_INLINE size_type viewIndex(size_type globalIndex) const {
+    for (size_type i = 0; i < n_; ++i) {
+      if (globalIndex < offsets_[i]) {
+        return i;
+      }
     }
-    return viewIdx;
+    return n_ - 1;
   }
 
   std::array<ConstView, MaxSize> views_{};
