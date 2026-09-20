@@ -66,3 +66,12 @@
   <use name="HeterogeneousCore/AlpakaInterface"/>
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
+
+<bin name="TestDataFormatsPortableMultiViewThreeViews"
+     file="alpaka/test_catch2_SoAConstMultiViewThreeViews.dev.cc">
+  <use name="catch2"/>
+  <use name="DataFormats/Portable"/>
+  <use name="DataFormats/SoATemplate"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
