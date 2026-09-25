@@ -3,6 +3,7 @@
 #include "DataFormats/PortableTestObjects/interface/MaskHostCollection.h"
 #include "DataFormats/PortableTestObjects/interface/MultiHeadNetHostCollection.h"
 #include "DataFormats/PortableTestObjects/interface/ParticleHostCollection.h"
+#include "DataFormats/PortableTestObjects/interface/HitHostCollection.h"
 #include "DataFormats/PortableTestObjects/interface/SimpleNetHostCollection.h"
 #include "DataFormats/PortableTestObjects/interface/TestHostCollection.h"
 #include "DataFormats/PortableTestObjects/interface/TestHostObject.h"
@@ -12,7 +13,6 @@
 #include "DataFormats/PortableTestObjects/interface/alpaka/MultiHeadNetDeviceCollection.h"
 #include "DataFormats/PortableTestObjects/interface/alpaka/ParticleDeviceCollection.h"
 #include "DataFormats/PortableTestObjects/interface/alpaka/HitDeviceCollection.h"
-#include "DataFormats/PortableTestObjects/interface/alpaka/HitHostCollection.h"
 #include "DataFormats/PortableTestObjects/interface/alpaka/SimpleNetDeviceCollection.h"
 #include "DataFormats/PortableTestObjects/interface/alpaka/TestDeviceCollection.h"
 #include "DataFormats/PortableTestObjects/interface/alpaka/TestDeviceObject.h"
@@ -23,11 +23,11 @@ DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::LogitsHostCollection, po
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::MaskHostCollection, portabletest::MaskDeviceCollection);
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::MultiHeadNetHostCollection,
                                           portabletest::MultiHeadNetDeviceCollection);
-DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::HitDeviceCollection, portabletest::HitHostCollection);
-DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::HitToTrackDeviceCollection, 
-                                          portabletest::HitToTrackHostCollection);
-DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::TrackBeginDeviceCollection, 
-                                          portabletest::TrackBeginHostCollection);
+DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::HitHostCollection, portabletest::HitDeviceCollection);
+DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::HitToTrackHostCollection, 
+                                          portabletest::HitToTrackDeviceCollection);
+DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::TrackBeginHostCollection, 
+                                          portabletest::TrackBeginDeviceCollection);
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::ParticleHostCollection, portabletest::ParticleDeviceCollection);
 DEFINE_TRIVIAL_SERIALISER_PORTABLE_PLUGIN(portabletest::SimpleNetHostCollection,
                                           portabletest::SimpleNetDeviceCollection);
