@@ -30,7 +30,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
       // allocate data sources
       auto particles = portabletest::ParticleDeviceCollection(event.queue(), total_size_);
-      const auto n_hits = total_size_*hits_per_track_;
+      const auto n_hits = total_size_ * hits_per_track_;
       auto hits = portabletest::HitDeviceCollection(event.queue(), n_hits);
       auto hit_to_track = portabletest::HitToTrackDeviceCollection(event.queue(), n_hits);
       auto images = portabletest::ImageDeviceCollection(event.queue(), total_size_);

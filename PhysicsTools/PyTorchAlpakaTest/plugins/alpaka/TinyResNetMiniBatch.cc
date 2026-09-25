@@ -66,7 +66,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
         batch.inputs.add<portabletest::ImageSoA>(
             "images", TensorSlice{i_batch, batch_size_}, input_records.r(), input_records.g(), input_records.b());
 
-        batch.outputs.add<portabletest::LogitsSoA>("logits", TensorSlice{i_batch, batch_size_}, output_records.logits());
+        batch.outputs.add<portabletest::LogitsSoA>(
+            "logits", TensorSlice{i_batch, batch_size_}, output_records.logits());
         batches.push_back(std::move(batch));
       }
 

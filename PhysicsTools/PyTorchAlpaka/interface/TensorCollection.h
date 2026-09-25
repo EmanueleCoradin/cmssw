@@ -60,32 +60,31 @@ namespace cms::torch::alpakatools {
   concept SameScalarType = SameTypes<typename TSoAParamsImpl::ScalarType, typename Others::ScalarType...>;
 
   class TensorSlice {
-    public: 
-      struct Bounds {
-        uint32_t offset;
-        uint32_t size;
-      };
+  public:
+    struct Bounds {
+      uint32_t offset;
+      uint32_t size;
+    };
 
-      TensorSlice() = default;
-    
-      TensorSlice(uint32_t batch_id, uint32_t batch_size)
-        : batch_id_{batch_id}, batch_size_{batch_size}, full_{false} {}
+    TensorSlice() = default;
 
-      Bounds resolve(uint32_t total_size) const {
-        if(full_)
-          return {.offset=0, .size=total_size};
-        if(total_size==0)
-          return {.offset=0, .size=0}; 
-        assert(batch_size_!=0 && "Batch size should be greater than zero");
-        assert(batch_id_ <= (total_size - 1) / batch_size_ && "Batch id is out of bounds!");
-        const auto offset = batch_id_*batch_size_;
-        return {.offset = offset, .size = std::min(batch_size_, total_size - offset)};
-      }
-    
-    private:
-      uint32_t batch_id_ = 0;
-      uint32_t batch_size_ = 0;
-      bool full_ = true;
+    TensorSlice(uint32_t batch_id, uint32_t batch_size) : batch_id_{batch_id}, batch_size_{batch_size}, full_{false} {}
+
+    Bounds resolve(uint32_t total_size) const {
+      if (full_)
+        return {.offset = 0, .size = total_size};
+      if (total_size == 0)
+        return {.offset = 0, .size = 0};
+      assert(batch_size_ != 0 && "Batch size should be greater than zero");
+      assert(batch_id_ <= (total_size - 1) / batch_size_ && "Batch id is out of bounds!");
+      const auto offset = batch_id_ * batch_size_;
+      return {.offset = offset, .size = std::min(batch_size_, total_size - offset)};
+    }
+
+  private:
+    uint32_t batch_id_ = 0;
+    uint32_t batch_size_ = 0;
+    bool full_ = true;
   };
 
   // Container for user defined memory blobs that will be converted to PyTorch tensors constructs directly from
@@ -138,7 +137,7 @@ namespace cms::torch::alpakatools {
              std::tuple<TSoAParamsImpl, cms::soa::size_type> column,
              std::tuple<Others, cms::soa::size_type>... others) {
       using DataType = typename TSoAParamsImpl::ScalarType;
-      
+
       auto ptr = std::get<0>(column).data();
       const auto soa_size = std::get<1>(column);
       const auto [offset, effective_size] = slice.resolve(soa_size);

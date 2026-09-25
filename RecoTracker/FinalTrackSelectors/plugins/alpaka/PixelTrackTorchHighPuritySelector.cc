@@ -262,9 +262,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     // - Tensor collections for DNN inference
     for (auto i_batch = 0u; i_batch < n_batches; ++i_batch) {
-      batches.emplace_back(
-          BatchIO{cms::torch::alpakatools::TensorCollection<Queue>(),
-                  cms::torch::alpakatools::TensorCollection<Queue>()});
+      batches.emplace_back(BatchIO{cms::torch::alpakatools::TensorCollection<Queue>(),
+                                   cms::torch::alpakatools::TensorCollection<Queue>()});
 
       auto& batch = batches.back();
       // Order must match the TorchScript model input schema
