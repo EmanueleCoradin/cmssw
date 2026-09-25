@@ -68,10 +68,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
         BatchIO batch{cms::torch::alpakatools::TensorCollection<Queue>(),
                       cms::torch::alpakatools::TensorCollection<Queue>()};
 
-        batch.inputs.add<portabletest::ParticleSoA>(
-            "particles", TensorSlice{i_batch, batch_size_}, input_records.pt(), input_records.eta(), input_records.phi());
+        batch.inputs.add<portabletest::ParticleSoA>("particles",
+                                                    TensorSlice{i_batch, batch_size_},
+                                                    input_records.pt(),
+                                                    input_records.eta(),
+                                                    input_records.phi());
 
-        batch.outputs.add<portabletest::SimpleNetSoA>("regression_head", TensorSlice{i_batch, batch_size_}, output_records.reco_pt());
+        batch.outputs.add<portabletest::SimpleNetSoA>(
+            "regression_head", TensorSlice{i_batch, batch_size_}, output_records.reco_pt());
         batches.push_back(std::move(batch));
       }
       // forward pass on mini-batches

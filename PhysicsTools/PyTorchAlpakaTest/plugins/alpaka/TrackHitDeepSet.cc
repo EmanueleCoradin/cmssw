@@ -25,9 +25,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     cms::torch::alpakatools::TensorCollection<Queue> inputs;
     cms::torch::alpakatools::TensorCollection<Queue> outputs;
   };
-  
+
   using TensorSlice = cms::torch::alpakatools::TensorSlice;
-  
+
   class TrackHitDeepSet : public stream::EDProducer<> {
   public:
     TrackHitDeepSet(const edm::ParameterSet &params)
@@ -39,7 +39,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
           batch_size_(params.getParameter<uint32_t>("batchSize")),
           environment_{static_cast<::torchtest::Environment>(params.getUntrackedParameter<int>("environment"))} {}
-    
+
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
       edm::ParameterSetDescription desc;
       desc.add<edm::FileInPath>("model");
@@ -52,7 +52,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
-      auto& queue = event.queue();
+      auto &queue = event.queue();
       // in/out collections
       const auto &particles = event.get(particles_token_);
       const auto &hits = event.get(hits_token_);
@@ -85,16 +85,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
         BatchIO batch{cms::torch::alpakatools::TensorCollection<Queue>(),
                       cms::torch::alpakatools::TensorCollection<Queue>()};
 
-        batch.inputs.add<portabletest::ParticleSoA>(
-            "track_features", TensorSlice{i_batch,batch_size_}, input_records.pt(), input_records.eta(), input_records.phi());
-        batch.inputs.add<portabletest::HitSoA>(
-            "hit_features", hit_records.x(), hit_records.y(), hit_records.z());
-        batch.inputs.add<portabletest::HitToTrackSoA>(
-            "hit_to_track", hit_to_track_records.trackIndex());
+        batch.inputs.add<portabletest::ParticleSoA>("track_features",
+                                                    TensorSlice{i_batch, batch_size_},
+                                                    input_records.pt(),
+                                                    input_records.eta(),
+                                                    input_records.phi());
+        batch.inputs.add<portabletest::HitSoA>("hit_features", hit_records.x(), hit_records.y(), hit_records.z());
+        batch.inputs.add<portabletest::HitToTrackSoA>("hit_to_track", hit_to_track_records.trackIndex());
         batch.inputs.add<portabletest::TrackBeginSoA>(
-            "track_begin", TensorSlice{i_batch,1}, track_begin_records.trackBegin());
+            "track_begin", TensorSlice{i_batch, 1}, track_begin_records.trackBegin());
 
-        batch.outputs.add<portabletest::SimpleNetSoA>("regression_head", TensorSlice{i_batch,batch_size_}, output_records.reco_pt());
+        batch.outputs.add<portabletest::SimpleNetSoA>(
+            "regression_head", TensorSlice{i_batch, batch_size_}, output_records.reco_pt());
         batches.push_back(std::move(batch));
       }
       // forward pass on mini-batches
