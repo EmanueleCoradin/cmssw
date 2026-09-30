@@ -8,7 +8,7 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/GetDevice.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/SoAConversion.h"
-#include "PhysicsTools/PyTorchAlpaka/interface/QueueGuard.h"
+#include "PhysicsTools/PyTorchAlpaka/interface/alpaka/QueueGuard.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torch {
 
@@ -27,25 +27,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torch {
                  cms::torch::alpakatools::TensorCollection<Queue> &inputs,
                  cms::torch::alpakatools::TensorCollection<Queue> &outputs,
                  std::optional<::torch::Dtype> dtype = std::nullopt) {
-#ifdef ALPAKA_ACC_GPU_HIP_ENABLED
-      inputs.copy(queue, cms::torch::alpakatools::detail::MemcpyKind::DeviceToHost);
-      outputs.copy(queue, cms::torch::alpakatools::detail::MemcpyKind::DeviceToHost);
-#else
-      inputs.copy(queue, cms::torch::alpakatools::detail::MemcpyKind::DeviceToDevice);
-#endif  // ALPAKA_ACC_GPU_HIP_ENABLED
+
+      inputs.copy(queue);
       auto input_tensor = cms::torch::alpakatools::detail::convertInput<Queue, at::Tensor>(inputs, device_, dtype);
       
       void* stream_handle = nullptr;
-#if defined(ALPAKA_ACC_GPU_CUDA_ENABLED) // || defined(ALPAKA_ACC_GPU_HIP_ENABLED)
+#if defined(ALPAKA_ACC_GPU_CUDA_ENABLED) || defined(ALPAKA_ACC_GPU_HIP_ENABLED)
       stream_handle = static_cast<void*>(queue.getNativeHandle());
 #endif  
 
       auto output_tensors = cms::torch::ModelAOT::forward(input_tensor, stream_handle);
       cms::torch::alpakatools::detail::convertOutput(output_tensors, outputs, device_);
-
-#ifdef ALPAKA_ACC_GPU_HIP_ENABLED
-      outputs.copy(queue, cms::torch::alpakatools::detail::MemcpyKind::HostToDevice);
-#endif  // ALPAKA_ACC_GPU_HIP_ENABLED
     }
   };
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::torch
