@@ -41,7 +41,7 @@
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
 
-<bin file="alpaka/testAlpakaModelAOT.cc testRunner.cc" name="testAlpakaModelAOT">
+<bin file="alpaka/testAlpakaModelAOTKernels.dev.cc testAlpakaModelAOT.cc testRunner.cc" name="testAlpakaModelAOT">
   <use name="alpaka"/>
   <use name="boost_filesystem"/>
   <use name="cppunit"/>
@@ -49,8 +49,10 @@
   <use name="pytorch"/>
   <use name="pytorch-cuda" for="alpaka/cuda"/>
   <use name="pytorch-rocm" for="alpaka/rocm"/>
+  <use name="DataFormats/SoATemplate"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
   <use name="PhysicsTools/PyTorch"/>
   <use name="PhysicsTools/PyTorchAlpaka"/>
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
+

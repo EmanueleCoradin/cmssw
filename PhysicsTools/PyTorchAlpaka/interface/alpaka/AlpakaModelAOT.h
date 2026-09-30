@@ -17,8 +17,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torch {
   public:
     // inherit generic pytorch interface methods
     using cms::torch::ModelAOT::forward;
-    explicit AlpakaModelAOT(const std::string &model_path, const Queue &queue)
-      : cms::torch::ModelAOT(model_path, cms::torch::alpakatools::getDevice(queue)){}
+    explicit AlpakaModelAOT(const std::string& model_path, const Queue& queue)
+        : cms::torch::ModelAOT(
+              model_path,
+              cms::torch::alpakatools::getDevice(queue),
+    #if defined(ALPAKA_ACC_GPU_CUDA_ENABLED)
+              "cuda"
+    #elif defined(ALPAKA_ACC_GPU_HIP_ENABLED)
+              "rocm"
+    #else
+              "cpu"
+    #endif
+          ) {}
 
     // Forward pass (inference) of model with SoA metadata input/output.
     // Allows to run inference directly using SoA portable objects/collections without excessive copies and conversions.

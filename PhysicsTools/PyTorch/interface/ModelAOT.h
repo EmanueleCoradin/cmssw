@@ -26,8 +26,13 @@ namespace cms::torch {
 
     explicit ModelAOT(const std::string &precompiled_lib_path)
         : pkg_loader_(precompiled_lib_path), device_(::torch::Device(pkg_loader_.get_metadata()["AOTI_DEVICE_KEY"])) {}
-    explicit ModelAOT(const std::string &precompiled_lib_path, ::torch::Device device)
-        : pkg_loader_(precompiled_lib_path), device_(device.type(), device.index()){}
+    explicit ModelAOT(const std::string &precompiled_lib_path, ::torch::Device device, const std::string& model_name = "model") : 
+      pkg_loader_(precompiled_lib_path, 
+                  model_name,
+                  false, //run single threaded
+                  1 // num runners
+      ), 
+      device_(device.type(), device.index()){}
     
 
     // Forward pass (inference) of model, returns std::vector<at::Tensor> (multi output support). Thread safety not verified yet.
