@@ -41,7 +41,7 @@
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
 
-<bin file="alpaka/testAlpakaModelAOTKernels.dev.cc testAlpakaModelAOT.cc testRunner.cc" name="testAlpakaModelAOT">
+<bin file="alpaka/testAlpakaModelAOTKernels.dev.cc alpaka/testAlpakaModelAOT.cc testRunner.cc" name="testAlpakaModelAOT">
   <use name="alpaka"/>
   <use name="boost_filesystem"/>
   <use name="cppunit"/>
