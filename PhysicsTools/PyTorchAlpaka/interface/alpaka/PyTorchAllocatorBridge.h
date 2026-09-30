@@ -11,21 +11,25 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/devices.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/getDeviceCachingAllocator.h"
 
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED 
 #include <torch/csrc/cuda/CUDAPluggableAllocator.h>
 #include <ATen/cuda/CUDABlas.h>
+#elif ALPAKA_ACC_GPU_HIP_ENABLED
+
+#ifndef USE_ROCM
+#define USE_ROCM 1
+#endif
+
+#include <torch/csrc/cuda/CUDAPluggableAllocator.h>
+#include <ATen/hip/HIPBlas.h>
 #endif
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-  template <typename TQueue>
   class PyTorchAllocatorBridge {
   public:
-    using Queue = TQueue;
-    using Device = alpaka::Dev<Queue>;
-    using Platform = alpaka::Platform<Device>;
 
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+#if defined(ALPAKA_ACC_GPU_CUDA_ENABLED)
     static void* allocate(size_t size, int deviceId, cudaStream_t stream) {
       auto queue = cms::alpakatools::getFixedQueueRegistry<Queue>().findQueue(deviceId, stream);
 
@@ -55,19 +59,40 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto& allocator = cms::alpakatools::getDeviceCachingAllocator<Device, Queue>(device);
       allocator.free(ptr);
     }
-#endif  // ALPAKA_ACC_GPU_CUDA_ENABLED
+#elif ALPAKA_ACC_GPU_HIP_ENABLED
+    static void* allocate(size_t size, int deviceId, hipStream_t stream) {
+      auto queue = cms::alpakatools::getFixedQueueRegistry<Queue>().findQueue(deviceId, stream);
 
-    static void reset_fn() {
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
-      auto const& deviceList = cms::alpakatools::devices<Platform>();
-      for (auto const& device : deviceList) {
-        cms::alpakatools::getDeviceCachingAllocator<Device, Queue>(device).freeAllCached();
+      if (!queue) {
+        throw cms::Exception("PyTorchAllocatorBridge")
+            << "Could not find an Alpaka Queue associated to HIP device " << deviceId << " and stream " << stream;
       }
-#endif
+
+      auto const device = alpaka::getDev(*queue);
+      auto& allocator = cms::alpakatools::getDeviceCachingAllocator<Device, Queue>(device);
+
+      return allocator.allocate(size, std::move(*queue));
     }
 
+    static void free(void* ptr, size_t size, int deviceId, hipStream_t /*stream*/) {
+      if (ptr == nullptr) {
+        return;
+      }
+
+      auto const& deviceList = cms::alpakatools::devices<Platform>();
+
+      if (deviceId < 0 || static_cast<size_t>(deviceId) >= deviceList.size()) {
+        throw cms::Exception("PyTorchAllocatorBridge") << "Invalid HIP device ID " << deviceId;
+      }
+
+      auto const& device = deviceList[deviceId];
+      auto& allocator = cms::alpakatools::getDeviceCachingAllocator<Device, Queue>(device);
+      allocator.free(ptr);
+    }
+#endif
+
     static void install() {
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+#if defined(ALPAKA_ACC_GPU_CUDA_ENABLED) || defined(ALPAKA_ACC_GPU_HIP_ENABLED) 
       namespace PA = ::torch::cuda::CUDAPluggableAllocator;
       auto allocator = PA::createCustomAllocator(&PyTorchAllocatorBridge::allocate, &PyTorchAllocatorBridge::free);
       PA::changeCurrentAllocator(allocator);
@@ -75,7 +100,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
 
     static void resetCUBlas(Queue queue) {
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+#if defined(ALPAKA_ACC_GPU_CUDA_ENABLED) || defined(ALPAKA_ACC_GPU_HIP_ENABLED)
       auto stream = alpaka::getNativeHandle(queue);
       at::cuda::clearCublasWorkspacesForStream(stream);
 #endif

@@ -10,7 +10,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   PyTorchAlpakaService::PyTorchAlpakaService(edm::ParameterSet const&, edm::ActivityRegistry&) {
     edm::LogInfo("PyTorchAlpakaService") << "Plugging in CMSSW's allocator in PyTorch." << std::endl;
-    PyTorchAllocatorBridge<Queue>::install();
+    PyTorchAllocatorBridge::install();
   }
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 

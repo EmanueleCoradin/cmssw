@@ -20,7 +20,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::stream {
 
   public:
     void beginStream(edm::StreamID sid, Queue queue) final {
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+#if defined(ALPAKA_ACC_GPU_CUDA_ENABLED) || defined(ALPAKA_ACC_GPU_HIP_ENABLED)
       // Register the queue before calling user code.
       cms::alpakatools::getFixedQueueRegistry<Queue>().registerQueue(queue);
 #endif
@@ -30,10 +30,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::stream {
 
     void endStream(Queue queue) final {
       // Give user code access to the registered queue.
-      PyTorchAllocatorBridge<Queue>::resetCUBlas(queue);
+      PyTorchAllocatorBridge::resetCUBlas(queue);
       endStreamImpl(queue);
 
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+#if defined(ALPAKA_ACC_GPU_CUDA_ENABLED) || defined(ALPAKA_ACC_GPU_HIP_ENABLED)
       // Unregister after user code has finished.
       cms::alpakatools::getFixedQueueRegistry<Queue>().unregisterQueue(queue);
 #endif
