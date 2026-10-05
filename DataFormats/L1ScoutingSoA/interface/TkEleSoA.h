@@ -9,8 +9,10 @@ namespace l1sc {
                       SOA_COLUMN(float, pt),
                       SOA_COLUMN(float, eta),
                       SOA_COLUMN(float, phi),
+                      SOA_COLUMN(float, isolation),
+                      SOA_COLUMN(float, z0), 
                       SOA_COLUMN(uint8_t, quality),
-                      SOA_COLUMN(float, isolation));
+                      SOA_COLUMN(bool, charge));
 
   using TkEleSoA = TkEleLayout<>;
 

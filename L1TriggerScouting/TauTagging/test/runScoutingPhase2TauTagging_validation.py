@@ -7,9 +7,6 @@ from PhysicsTools.NanoAOD.common_cff import Var, ExtVar
 def LazyVar(expr, valtype, doc=None, precision=-1):
     return Var(expr, valtype, doc, precision, lazyEval=True)
 
-# enable alpaka and GPU support
-process.load("Configuration.StandardSequences.Accelerators_cff")
-
 # import TauTagging options
 from L1TriggerScouting.TauTagging.options_cff import options, VarParsing
 
@@ -44,77 +41,22 @@ if options.dump != []:
     
     print("Dumps requested and compatible with pipeline step: ", dump)
 
-# define process and its options
-process.options = cms.untracked.PSet(
-    numberOfThreads = cms.untracked.uint32(options.numThreads),
-    numberOfStreams = cms.untracked.uint32(options.numFwkStreams),
-    numberOfConcurrentLuminosityBlocks = cms.untracked.uint32(1),
-    wantSummary = cms.untracked.bool(True)
-)
-process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(options.maxEvents)
-)
-process.MessageLogger.cerr.FwkReport.reportEvery = options.reportEvery
+# common framework options, PoolSource, L1 emulation, and PUPPI packing
+from L1TriggerScouting.Phase2.L1TScPhase2RunValidation_cff import setupPhase2Validation
+setupPhase2Validation(process, options)
 
-# trigger emulation
-process.load('Configuration.Geometry.GeometryExtendedRun4D110Reco_cff')
-process.load('Configuration.Geometry.GeometryExtendedRun4D110_cff')
-process.load('Configuration.StandardSequences.MagneticField_cff')
-process.load('Configuration.StandardSequences.SimL1Emulator_cff')
-process.load('SimCalorimetry.HcalTrigPrimProducers.hcaltpdigi_cff') # needed to read HCal TPs
-process.load('SimCalorimetry.HGCalSimProducers.hgcalDigitizer_cfi') # needed for HGCAL_noise_fC
-process.load('SimGeneral.MixingModule.mixNoPU_cfi')
-process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
+# disable pytorch inner threading
+process.PyTorchService = cms.Service("PyTorchService")
 
-from Configuration.AlCa.GlobalTag import GlobalTag
-process.GlobalTag = GlobalTag(process.GlobalTag, '141X_mcRun4_realistic_v3', '')
-
-process.l1tTrackSelectionProducer.processSimulatedTracks = False # these would need stubs, and are not used anyway
-
-process.l1tEmulation = cms.Task(
-    process.l1tSAMuonsGmt,
-    process.l1tPhase2L1CaloEGammaEmulator,
-    process.l1tPhase2CaloPFClusterEmulator,
-    process.l1tPhase2GCTBarrelToCorrelatorLayer1Emulator,    
-    process.L1TLayer1TaskInputsTask,
-    process.L1TLayer1Task,
-    process.l1tLayer2EG,
-    process.L1TPFJetsEmulationTask,
-    process.L1TPFJetsExtendedTask,
-    process.L1TBJetsTask, 
-)
-
-# Pool source 
-process.source = cms.Source("PoolSource",
-    # fileNames = cms.untracked.vstring("file:/eos/cms/store/cmst3/group/l1tr/vcamagni/"
-    #                                 "L1TauID/DATA/FPinputs/m90/4STEPS/"
-    #                                 f"142Xv0/inputs140X_7099351_{i}.root" for i in range(4000))
-    # fileNames = cms.untracked.vstring([
-    #     '/store/cmst3/group/l1tr/FastPUPPI/15_1_X/fpinputs_140X/v1/caseC_m220_67/4STEPS/151Xv0/inputs151X_14682953_1699.root'
-    # ])
-    fileNames = cms.untracked.vstring([
-        f"file:/eos/cms/store/cmst3/group/l1tr/FastPUPPI/15_1_X/fpinputs_140X/v1/caseC_m220_67/4STEPS/151Xv3_pu200/inputs151X_15019206_{i}.root" for i in range(1000)
-    ])
-)
-
-# define pipeline path
-process.p_pipeline = cms.Path()
-
-# FP inputs packing/unpacking
-process.packer = cms.EDProducer("ScPhase2PuppiPacker",
-    src = cms.InputTag("l1tLayer1Extended:PF"), # l1tLayer1Extended:PF or l1tLayer1:PF
-    fedIDs = cms.vuint32(0),
-    splitFactor = cms.uint32(1),
-    scoutingHeader = cms.bool(True)
-)
-process.p_pipeline += process.packer
+# define pipeline path, packing before unpacking
+process.p_pipeline = cms.Path(process.packer)
 
 process.unpacker = cms.EDProducer("l1sc::L1TScPhase2PuppiRawToDigi@alpaka",
     alpaka = cms.untracked.PSet(
         backend = cms.untracked.string(options.backend)
     ),
     src = cms.InputTag("packer"),
-    streams = cms.vuint32(*[process.packer.fedIDs]),
+    streams = process.packer.fedIDs,
     splitFactor = process.packer.splitFactor
 )
 process.p_pipeline += process.unpacker
@@ -157,7 +99,7 @@ process.p_tables = cms.Path()
 # attention here that I should check what is being dumped
 process.candNanoAODTable = cms.EDProducer("SimpleCandidateFlatTableProducer",
     name = cms.string("L1PF"),
-    src = cms.InputTag("l1tLayer1Extended:PF"), # l1tLayer1Extended:PF or l1tLayer1:PF
+    src = cms.InputTag("l1tLayer1:PF"), # l1tLayer1Extended:PF or l1tLayer1:PF
     cut = cms.string(""),
     doc = cms.string(""),
     singleton = cms.bool(False), # the number of entries is variable
@@ -203,7 +145,7 @@ if "soft_tau_outputs" in dump:
 
 # output
 process.out = cms.OutputModule("NanoAODOutputModule",
-    fileName = cms.untracked.string("softTauNano.root"),
+    fileName = cms.untracked.string("softTauNano-L1PF_17_0_X_on_pre2.root"),
     SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),
     outputCommands = cms.untracked.vstring("drop *", "keep nanoaodFlatTable_*Table_*_*"),
     compressionLevel = cms.untracked.int32(4),

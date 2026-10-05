@@ -28,6 +28,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     auto points_device =
         clue::PointsDevice<kDims, float, Device>(queue, n_points, eta_coord_ptr, phi_coord_ptr, weights_ptr, clusters_ptr);
     auto clue_algo = clue::Clusterer<kDims>(queue, dc_, rhoc_, dm_);
+    if (wrap_coords_) { // at a first glance, cannot see any difference in setting wrapped coords or not
+      std::array<int, kDims> wc{0, 1};
+      clue_algo.setWrappedCoordinates(wc);
+    }
     
     // call the batched clustering function
     clue_algo.make_clusters(queue, points_device, bx_sizes_host.const_view().offset().offset());

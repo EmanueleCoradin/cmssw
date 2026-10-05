@@ -16,17 +16,17 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
-  struct BxData {
+  struct PuppiBxData {
     unsigned int bx;
     const data_t *header_ptr;
     const data_t *data_ptr;
     size_t data_size;
 
     // comparison operator for priority queue
-    bool operator>(const BxData &other) const { return bx > other.bx; }
+    bool operator>(const PuppiBxData &other) const { return bx > other.bx; }
   };
 
-  using MinHeap = std::priority_queue<BxData, std::vector<BxData>, std::greater<>>;
+  using PuppiHeap = std::priority_queue<PuppiBxData, std::vector<PuppiBxData>, std::greater<>>;
 
   using namespace ::l1sc;
 
@@ -85,7 +85,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       p_data_.clear();
       h_data_.clear();
 
-      MinHeap min_heap;
+      PuppiHeap min_heap;
       // readout data from links breadth-first (order not guaranteed)
       for (auto stream_id : streams_) {
         const auto &stream = raw_data.FEDData(stream_id);
@@ -116,7 +116,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         return 0;
 
       unsigned int ngoodbx = 0;
-      BxData bx_data = min_heap.top();
+      PuppiBxData bx_data = min_heap.top();
       h_data_.push_back(*(bx_data.header_ptr));                                               // store header
       p_data_.insert(p_data_.end(), bx_data.data_ptr, bx_data.data_ptr + bx_data.data_size);  // copy payload
       min_heap.pop();
