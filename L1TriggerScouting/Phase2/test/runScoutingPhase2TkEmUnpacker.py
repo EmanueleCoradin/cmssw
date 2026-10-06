@@ -7,7 +7,7 @@ from L1TriggerScouting.Phase2.options_cff import options, VarParsing
 
 # extra options
 options.register ("reportEvery",
-    10, # default value
+    100, # default value
     VarParsing.VarParsing.multiplicity.singleton,
     VarParsing.VarParsing.varType.int, 
     "Print message after the specified number of events (proper events in this case)"
@@ -24,8 +24,8 @@ options.register ("unpackerType",
 options.parseArguments()
 
 # check options
-if options.unpackerType not in ["legacy", "alpaka"]:
-    raise ValueError("unpackerType must be either legacy or alpaka")
+if options.unpackerType not in ["legacy", "alpaka", "alpaka-v2"]:
+    raise ValueError("unpackerType must be either legacy, alpaka or alpaka-v2")
 
 if options.unpackerType == "legacy" and options.backend == "cuda_async":
     raise ValueError("Legacy unpacker can be run only on serial_sync backend")
@@ -47,29 +47,37 @@ process.FastTimerService.useRealTimeClock = cms.untracked.bool(True)
 process.p_unpacking = cms.Path()
 
 # define unpacker
-"""
-Pay attention that the splitFactor parameter here has a different meaning in the legacy unpacker wrt the alpaka unpacker.
-I think that the correct implementation of the split factor is on the alpaka unpacker, thus the correct value should be 1.
-"""
 if options.unpackerType == "legacy":
-    process.unpacker = cms.EDProducer("ScPhase2PuppiRawToDigi", 
+    process.unpacker = cms.EDProducer("ScPhase2TkEmRawToDigi", 
         src = cms.InputTag("rawDataCollector"),
         fedIDs = cms.vuint32(
             *list(range(options.buNumStreams[0])) # here we assume that buNumStreams[0] corresponds to the number of streams of PF candidates
-            if options.pfBarrelStreamIDs == [] else options.pfBarrelStreamIDs + options.pfEndcapStreamIDs
-        ), 
-        splitFactor = cms.uint32(2) 
+            if options.tkEmStreamIDs == [] else options.tkEmStreamIDs
+        )
     )
 
 elif options.unpackerType == "alpaka":
-    process.unpacker = cms.EDProducer("l1sc::L1TScPhase2PuppiRawToDigi@alpaka",
+    process.unpacker = cms.EDProducer("l1sc::L1TScPhase2TkEmRawToDigi@alpaka",
         alpaka = cms.untracked.PSet(
             backend = cms.untracked.string(options.backend)
         ),
         src = cms.InputTag("rawDataCollector"),
         streams = cms.vuint32(
             *list(range(options.buNumStreams[0])) # here we assume that buNumStreams[0] corresponds to the number of streams of PF candidates
-            if options.pfBarrelStreamIDs == [] else options.pfBarrelStreamIDs + options.pfEndcapStreamIDs
+            if options.tkEmStreamIDs == [] else options.tkEmStreamIDs
+        ),
+        splitFactor = cms.uint32(1)
+    )
+
+elif options.unpackerType == "alpaka-v2":
+    process.unpacker = cms.EDProducer("l1sc::L1TScPhase2TkEmRawToDigiV2@alpaka",
+        alpaka = cms.untracked.PSet(
+            backend = cms.untracked.string(options.backend)
+        ),
+        src = cms.InputTag("rawDataCollector"),
+        streams = cms.vuint32(
+            *list(range(options.buNumStreams[0])) # here we assume that buNumStreams[0] corresponds to the number of streams of PF candidates
+            if options.tkEmStreamIDs == [] else options.tkEmStreamIDs
         ),
         splitFactor = cms.uint32(1)
     )

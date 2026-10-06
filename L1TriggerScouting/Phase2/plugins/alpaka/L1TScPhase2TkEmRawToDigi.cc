@@ -18,8 +18,8 @@
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
   struct TkEmBxData {
-    uint16_t bx;
-    const uint32_t bx_size; // size in terms of number of objects
+    bx_t bx;
+    count_t bx_size; // size in terms of number of objects
     const data_t *data_ptr;
     size_t data_size; // size in terms of data_t words
 
@@ -58,8 +58,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       auto bx_lookup_tkele = BxLookupHost(event.queue(), nbx, nbx + 1);
 
       // copy bx indexes to the host collection bx column
-      memcpy(bx_lookup_tkem.view().bx().bx().data(), tkem_bx_vec_.data(), sizeof(tkem_bx_vec_));
-      memcpy(bx_lookup_tkele.view().bx().bx().data(), tkele_bx_vec_.data(), sizeof(tkele_bx_vec_));
+      memcpy(bx_lookup_tkem.view().bx().bx().data(), tkem_bx_vec_.data(), sizeof(tkem_bx_vec_.size() * sizeof(bx_t)));
+      memcpy(bx_lookup_tkele.view().bx().bx().data(), tkele_bx_vec_.data(), sizeof(tkele_bx_vec_.size() * sizeof(bx_t)));
 
       // calculate offsets using inclusive scan and put them into the host collection offset column
       std::inclusive_scan(tkem_count_vec_.begin(), tkem_count_vec_.end(), bx_lookup_tkem.view().offset().offset().data() + 1);
@@ -117,23 +117,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
             continue;
           }  // skip empty words
 
-          unsigned int bx            = ((*ptr) >> 12) & 0xFFF;  
-          auto         nwords        = (*ptr) & 0xFFF; // unpack chunk size (no. of 64 bit word of Native64 header)
-          auto         negamma       = (nwords * 2) / 3;
-      
-          auto         first_tkem    = ptr + 1; // move past header                                 
-          auto         last_tkem     = ptr + numTkEmWords; // move the pointer to the last tkEm of the 12 tkEm block
-          const size_t ntkem         = ((last_tkem - ptr) * 2) / 3; // convert number of 64b words difference in number of tkEm
-          
-          auto         first_tkele   = last_tkem + 1; // move the pointer to the first tkEle of the remaining tkEle block
-          auto         numTkEleWords = chunk_end - first_tkele; // number of 64b words
-          const size_t ntkele        = (numTkEleWords * 2) / 3; // convert number of 64b words difference in number of tkEle
+          bx_t          bx            = ((*ptr) >> 12) & 0xFFF;
+          size_t        nwords        = (*ptr) & 0xFFF;              // unpack chunk size (no. of 64 bit word of Native64 header)
+          const count_t negamma       = (nwords * 2) / 3;
 
-          assert(negamma == (ntkem + ntkele)); // closure test
+          auto          first_tkem    = ptr + 1;                     // move past header
+          auto          last_tkem     = ptr + numTkEmWords;          // move the pointer to the last tkEm of the 12 tkEm block
+          const count_t ntkem         = numTkEm;                     // the number of tkem words is fixed to 12 a-priori
+
+          auto          first_tkele   = last_tkem + 1;               // move the pointer to the first tkEle of the remaining tkEle block
+          size_t        numTkEleWords = nwords - numTkEmWords;       // number of 64b words
+          const count_t ntkele        = (numTkEleWords * 2) / 3;     // convert number of 64b words difference in number of tkEle
+
+          assert(negamma == (ntkem + ntkele));                       // closure test
           tkem_heap.push({bx, ntkem, first_tkem, numTkEmWords});
           tkele_heap.push({bx, ntkele, first_tkele, numTkEleWords});
-          
-          ptr += (negamma + 1);  // move to the next bx, the + 1 is needed to move past the header
+
+          ptr += (nwords + 1);                                      // move to the next bx, the + 1 is needed to move past the header
         }
       }
 
@@ -142,27 +142,27 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       if (tkem_heap.empty() | tkele_heap.empty())
         return 0;
 
-      ngoodbx_tkem = consume_heap(tkem_bx_vec_, tkem_count_vec_, tkem_payload_vec_, tkem_heap);
-      ngoodbx_tkele = consume_heap(tkele_bx_vec_, tkele_count_vec_, tkele_payload_vec_, tkele_heap);
+      count_t ngoodbx_tkem = consume_heap(tkem_bx_vec_, tkem_count_vec_, tkem_payload_vec_, tkem_heap);
+      count_t ngoodbx_tkele = consume_heap(tkele_bx_vec_, tkele_count_vec_, tkele_payload_vec_, tkele_heap);
 
       assert(ngoodbx_tkem == ngoodbx_tkele && "[L1TScPhase2TkEmRawToDigi] Total good tkem BXs and total good tkele BX do not match.");
       return ngoodbx_tkem;
     }
 
-    unsigned int consume_heap(BxVec& bx_vec, CountVec& count_vec, TkEmPayloadVec& payload_vec, TkEmHeap& pq) {
-      unsigned int ngoodbx = 0;
-      unsigned int nslices = 0;
+    count_t consume_heap(BxVec& bx_vec, CountVec& count_vec, TkEmPayloadVec& payload_vec, TkEmHeap& pq) {
+      count_t ngoodbx = 0;
+      count_t nslices = 0;
       
       auto bx_data = pq.top();
       
-      bx_vec.push_back(bx_data.bx)
+      bx_vec.push_back(bx_data.bx);
       count_vec.push_back(bx_data.bx_size);
       auto buf_vec = flattenBuffer(bx_data);
       payload_vec.insert(payload_vec.end(), buf_vec.begin(), buf_vec.end());
       pq.pop();
 
       while (!pq.empty()) {
-        const auto bx_data2 = min_heap.top();
+        const auto bx_data2 = pq.top();
 
         if (bx_data2.bx != bx_data.bx) {
           if (nslices == splitFactor_) {
@@ -227,7 +227,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     // produce device-side products
     const device::EDPutToken<TkEmDeviceCollection> tkem_collection_token_;
     const device::EDPutToken<TkEleDeviceCollection> tkele_collection_token_;
-    const device::EDPutToken<BxLookupHost> tkem_bx_lookup_token_, tkele_bx_lookup_token_;
+    const edm::EDPutTokenT<BxLookupHost> tkem_bx_lookup_token_, tkele_bx_lookup_token_;
 
     // produce host-side products
     const edm::EDPutTokenT<CounterHost> nbx_token_;

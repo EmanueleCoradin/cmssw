@@ -11,9 +11,11 @@ namespace l1sc {
   typedef unsigned __int128         uint128_t;
 
   // aliases
+  using            bx_t           = uint16_t;
+  using            count_t        = uint32_t;
   using            data_t         = uint64_t;
-  using            BxVec          = std::vector<uint16_t>;
-  using            CountVec       = std::vector<uint16_t>;
+  using            BxVec          = std::vector<bx_t>;
+  using            CountVec       = std::vector<count_t>;
   using            TkEmPayloadVec = std::vector<uint128_t>;
 
   // constants

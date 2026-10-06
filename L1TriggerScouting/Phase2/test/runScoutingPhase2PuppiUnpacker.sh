@@ -1,10 +1,10 @@
 #!/bin/bash
 # to streamline debugging and testing Unpackers
-# usage: bash L1TriggerScouting/Phase2/test/runScoutingPhase2Unpackers.sh <backend> <num_events> <run_number> <unpacker_type>
-# example usage: bash L1TriggerScouting/Phase2/test/runScoutingPhase2Unpackers.sh cuda 100 40 legacy
+# usage: bash L1TriggerScouting/Phase2/test/runScoutingPhase2PuppiUnpacker.sh <backend> <num_events> <run_number> <unpacker_type>
+# example usage: bash L1TriggerScouting/Phase2/test/runScoutingPhase2PuppiUnpacker.sh cuda 100 40 legacy
 function die { echo Failed $1: status $2 ; exit $2 ; }
 
-SCRIPT="L1TriggerScouting/Phase2/test/runScoutingPhase2Unpackers.py"
+SCRIPT="L1TriggerScouting/Phase2/test/runScoutingPhase2PuppiUnpacker.py"
 DATA="/mnt/ramdisk/gizago/raw"
 
 if [ "$#" != "4" ]; then

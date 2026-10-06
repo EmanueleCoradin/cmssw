@@ -106,4 +106,133 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     // decode tkele features
     alpaka::exec<Acc1D>(queue, grid, TkEleRawToDigiKernel{}, payload_vec_device.data(), tkele.view());
   }
+
+  // V2 unpacker kernels ----------------------------------------------------------
+
+  namespace {
+    // Reconstruct the 96-bit object payload, zero-extended to 128 bits, directly from the
+    // packed 64-bit words (2 objects per 3 words). Bit-identical to the V1 flattenBuffer output.
+    ALPAKA_FN_ACC inline uint128_t reconstruct_object(const data_t* w, uint32_t i) {
+      const uint32_t k = 3 * (i >> 1);
+      const data_t w0 = w[k];
+      const data_t w1 = w[k + 1];
+      const data_t w2 = w[k + 2];
+      return ((i & 1) == 0) ? static_cast<uint128_t>(w0) | (static_cast<uint128_t>(w1 & 0xffffffffULL) << 64)
+                            : static_cast<uint128_t>(w2) | (static_cast<uint128_t>(w1 >> 32) << 64);
+    }
+
+    ALPAKA_FN_ACC inline void store_tkem(TkEmDeviceCollection::View tkem, int32_t idx, uint128_t data) {
+      tkem.pt()[idx] = decodeBits<uint16_t, 1, 16>(data) * 0.03125f;
+      tkem.eta()[idx] = decodeBitsSigned<int16_t, 30, 14>(data) * kPi4096<Acc1D>.get();
+      tkem.phi()[idx] = decodeBitsSigned<int16_t, 17, 13>(data) * kPi4096<Acc1D>.get();
+      tkem.isolation()[idx] = decodeBits<uint16_t, 48, 11>(data) * 0.25f;
+      tkem.quality()[idx] = decodeBits<uint8_t, 44, 4>(data);
+    }
+
+    ALPAKA_FN_ACC inline void store_tkele(TkEleDeviceCollection::View tkele, int32_t idx, uint128_t data) {
+      tkele.pt()[idx] = decodeBits<uint16_t, 1, 16>(data) * 0.03125f;
+      tkele.eta()[idx] = decodeBitsSigned<int16_t, 30, 14>(data) * kPi4096<Acc1D>.get();
+      tkele.phi()[idx] = decodeBitsSigned<int16_t, 17, 13>(data) * kPi4096<Acc1D>.get();
+      tkele.isolation()[idx] = decodeBits<uint16_t, 48, 11>(data) * 0.25f;
+      tkele.z0()[idx] = decodeBitsSigned<int16_t, 60, 10>(data) * 0.05f;
+      tkele.quality()[idx] = decodeBits<uint8_t, 44, 4>(data);
+      tkele.charge()[idx] = testBit<59>(data);
+    }
+  }  // namespace
+
+  // Fill the bx columns and the leading offset cell of the bx lookup tables
+  class FillLookupsKernel {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
+                                  const uint32_t* bx_arr,
+                                  uint32_t nbx,
+                                  BxLookupDevice::View tkem_lookup,
+                                  BxLookupDevice::View tkele_lookup) const {
+      if (alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0u] == 0u) {
+        tkem_lookup.offset().offset()[0] = 0;
+        tkele_lookup.offset().offset()[0] = 0;
+      }
+      for (int32_t idx : cms::alpakatools::uniform_elements(acc, static_cast<int32_t>(nbx))) {
+        const auto bx = static_cast<uint16_t>(bx_arr[idx]);
+        tkem_lookup.bx().bx()[idx] = bx;
+        tkele_lookup.bx().bx()[idx] = bx;
+      }
+    }
+  };
+
+  // Decode all payload slices of both classes (one thread per slice)
+  class DecodeSlicesKernelV2 {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
+                                  const data_t* words,
+                                  const RawSlice* slices_tkem,
+                                  uint32_t nslices_tkem,
+                                  TkEmDeviceCollection::View tkem,
+                                  const RawSlice* slices_tkele,
+                                  uint32_t nslices_tkele,
+                                  TkEleDeviceCollection::View tkele,
+                                  BxLookupDevice::ConstView tkem_lookup,
+                                  BxLookupDevice::ConstView tkele_lookup) const {
+      for (int32_t idx : cms::alpakatools::uniform_elements(acc, static_cast<int32_t>(nslices_tkem))) {
+        const RawSlice slice = slices_tkem[idx];
+        const uint32_t base = tkem_lookup.offset().offset()[slice.bx_row] + slice.within_bx_offset;
+        const data_t* w = words + slice.word_offset;
+        for (uint32_t i = 0; i < slice.count; ++i) {
+          store_tkem(tkem, base + i, reconstruct_object(w, i));
+        }
+      }
+      for (int32_t idx : cms::alpakatools::uniform_elements(acc, static_cast<int32_t>(nslices_tkele))) {
+        const RawSlice slice = slices_tkele[idx];
+        const uint32_t base = tkele_lookup.offset().offset()[slice.bx_row] + slice.within_bx_offset;
+        const data_t* w = words + slice.word_offset;
+        for (uint32_t i = 0; i < slice.count; ++i) {
+          store_tkele(tkele, base + i, reconstruct_object(w, i));
+        }
+      }
+    }
+  };
+
+  void prefix_scan_u32(Queue& queue, uint32_t* input, uint32_t* output, uint32_t size) {
+    cms::alpakatools::iterativePrefixScan<Acc1D>(input, output, size, queue);
+  }
+
+  void fill_lookups(Queue& queue,
+                    const uint32_t* bx_arr,
+                    uint32_t nbx,
+                    BxLookupDevice& tkem_lookup,
+                    BxLookupDevice& tkele_lookup) {
+    const uint32_t threads_per_block = 512;
+    const uint32_t blocks_per_grid = cms::alpakatools::divide_up_by(nbx, threads_per_block);
+    const auto grid = cms::alpakatools::make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
+    alpaka::exec<Acc1D>(queue, grid, FillLookupsKernel{}, bx_arr, nbx, tkem_lookup.view(), tkele_lookup.view());
+  }
+
+  void decode_v2(Queue& queue,
+                 const data_t* words,
+                 const RawSlice* slices_tkem,
+                 uint32_t nslices_tkem,
+                 TkEmDeviceCollection& tkem,
+                 const RawSlice* slices_tkele,
+                 uint32_t nslices_tkele,
+                 TkEleDeviceCollection& tkele,
+                 const BxLookupDevice& tkem_lookup,
+                 const BxLookupDevice& tkele_lookup) {
+    // one thread per payload slice; slices are short (12 objects for tkEm), so per-thread loops stay cheap
+    const uint32_t nslices = nslices_tkem + nslices_tkele;
+    const uint32_t threads_per_block = 512;
+    const uint32_t blocks_per_grid = cms::alpakatools::divide_up_by(nslices, threads_per_block);
+    const auto grid = cms::alpakatools::make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);
+    alpaka::exec<Acc1D>(queue,
+                        grid,
+                        DecodeSlicesKernelV2{},
+                        words,
+                        slices_tkem,
+                        nslices_tkem,
+                        tkem.view(),
+                        slices_tkele,
+                        nslices_tkele,
+                        tkele.view(),
+                        tkem_lookup.const_view(),
+                        tkele_lookup.const_view());
+  }
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels
