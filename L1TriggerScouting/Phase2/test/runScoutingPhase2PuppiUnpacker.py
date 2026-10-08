@@ -24,8 +24,8 @@ options.register ("unpackerType",
 options.parseArguments()
 
 # check options
-if options.unpackerType not in ["legacy", "alpaka"]:
-    raise ValueError("unpackerType must be either legacy or alpaka")
+if options.unpackerType not in ["legacy", "alpaka", "alpaka-v2"]:
+    raise ValueError("unpackerType must be either legacy, alpaka or alpaka-v2")
 
 if options.unpackerType == "legacy" and options.backend == "cuda_async":
     raise ValueError("Legacy unpacker can be run only on serial_sync backend")
@@ -63,6 +63,19 @@ if options.unpackerType == "legacy":
 
 elif options.unpackerType == "alpaka":
     process.unpacker = cms.EDProducer("l1sc::L1TScPhase2PuppiRawToDigi@alpaka",
+        alpaka = cms.untracked.PSet(
+            backend = cms.untracked.string(options.backend)
+        ),
+        src = cms.InputTag("rawDataCollector"),
+        streams = cms.vuint32(
+            *list(range(options.buNumStreams[0])) # here we assume that buNumStreams[0] corresponds to the number of streams of PF candidates
+            if options.pfBarrelStreamIDs == [] else options.pfBarrelStreamIDs + options.pfEndcapStreamIDs
+        ),
+        splitFactor = cms.uint32(1)
+    )
+
+elif options.unpackerType == "alpaka-v2":
+    process.unpacker = cms.EDProducer("l1sc::L1TScPhase2PuppiRawToDigiV2@alpaka",
         alpaka = cms.untracked.PSet(
             backend = cms.untracked.string(options.backend)
         ),

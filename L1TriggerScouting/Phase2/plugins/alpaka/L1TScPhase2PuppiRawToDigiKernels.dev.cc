@@ -216,5 +216,111 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                         bx_lookup.const_view(),
                         puppi_padded.view(),
                         nele);
-  } 
+  }
+
+  // ---------------- V2 additions (see L1TScPhase2PuppiRawToDigiV2.cc) ---------------------
+
+  namespace {
+    // Extract one candidate from a 64-bit word into the SoA columns; identical bit windows
+    // and conversions to the legacy unpacker (l1puppiUnpack) and to RawToDigiKernel.
+    ALPAKA_FN_ACC inline void store_puppi(PuppiDeviceCollection::View puppi, int32_t idx, data_t data) {
+      // hardware values
+      const auto hwPt = decodeBits<uint16_t, 0, 14>(data);
+      const auto hwEta = decodeBitsSigned<int16_t, 14, 12>(data);
+      const auto hwPhi = decodeBitsSigned<int16_t, 26, 11>(data);
+      const auto pid = decodeBits<uint8_t, 37, 3>(data);
+
+      // convert to real values
+      puppi.pt()[idx] = hwPt * 0.25f;
+      puppi.eta()[idx] = hwEta * kPi720<Acc1D>.get();
+      puppi.phi()[idx] = hwPhi * kPi720<Acc1D>.get();
+      puppi.pdgid()[idx] = kPdgid<Acc1D>.get()[pid];
+
+      if (pid > 1) {
+        const auto hwZ0 = decodeBitsSigned<int16_t, 40, 10>(data);
+        const auto hwDxy = decodeBitsSigned<int16_t, 50, 8>(data);
+        const auto hwQual = decodeBits<uint8_t, 58, 3>(data);
+
+        puppi.z0()[idx] = hwZ0 * 0.05f;
+        puppi.dxy()[idx] = hwDxy * 0.05f;
+        puppi.puppiw()[idx] = 1.0f;
+        puppi.quality()[idx] = hwQual;
+      } else {
+        const auto hwPuppiw = decodeBits<uint16_t, 40, 10>(data);
+        const auto hwQual = decodeBits<uint8_t, 50, 6>(data);
+
+        puppi.z0()[idx] = 0.0f;
+        puppi.dxy()[idx] = 0.0f;
+        puppi.puppiw()[idx] = hwPuppiw * (1.0f / 256.0f);
+        puppi.quality()[idx] = hwQual;
+      }
+    }
+  }  // namespace
+
+  // Fill the bx columns of both lookup tables, the per-BX sizes column, and offset[0] = 0
+  class FillPuppiLookupsKernel {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
+                                  const uint32_t* bx_arr,
+                                  const uint32_t* cnt_arr,
+                                  uint32_t nbx,
+                                  BxLookupDevice::View bx_lookup,
+                                  BxLookupDevice::View bx_sizes) const {
+      if (alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0u] == 0u)
+        bx_lookup.offset().offset()[0] = 0;
+      for (int32_t idx : cms::alpakatools::uniform_elements(acc, static_cast<int32_t>(nbx))) {
+        const auto bx = static_cast<uint16_t>(bx_arr[idx]);
+        const auto count = cnt_arr[idx];
+        bx_lookup.bx().bx()[idx] = bx;
+        bx_sizes.bx().bx()[idx] = bx;
+        bx_sizes.offset().offset()[idx] = count;
+      }
+    }
+  };
+
+  // Decode all puppi payload slices (one thread per slice)
+  class DecodePuppiKernelV2 {
+  public:
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
+                                  const data_t* words,
+                                  const RawSlice* slices,
+                                  uint32_t nslices,
+                                  PuppiDeviceCollection::View puppi,
+                                  BxLookupDevice::ConstView bx_lookup) const {
+      for (int32_t idx : cms::alpakatools::uniform_elements(acc, static_cast<int32_t>(nslices))) {
+        const RawSlice slice = slices[idx];
+        const data_t* w = words + slice.word_offset;
+        const uint32_t base = bx_lookup.offset().offset()[slice.bx_row] + slice.within_bx_offset;
+        for (uint32_t i = 0; i < slice.count; ++i) {
+          store_puppi(puppi, base + i, w[i]);  // one object per 64-bit word
+        }
+      }
+    }
+  };
+
+  void fill_lookups_puppi(Queue& queue,
+                          const uint32_t* bx_arr,
+                          const uint32_t* cnt_arr,
+                          uint32_t nbx,
+                          BxLookupDevice& bx_lookup,
+                          BxLookupDevice& bx_sizes) {
+    const uint32_t threads_per_block = 512;
+    const auto grid = cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nbx, threads_per_block),
+                                                            threads_per_block);
+    alpaka::exec<Acc1D>(queue, grid, FillPuppiLookupsKernel{}, bx_arr, cnt_arr, nbx, bx_lookup.view(), bx_sizes.view());
+  }
+
+  void decode_candidates_v2(Queue& queue,
+                            const data_t* words,
+                            const RawSlice* slices,
+                            uint32_t nslices,
+                            PuppiDeviceCollection& puppi,
+                            const BxLookupDevice& bx_lookup) {
+    // one thread per payload slice; slices are short (O(hundred) objects), so per-thread loops stay cheap
+    const uint32_t threads_per_block = 512;
+    const auto grid = cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nslices, threads_per_block),
+                                                            threads_per_block);
+    alpaka::exec<Acc1D>(
+        queue, grid, DecodePuppiKernelV2{}, words, slices, nslices, puppi.view(), bx_lookup.const_view());
+  }
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels

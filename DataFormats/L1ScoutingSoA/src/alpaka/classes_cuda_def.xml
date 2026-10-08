@@ -33,6 +33,12 @@
   <class name="alpaka_cuda_async::l1sc::TkEleDeviceCollection" persistent="false"/>
   <class name="edm::DeviceProduct<alpaka_cuda_async::l1sc::TkEleDeviceCollection>" persistent="false"/>
   <class name="edm::Wrapper<edm::DeviceProduct<alpaka_cuda_async::l1sc::TkEleDeviceCollection>>" persistent="false"/>
+
+  <!-- TrackerMuonDeviceCollection -->
+  <class name="alpaka_cuda_async::PortableCollection<l1sc::TrackerMuonSoA>" persistent="false"/>
+  <class name="alpaka_cuda_async::l1sc::TrackerMuonDeviceCollection" persistent="false"/>
+  <class name="edm::DeviceProduct<alpaka_cuda_async::l1sc::TrackerMuonDeviceCollection>" persistent="false"/>
+  <class name="edm::Wrapper<edm::DeviceProduct<alpaka_cuda_async::l1sc::TrackerMuonDeviceCollection>>" persistent="false"/>
   
   <!-- SelectedBxDeviceCollection -->
   <class name="alpaka_cuda_async::l1sc::SelectedBxDeviceCollection" persistent="false"/>

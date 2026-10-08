@@ -26,6 +26,7 @@ __init__.py
 logs*
 old_timers
 old_wrong_timers
+zz_images
 
 # python
 *ipynb*

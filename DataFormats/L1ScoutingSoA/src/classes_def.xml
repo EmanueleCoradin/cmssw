@@ -52,6 +52,11 @@
   <!-- ROOT R/W recipies -->
   <class name="edm::Wrapper<l1sc::TkEleHostCollection>" splitLevel="0"/>
 
+  <!-- TrackerMuonHostCollection -->
+  <class name="l1sc::TrackerMuonHostCollection" rntupleStreamerMode="true"/>
+  <class name="l1sc::TrackerMuonHostCollection::Layout"/>
+  <class name="edm::Wrapper<l1sc::TrackerMuonHostCollection>" splitLevel="0"/>
+
   <!-- SelectedBxHostCollection -->
   <class name="l1sc::SelectedBxHostCollection" rntupleStreamerMode="true"/>
   <!-- Layouts -->

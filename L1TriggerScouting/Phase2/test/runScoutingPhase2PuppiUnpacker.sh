@@ -15,10 +15,10 @@ if [[ "$1" =~ ^(cpu|cuda)$ ]]; then
 else
     die "Argument needs to be 'cpu', 'cuda'; got '$1'" 1
 fi
-if [[ "$4" =~ ^(legacy|alpaka)$ ]]; then
+if [[ "$4" =~ ^(legacy|alpaka|alpaka-v2)$ ]]; then
     TARGET=$1
 else
-    die "Argument needs to be 'legacy', 'alpaka'; got '$4'" 1
+    die "Argument needs to be 'legacy', 'alpaka', 'alpaka-v2'; got '$4'" 1
 fi
 
 if [ "${TARGET}" == "cpu" ]; then

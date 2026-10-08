@@ -26,6 +26,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     inline static std::once_flag init_flag_;
   };
 
+  // V1 unpacker entry points ---------------------------------------------------
+
   void decode_tkem(Queue& queue, uint128_t* p_data, TkEmDeviceCollection& tkem);
   void decode_tkele(Queue& queue, uint128_t* p_data, TkEleDeviceCollection& tkele);
 
