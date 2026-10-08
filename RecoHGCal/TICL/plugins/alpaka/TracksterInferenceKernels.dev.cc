@@ -7,51 +7,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   namespace {
 
-    struct LayerClusterData {
-      float energy;
-      float x;
-      float y;
-      float z;
-      int32_t layer;
-    };
-
-    template <typename TAcc>
-    ALPAKA_FN_ACC ALPAKA_FN_INLINE void setError(TAcc const& acc,
-                                                  uint32_t* errorMask,
-                                                  TracksterPreprocessingError error) {
-      alpaka::atomicOr(acc, errorMask, static_cast<uint32_t>(error));
-    }
-
-    ALPAKA_FN_ACC ALPAKA_FN_INLINE void readLayerCluster(
-        ::reco::CaloClusterSoAConstView const& collection, uint32_t localIndex, LayerClusterData& result) {
-      result.energy = collection.energy()[localIndex].energy();
-      result.x = collection.position()[localIndex].x();
-      result.y = collection.position()[localIndex].y();
-      result.z = collection.position()[localIndex].z();
-      result.layer = collection.position()[localIndex].layer();
-    }
-
-    ALPAKA_FN_ACC ALPAKA_FN_INLINE bool loadLayerCluster(
-        uint32_t mergedIndex,
-        ::reco::CaloClusterSoAConstView const& layerClustersEE,
-        ::reco::CaloClusterSoAConstView const& layerClustersHSi,
-        ::reco::CaloClusterSoAConstView const& layerClustersHSci,
-        uint32_t nLayerClustersEE,
-        uint32_t nLayerClustersHSi,
-        uint32_t nLayerClustersHSci,
-        LayerClusterData& result) {
-      if (mergedIndex < nLayerClustersEE) {
-        readLayerCluster(layerClustersEE, mergedIndex, result);
-      } else if (mergedIndex < nLayerClustersEE + nLayerClustersHSi) {
-        readLayerCluster(layerClustersHSi, mergedIndex - nLayerClustersEE, result);
-      } else if (mergedIndex < nLayerClustersEE + nLayerClustersHSi + nLayerClustersHSci) {
-        readLayerCluster(layerClustersHSci, mergedIndex - nLayerClustersEE - nLayerClustersHSi, result);
-      } else {
-        return false;
-      }
-      return true;
-    }
-
     // One thread handles one Trackster. The output feature row itself is used
     // as top-k scratch storage, avoiding a 50x10 local array per thread:
     //   energy -> raw LayerCluster energy (sorting key)
@@ -63,34 +18,26 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       ALPAKA_FN_ACC void operator()(
           TAcc const& acc,
           ::ticl::TracksterSoA::ConstView inputTracksters,
-          ::reco::CaloClusterSoAConstView layerClustersEE,
-          ::reco::CaloClusterSoAConstView layerClustersHSi,
-          ::reco::CaloClusterSoAConstView layerClustersHSci,
-          uint32_t nLayerClustersEE,
-          uint32_t nLayerClustersHSi,
-          uint32_t nLayerClustersHSci,
+          LayerClusterEnergyMultiView clusterEnergies,
+          LayerClusterPositionMultiView clusterPositions,
           uint32_t layersPerEndcap,
           float minClusterEnergy,
           uint32_t* selectedTracksters,
           uint32_t* selectedCount,
-          uint32_t* errorMask,
           ::ticl::TracksterInferenceSoA::View features,
-          uint32_t nTracksters,
-          uint32_t nLayerClusters) const {
+          uint32_t nTracksters) const {
         auto const verticesAssociations = inputTracksters.vertices();
         auto const multiplicityAssociations = inputTracksters.multiplicity();
 
         for (auto tracksterIndex : cms::alpakatools::uniform_elements(acc, nTracksters)) {
           if (tracksterIndex >= static_cast<uint32_t>(verticesAssociations.keys()) ||
               tracksterIndex >= static_cast<uint32_t>(multiplicityAssociations.keys())) {
-            setError(acc, errorMask, kMismatchedVerticesAndMultiplicities);
             continue;
           }
 
           auto const vertices = verticesAssociations[tracksterIndex];
           auto const multiplicities = multiplicityAssociations[tracksterIndex];
           if (vertices.size() != multiplicities.size()) {
-            setError(acc, errorMask, kMismatchedVerticesAndMultiplicities);
             continue;
           }
 
@@ -101,21 +48,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           bool valid = true;
           for (uint32_t k = 0; k < vertices.size(); ++k) {
             auto const mergedIndex = vertices[k];
-            LayerClusterData cluster;
-            if (mergedIndex >= nLayerClusters ||
-                !loadLayerCluster(mergedIndex,
-                                  layerClustersEE,
-                                  layerClustersHSi,
-                                  layerClustersHSci,
-                                  nLayerClustersEE,
-                                  nLayerClustersHSi,
-                                  nLayerClustersHSci,
-                                  cluster)) {
-              setError(acc, errorMask, kInvalidLayerClusterIndex);
+            if (mergedIndex >= clusterEnergies.size()) {
               valid = false;
               break;
             }
-            clusterEnergy += cluster.energy;
+            clusterEnergy += clusterEnergies[mergedIndex].energy();
           }
           if (!valid || clusterEnergy < minClusterEnergy) {
             continue;
@@ -134,30 +71,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             auto const mergedIndex = vertices[k];
             auto const multiplicity = multiplicities[k];
             if (multiplicity == 0.f) {
-              setError(acc, errorMask, kZeroMultiplicity);
               continue;
             }
 
-            LayerClusterData cluster;
-            if (!loadLayerCluster(mergedIndex,
-                                  layerClustersEE,
-                                  layerClustersHSi,
-                                  layerClustersHSci,
-                                  nLayerClustersEE,
-                                  nLayerClustersHSi,
-                                  nLayerClustersHSci,
-                                  cluster)) {
-              // This was already checked above, but keep the second pass safe.
-              setError(acc, errorMask, kInvalidLayerClusterIndex);
+            // Indices were validated in the selection pass.
+            auto const clusterPosition = clusterPositions[mergedIndex];
+            auto const clusterEnergyValue = clusterEnergies[mergedIndex].energy();
+            auto const clusterLayer = clusterPosition.layer();
+            if (layersPerEndcap == 0 || clusterLayer < 0 ||
+                static_cast<uint32_t>(clusterLayer) >= 2u * layersPerEndcap) {
               continue;
             }
-
-            if (layersPerEndcap == 0 || cluster.layer < 0 ||
-                static_cast<uint32_t>(cluster.layer) >= 2u * layersPerEndcap) {
-              setError(acc, errorMask, kInvalidLayer);
-              continue;
-            }
-            auto const layer = static_cast<uint32_t>(cluster.layer) % layersPerEndcap;
+            auto const layer = static_cast<uint32_t>(clusterLayer) % layersPerEndcap;
             if (layer >= static_cast<uint32_t>(::ticl::kTracksterCNNLayers)) {
               // Preserve the legacy inference behaviour: geometrically valid
               // layers outside the configured CNN image are ignored.
@@ -171,7 +96,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                     : static_cast<uint32_t>(::ticl::kTracksterCNNClusters);
             uint32_t insertion = stored;
             for (uint32_t slot = 0; slot < stored; ++slot) {
-              if (cluster.energy > feature.energy()(layer, slot)) {
+              if (clusterEnergyValue > feature.energy()(layer, slot)) {
                 insertion = slot;
                 break;
               }
@@ -189,7 +114,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               feature.absEta()(layer, slot) = feature.absEta()(layer, slot - 1);
               feature.phi()(layer, slot) = feature.phi()(layer, slot - 1);
             }
-            feature.energy()(layer, insertion) = cluster.energy;
+            feature.energy()(layer, insertion) = clusterEnergyValue;
             feature.absEta()(layer, insertion) = static_cast<float>(mergedIndex);
             feature.phi()(layer, insertion) = multiplicity;
             if (count < static_cast<uint32_t>(::ticl::kTracksterCNNClusters)) {
@@ -204,34 +129,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               auto const mergedIndex = static_cast<uint32_t>(feature.absEta()(layer, slot));
               auto const multiplicity = feature.phi()(layer, slot);
 
-              LayerClusterData cluster;
-              if (!loadLayerCluster(mergedIndex,
-                                    layerClustersEE,
-                                    layerClustersHSi,
-                                    layerClustersHSci,
-                                    nLayerClustersEE,
-                                    nLayerClustersHSi,
-                                    nLayerClustersHSci,
-                                    cluster)) {
-                setError(acc, errorMask, kInvalidLayerClusterIndex);
-                continue;
-              }
-
-              auto const transverse2 = cluster.x * cluster.x + cluster.y * cluster.y;
+              auto const clusterPosition = clusterPositions[mergedIndex];
+              auto const x = clusterPosition.x();
+              auto const y = clusterPosition.y();
+              auto const z = clusterPosition.z();
+              auto const transverse2 = x * x + y * y;
               if (!(transverse2 > 0.f)) {
-                setError(acc, errorMask, kInvalidLayerClusterIndex);
                 feature.energy()(layer, slot) = 0.f;
                 feature.absEta()(layer, slot) = 0.f;
                 feature.phi()(layer, slot) = 0.f;
                 continue;
               }
               auto const transverse = xtd::sqrt(transverse2);
-              auto const absZ = cluster.z < 0.f ? -cluster.z : cluster.z;
-              auto const magnitude = xtd::sqrt(transverse2 + cluster.z * cluster.z);
+              auto const absZ = z < 0.f ? -z : z;
+              auto const magnitude = xtd::sqrt(transverse2 + z * z);
 
               feature.energy()(layer, slot) = rawEnergy / multiplicity;
               feature.absEta()(layer, slot) = xtd::log((magnitude + absZ) / transverse);
-              feature.phi()(layer, slot) = xtd::atan2(cluster.y, cluster.x);
+              feature.phi()(layer, slot) = xtd::atan2(y, x);
             }
           }
         }
@@ -267,20 +182,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   void fillInputFeatures(
       Queue& queue,
       ::ticl::TracksterSoA::ConstView inputTracksters,
-      ::reco::CaloClusterSoAConstView layerClustersEE,
-      ::reco::CaloClusterSoAConstView layerClustersHSi,
-      ::reco::CaloClusterSoAConstView layerClustersHSci,
-      uint32_t nLayerClustersEE,
-      uint32_t nLayerClustersHSi,
-      uint32_t nLayerClustersHSci,
+      LayerClusterEnergyMultiView clusterEnergies,
+      LayerClusterPositionMultiView clusterPositions,
       uint32_t layersPerEndcap,
       float minClusterEnergy,
       uint32_t* selectedTracksters,
       uint32_t* selectedCount,
-      uint32_t* errorMask,
       ::ticl::TracksterInferenceSoA::View features,
-      uint32_t nTracksters,
-      uint32_t nLayerClusters) {
+      uint32_t nTracksters) {
     if (nTracksters == 0) {
       return;
     }
@@ -291,20 +200,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         workDiv,
                         FillInputFeaturesKernel{},
                         inputTracksters,
-                        layerClustersEE,
-                        layerClustersHSi,
-                        layerClustersHSci,
-                        nLayerClustersEE,
-                        nLayerClustersHSi,
-                        nLayerClustersHSci,
+                        clusterEnergies,
+                        clusterPositions,
                         layersPerEndcap,
                         minClusterEnergy,
                         selectedTracksters,
                         selectedCount,
-                        errorMask,
                         features,
-                        nTracksters,
-                        nLayerClusters);
+                        nTracksters);
   }
 
   void fillPIDProbabilities(

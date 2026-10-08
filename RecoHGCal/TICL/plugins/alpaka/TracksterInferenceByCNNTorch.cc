@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
-#include <iomanip>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -185,11 +184,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto const nLayerClustersEE = checkedSize(layerClustersEEView.metadata().size()[0], "EE LayerClusters");
       auto const nLayerClustersHSi = checkedSize(layerClustersHSiView.metadata().size()[0], "HSi LayerClusters");
       auto const nLayerClustersHSci = checkedSize(layerClustersHSciView.metadata().size()[0], "HSci LayerClusters");
-      auto const nLayerClusters64 = static_cast<std::size_t>(nLayerClustersEE) +
-                                    static_cast<std::size_t>(nLayerClustersHSi) +
-                                    static_cast<std::size_t>(nLayerClustersHSci);
-      auto const nLayerClusters = checkedSize(nLayerClusters64, "all HGCAL LayerClusters");
-
       // Preserve all Trackster fields and association blocks. The final kernel
       // overwrites only the PID columns of selected Tracksters.
       ticl::TracksterDevice outputTracksters(queue, tracksterSizes(inputView));
@@ -206,48 +200,34 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       featuresDevice.zeroInitialise(queue);
       auto selectedTrackstersDevice = cms::alpakatools::make_device_buffer<uint32_t[]>(queue, nTracksters);
       auto selectedCountDevice = cms::alpakatools::make_device_buffer<uint32_t>(queue);
-      auto errorMaskDevice = cms::alpakatools::make_device_buffer<uint32_t>(queue);
       auto selectedCountHost = cms::alpakatools::make_host_buffer<uint32_t>(queue);
-      auto errorMaskHost = cms::alpakatools::make_host_buffer<uint32_t>(queue);
 
       alpaka::memset(queue, selectedCountHost, 0);
-      alpaka::memset(queue, errorMaskHost, 0);
       alpaka::memcpy(queue, selectedCountDevice, selectedCountHost);
-      alpaka::memcpy(queue, errorMaskDevice, errorMaskHost);
+
+      LayerClusterEnergyMultiView clusterEnergies;
+      LayerClusterPositionMultiView clusterPositions;
+      clusterEnergies.addView(layerClustersEE.const_view().energy(), nLayerClustersEE);
+      clusterEnergies.addView(layerClustersHSi.const_view().energy(), nLayerClustersHSi);
+      clusterEnergies.addView(layerClustersHSci.const_view().energy(), nLayerClustersHSci);
+      clusterPositions.addView(layerClustersEE.const_view().position(), nLayerClustersEE);
+      clusterPositions.addView(layerClustersHSi.const_view().position(), nLayerClustersHSi);
+      clusterPositions.addView(layerClustersHSci.const_view().position(), nLayerClustersHSci);
 
       fillInputFeatures(queue,
                         inputView,
-                        layerClustersEEView,
-                        layerClustersHSiView,
-                        layerClustersHSciView,
-                        static_cast<uint32_t>(nLayerClustersEE),
-                        static_cast<uint32_t>(nLayerClustersHSi),
-                        static_cast<uint32_t>(nLayerClustersHSci),
+                        clusterEnergies,
+                        clusterPositions,
                         static_cast<uint32_t>(layersPerEndcap_),
                         minClusterEnergy_,
                         alpaka::getPtrNative(selectedTrackstersDevice),
                         alpaka::getPtrNative(selectedCountDevice),
-                        alpaka::getPtrNative(errorMaskDevice),
                         featuresDevice.view(),
-                        static_cast<uint32_t>(nTracksters),
-                        static_cast<uint32_t>(nLayerClusters));
+                        static_cast<uint32_t>(nTracksters));
 
-      // The compact size is needed on the CPU to construct TensorCollection
-      // batches. This is the only preprocessing readback: two uint32_t values.
+      // Read back only the compact selection count to construct batches.
       alpaka::memcpy(queue, selectedCountHost, selectedCountDevice);
-      alpaka::memcpy(queue, errorMaskHost, errorMaskDevice);
       alpaka::wait(queue);
-
-      auto const errorMask = *alpaka::getPtrNative(errorMaskHost);
-      if (errorMask != kNoPreprocessingError) {
-        throw cms::Exception("TracksterInferenceByCNNTorch")
-            << "Device preprocessing failed with error mask 0x" << std::hex << errorMask << std::dec
-            << " (invalid LC index=" << bool(errorMask & kInvalidLayerClusterIndex)
-            << ", vertices/multiplicities mismatch="
-            << bool(errorMask & kMismatchedVerticesAndMultiplicities)
-            << ", zero multiplicity=" << bool(errorMask & kZeroMultiplicity)
-            << ", invalid layer=" << bool(errorMask & kInvalidLayer) << ").";
-      }
 
       auto const total = checkedSize(*alpaka::getPtrNative(selectedCountHost), "selected Tracksters");
       if (total == 0) {
