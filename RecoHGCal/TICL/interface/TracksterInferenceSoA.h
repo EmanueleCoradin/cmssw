@@ -13,19 +13,19 @@ namespace ticl {
   using TracksterCNNImage = Eigen::Matrix<float, kTracksterCNNLayers, kTracksterCNNClusters, Eigen::ColMajor>;
 
   GENERATE_SOA_LAYOUT(TracksterInferenceFeaturesLayout,
-      SOA_EIGEN_COLUMN(TracksterCNNImage, energy),
-      SOA_EIGEN_COLUMN(TracksterCNNImage, absEta),
-      SOA_EIGEN_COLUMN(TracksterCNNImage, phi))
-  
+                      SOA_EIGEN_COLUMN(TracksterCNNImage, energy),
+                      SOA_EIGEN_COLUMN(TracksterCNNImage, absEta),
+                      SOA_EIGEN_COLUMN(TracksterCNNImage, phi))
+
   GENERATE_SOA_LAYOUT(TracksterInferencePIDScoresLayout,
-      SOA_COLUMN(float, id_probabilities0),
-      SOA_COLUMN(float, id_probabilities1),
-      SOA_COLUMN(float, id_probabilities2),
-      SOA_COLUMN(float, id_probabilities3),
-      SOA_COLUMN(float, id_probabilities4),
-      SOA_COLUMN(float, id_probabilities5),
-      SOA_COLUMN(float, id_probabilities6),
-      SOA_COLUMN(float, id_probabilities7))
+                      SOA_COLUMN(float, id_probabilities0),
+                      SOA_COLUMN(float, id_probabilities1),
+                      SOA_COLUMN(float, id_probabilities2),
+                      SOA_COLUMN(float, id_probabilities3),
+                      SOA_COLUMN(float, id_probabilities4),
+                      SOA_COLUMN(float, id_probabilities5),
+                      SOA_COLUMN(float, id_probabilities6),
+                      SOA_COLUMN(float, id_probabilities7))
 
   using TracksterInferenceSoA = TracksterInferenceFeaturesLayout<>;
   using TracksterInferencePIDScoresSoA = TracksterInferencePIDScoresLayout<>;

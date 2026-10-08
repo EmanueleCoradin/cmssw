@@ -73,8 +73,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               checkedSize(view.tracksterGsfTrack().keys(), "GSF-track keys"),
               checkedSize(view.tracksterGsfTrack().content().metadata().size(), "GSF-track content"),
               checkedSize(view.globalSeedingTracks().keys(), "global-seeding-track keys"),
-              checkedSize(view.globalSeedingTracks().content().metadata().size(),
-                          "global-seeding-track content")};
+              checkedSize(view.globalSeedingTracks().content().metadata().size(), "global-seeding-track content")};
     }
 
   }  // namespace
@@ -89,8 +88,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               edm::ESInputTag("", doBarrel_ ? "withBarrel" : ""))},
           ticlGeomLookupToken_{esConsumes<TICLGeomLookupHost, CaloGeometryRecord, edm::Transition::BeginRun>(
               edm::ESInputTag("", doBarrel_ ? "withBarrel" : ""))},
-          ticlGeomLayersToken_{esConsumes<TICLGeomLayersHost, CaloGeometryRecord, edm::Transition::BeginRun>(
-              edm::ESInputTag("", ""))},
+          ticlGeomLayersToken_{
+              esConsumes<TICLGeomLayersHost, CaloGeometryRecord, edm::Transition::BeginRun>(edm::ESInputTag("", ""))},
           trackstersToken_{consumes(config.getParameter<edm::InputTag>("tracksters"))},
           model_{config.getParameter<edm::FileInPath>("model").fullPath()},
           minClusterEnergy_{static_cast<float>(config.getParameter<double>("minClusterEnergy"))},
@@ -121,11 +120,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       edm::ParameterSetDescription description;
       description.add<std::string>("detector", "HGCAL");
       description.add<edm::InputTag>("tracksters", edm::InputTag("ticlTrackstersToSoAProducer"));
-      description.add<std::vector<edm::InputTag>>(
-          "layerClusters",
-          {edm::InputTag("hgcalSoALayerClustersEE"),
-           edm::InputTag("hgcalSoALayerClustersHSi"),
-           edm::InputTag("hgcalSoALayerClustersHSci")});
+      description.add<std::vector<edm::InputTag>>("layerClusters",
+                                                  {edm::InputTag("hgcalSoALayerClustersEE"),
+                                                   edm::InputTag("hgcalSoALayerClustersHSi"),
+                                                   edm::InputTag("hgcalSoALayerClustersHSci")});
       description.add<edm::FileInPath>("model");
       description.add<double>("minClusterEnergy", 1.0);
       description.add<int>("batchSize", 64);
@@ -165,7 +163,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                             scoreRecords.id_probabilities6(),
                                                             scoreRecords.id_probabilities7());
         forward(queue, inputs, outputs);
-        alpaka::wait(queue);
       }
     }
 
@@ -251,11 +248,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         batches.emplace_back(BatchIO{cms::torch::alpakatools::TensorCollection<Queue>(batchSize_, total),
                                      cms::torch::alpakatools::TensorCollection<Queue>(batchSize_, total)});
         auto& batch = batches.back();
-        batch.inputs.add<::ticl::TracksterInferenceSoA>("input",
-                                                         batchIndex,
-                                                         featureRecords.energy(),
-                                                         featureRecords.absEta(),
-                                                         featureRecords.phi());
+        batch.inputs.add<::ticl::TracksterInferenceSoA>(
+            "input", batchIndex, featureRecords.energy(), featureRecords.absEta(), featureRecords.phi());
         batch.outputs.add<::ticl::TracksterInferencePIDScoresSoA>("pid_output",
                                                                   batchIndex,
                                                                   scoreRecords.id_probabilities0(),
@@ -277,7 +271,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Keep temporary TensorCollections and all backing device allocations
       // alive until inference and scatter complete.
-      alpaka::wait(queue);
       event.emplace(trackstersOutToken_, std::move(outputTracksters));
     }
 

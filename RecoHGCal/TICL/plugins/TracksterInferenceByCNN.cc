@@ -119,10 +119,9 @@ namespace ticl {
 
       ortScratch.outputs.clear();
       {
-      CMS_PERFETTO_SCOPE("ONNX CNN runInto");
-      onnxSession_->runInto(
-          inputNames_, ortScratch.inputs, ortScratch.input_shapes, outputNames_, ortScratch.outputs, {}, n);
-
+        CMS_PERFETTO_SCOPE("ONNX CNN runInto");
+        onnxSession_->runInto(
+            inputNames_, ortScratch.inputs, ortScratch.input_shapes, outputNames_, ortScratch.outputs, {}, n);
       }
       if (!ortScratch.outputs.empty() && !outputNames_.empty()) {
         float* probs = ortScratch.outputs[0].data();

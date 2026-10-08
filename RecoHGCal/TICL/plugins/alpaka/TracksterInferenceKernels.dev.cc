@@ -15,17 +15,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // A final pass converts those temporary values into the CNN features.
     struct FillInputFeaturesKernel {
       template <typename TAcc>
-      ALPAKA_FN_ACC void operator()(
-          TAcc const& acc,
-          ::ticl::TracksterSoA::ConstView inputTracksters,
-          LayerClusterEnergyMultiView clusterEnergies,
-          LayerClusterPositionMultiView clusterPositions,
-          uint32_t layersPerEndcap,
-          float minClusterEnergy,
-          uint32_t* selectedTracksters,
-          uint32_t* selectedCount,
-          ::ticl::TracksterInferenceSoA::View features,
-          uint32_t nTracksters) const {
+      ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                    ::ticl::TracksterSoA::ConstView inputTracksters,
+                                    LayerClusterEnergyMultiView clusterEnergies,
+                                    LayerClusterPositionMultiView clusterPositions,
+                                    uint32_t layersPerEndcap,
+                                    float minClusterEnergy,
+                                    uint32_t* selectedTracksters,
+                                    uint32_t* selectedCount,
+                                    ::ticl::TracksterInferenceSoA::View features,
+                                    uint32_t nTracksters) const {
         auto const verticesAssociations = inputTracksters.vertices();
         auto const multiplicityAssociations = inputTracksters.multiplicity();
 
@@ -48,7 +47,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           bool valid = true;
           for (uint32_t k = 0; k < vertices.size(); ++k) {
             auto const mergedIndex = vertices[k];
-            if (mergedIndex >= clusterEnergies.size()) {
+            if (mergedIndex >= static_cast<uint32_t>(clusterEnergies.size())) {
               valid = false;
               break;
             }
@@ -90,10 +89,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             }
 
             auto const count = static_cast<uint32_t>(seenClusters[layer]);
-            auto const stored =
-                count < static_cast<uint32_t>(::ticl::kTracksterCNNClusters)
-                    ? count
-                    : static_cast<uint32_t>(::ticl::kTracksterCNNClusters);
+            auto const stored = count < static_cast<uint32_t>(::ticl::kTracksterCNNClusters)
+                                    ? count
+                                    : static_cast<uint32_t>(::ticl::kTracksterCNNClusters);
             uint32_t insertion = stored;
             for (uint32_t slot = 0; slot < stored; ++slot) {
               if (clusterEnergyValue > feature.energy()(layer, slot)) {
@@ -105,10 +103,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               continue;
             }
 
-            auto const last =
-                stored < static_cast<uint32_t>(::ticl::kTracksterCNNClusters)
-                    ? stored
-                    : static_cast<uint32_t>(::ticl::kTracksterCNNClusters - 1);
+            auto const last = stored < static_cast<uint32_t>(::ticl::kTracksterCNNClusters)
+                                  ? stored
+                                  : static_cast<uint32_t>(::ticl::kTracksterCNNClusters - 1);
             for (uint32_t slot = last; slot > insertion; --slot) {
               feature.energy()(layer, slot) = feature.energy()(layer, slot - 1);
               feature.absEta()(layer, slot) = feature.absEta()(layer, slot - 1);
@@ -155,12 +152,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     struct FillPIDProbabilitiesKernel {
       template <typename TAcc>
-      ALPAKA_FN_ACC void operator()(
-          TAcc const& acc,
-          uint32_t const* selectedTracksters,
-          ticl::TracksterInferencePIDScoresSoA::ConstView scores,
-          ticl::TracksterSoA::View outputTracksters,
-          int32_t total) const {
+      ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                    uint32_t const* selectedTracksters,
+                                    ticl::TracksterInferencePIDScoresSoA::ConstView scores,
+                                    ticl::TracksterSoA::View outputTracksters,
+                                    int32_t total) const {
         for (auto row : cms::alpakatools::uniform_elements(acc, total)) {
           auto const source = scores[row];
           auto destination = outputTracksters.tracksters()[selectedTracksters[row]];
@@ -179,17 +175,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   }  // namespace
 
-  void fillInputFeatures(
-      Queue& queue,
-      ::ticl::TracksterSoA::ConstView inputTracksters,
-      LayerClusterEnergyMultiView clusterEnergies,
-      LayerClusterPositionMultiView clusterPositions,
-      uint32_t layersPerEndcap,
-      float minClusterEnergy,
-      uint32_t* selectedTracksters,
-      uint32_t* selectedCount,
-      ::ticl::TracksterInferenceSoA::View features,
-      uint32_t nTracksters) {
+  void fillInputFeatures(Queue& queue,
+                         ::ticl::TracksterSoA::ConstView inputTracksters,
+                         LayerClusterEnergyMultiView clusterEnergies,
+                         LayerClusterPositionMultiView clusterPositions,
+                         uint32_t layersPerEndcap,
+                         float minClusterEnergy,
+                         uint32_t* selectedTracksters,
+                         uint32_t* selectedCount,
+                         ::ticl::TracksterInferenceSoA::View features,
+                         uint32_t nTracksters) {
     if (nTracksters == 0) {
       return;
     }
@@ -210,26 +205,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         nTracksters);
   }
 
-  void fillPIDProbabilities(
-      Queue& queue,
-      uint32_t const* selectedTracksters,
-      ticl::TracksterInferencePIDScoresSoA::ConstView scores,
-      ticl::TracksterSoA::View outputTracksters,
-      int32_t total) {
+  void fillPIDProbabilities(Queue& queue,
+                            uint32_t const* selectedTracksters,
+                            ticl::TracksterInferencePIDScoresSoA::ConstView scores,
+                            ticl::TracksterSoA::View outputTracksters,
+                            int32_t total) {
     constexpr uint32_t elementsPerBlock = 256;
-    auto const blocks =
-        (static_cast<uint32_t>(total) + elementsPerBlock - 1) / elementsPerBlock;
-    auto const workDiv =
-        cms::alpakatools::make_workdiv<Acc1D>(blocks, elementsPerBlock);
+    auto const blocks = (static_cast<uint32_t>(total) + elementsPerBlock - 1) / elementsPerBlock;
+    auto const workDiv = cms::alpakatools::make_workdiv<Acc1D>(blocks, elementsPerBlock);
 
     alpaka::exec<Acc1D>(
-        queue,
-        workDiv,
-        FillPIDProbabilitiesKernel{},
-        selectedTracksters,
-        scores,
-        outputTracksters,
-        total);
+        queue, workDiv, FillPIDProbabilitiesKernel{}, selectedTracksters, scores, outputTracksters, total);
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
