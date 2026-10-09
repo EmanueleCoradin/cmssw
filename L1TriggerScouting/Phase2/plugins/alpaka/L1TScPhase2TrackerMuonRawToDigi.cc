@@ -206,6 +206,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     for (uint32_t s = 0; s < nslices_; ++s)
       slices[s].bx_row = row_of_slot_[slices[s].bx_row];
 
+    // compact the rows regions: the counts region is written at a fixed kMaxNBX stride,
+    // close the gap so the H2D transfer below ships the used entries contiguously
+    if (nbx_ > 0)
+      std::memmove(bx_col + nbx_, cnt_col, nbx_ * sizeof(uint32_t));
+
     // ---- allocate products --------------------------------------------------------------
     auto muons = TrackerMuonDeviceCollection(queue, tot_muons_);
     auto lookup = BxLookupDevice(queue, nbx_, nbx_ + 1);

@@ -160,6 +160,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       for (uint32_t s = 0; s < nslices_tkele_; ++s)
         slices_tkele[s].bx_row = row_of_slot_[slices_tkele[s].bx_row];
 
+      // compact the rows regions: the counts columns are written at fixed kMaxNBX strides,
+      // close the gaps so the H2D transfer below ships the used entries contiguously
+      if (nbx_ > 0) {
+        std::memmove(bx_col + nbx_, cnt_tkem, nbx_ * sizeof(uint32_t));
+        std::memmove(bx_col + 2 * nbx_, cnt_tkele, nbx_ * sizeof(uint32_t));
+      }
+
       // ---- allocate products ----------------------------------------------------------
       auto tkem_lookup = BxLookupDevice(queue, nbx_, nbx_ + 1);
       auto tkele_lookup = BxLookupDevice(queue, nbx_, nbx_ + 1);

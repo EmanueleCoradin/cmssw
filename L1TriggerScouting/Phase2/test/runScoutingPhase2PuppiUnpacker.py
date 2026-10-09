@@ -71,7 +71,7 @@ elif options.unpackerType == "alpaka":
             *list(range(options.buNumStreams[0])) # here we assume that buNumStreams[0] corresponds to the number of streams of PF candidates
             if options.pfBarrelStreamIDs == [] else options.pfBarrelStreamIDs + options.pfEndcapStreamIDs
         ),
-        splitFactor = cms.uint32(1)
+        splitFactor = cms.uint32(2)
     )
 
 elif options.unpackerType == "alpaka-v2":
@@ -84,7 +84,7 @@ elif options.unpackerType == "alpaka-v2":
             *list(range(options.buNumStreams[0])) # here we assume that buNumStreams[0] corresponds to the number of streams of PF candidates
             if options.pfBarrelStreamIDs == [] else options.pfBarrelStreamIDs + options.pfEndcapStreamIDs
         ),
-        splitFactor = cms.uint32(1)
+        splitFactor = cms.uint32(2)
     )
 
 process.p_unpacking += process.unpacker

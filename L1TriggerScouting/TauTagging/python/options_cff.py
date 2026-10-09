@@ -45,7 +45,7 @@ options.register ("synchronize",
 )
 
 options.register ("reportEvery",
-    10, 
+    100, 
     VarParsing.VarParsing.multiplicity.singleton,
     VarParsing.VarParsing.varType.int, 
     "Print message after the specified number of events (proper events in this case)"

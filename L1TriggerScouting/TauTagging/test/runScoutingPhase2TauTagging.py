@@ -66,7 +66,7 @@ stream file for PF barrel and one stream file for PF endcap. Hence:
   convenient to then automatically generate the range of stream IDs directly from it. This is convenient also if PF barrel and PF
   endcap are going to be split among multiple streams in the same buBaseDir.
 """
-process.unpacker = cms.EDProducer("l1sc::L1TScPhase2PuppiRawToDigi@alpaka",
+process.unpacker = cms.EDProducer("l1sc::L1TScPhase2PuppiRawToDigiV2@alpaka",
     alpaka = cms.untracked.PSet(
         backend = cms.untracked.string(options.backend)
     ),
@@ -75,19 +75,9 @@ process.unpacker = cms.EDProducer("l1sc::L1TScPhase2PuppiRawToDigi@alpaka",
         *list(range(options.buNumStreams[0])) # here we assume that buNumStreams[0] corresponds to the number of streams of PF candidates
         if options.pfBarrelStreamIDs == [] else options.pfBarrelStreamIDs + options.pfEndcapStreamIDs
     ),
-    splitFactor = cms.uint32(options.splitFactor)
-)
-process.p_pipeline += process.unpacker
-
-process.unpackerLegacy = cms.EDProducer("ScPhase2PuppiRawToDigi", 
-    src = cms.InputTag("rawDataCollector"),
-    fedIDs = cms.vuint32(
-        *list(range(options.buNumStreams[0])) # here we assume that buNumStreams[0] corresponds to the number of streams of PF candidates
-        if options.pfBarrelStreamIDs == [] else options.pfBarrelStreamIDs + options.pfEndcapStreamIDs
-    ), 
     splitFactor = cms.uint32(2)
 )
-process.p_pipeline += process.unpackerLegacy
+process.p_pipeline += process.unpacker
 
 # clustering
 process.load(
@@ -126,11 +116,6 @@ process.candOrbitTable = cms.EDProducer("PFCandidateSoAToOrbitFlatTable",
     srcCandidates = cms.InputTag("unpacker", "candidates"), 
     name = cms.string("L1PF")
 )
-process.candOrbitTableLegacy = cms.EDProducer("ScPuppiToOrbitFlatTable", 
-    src = cms.InputTag("unpackerLegacy"), 
-    name = cms.string("L1PF_legacy"), 
-    doc = cms.string("")
-)
 process.clusterOrbitTable = cms.EDProducer("ClusterSoAToOrbitFlatTable", 
     srcBx = cms.InputTag("unpacker", "bxLookup"), 
     srcClusters = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clusters"), 
@@ -151,7 +136,6 @@ process.softTauOutputsOrbitTable = cms.EDProducer("SoftTauOutputTensorToOrbitFla
 
 if "candidates" in dump:
     process.p_tables += process.candOrbitTable
-    process.p_tables += process.candOrbitTableLegacy
     if "cluster_indexes" in dump:
         process.p_tables += process.clusterOrbitTable
 
@@ -163,7 +147,7 @@ if "soft_tau_outputs" in dump:
 
 # output
 process.out = cms.OutputModule("OrbitNanoAODOutputModule",
-    fileName = cms.untracked.string("softTauOrbitNano-L1PF_17_0_X_on_pre2-17_0_X.root"),
+    fileName = cms.untracked.string("softTauOrbitNano-L1PF_17_0_X_on_pre2-17_0_X-new-unpacker.root"),
     SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring()),
     outputCommands = cms.untracked.vstring("drop *", "keep l1ScoutingRun3OrbitFlatTable_*_*_*"),
 )

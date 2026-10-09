@@ -1,14 +1,14 @@
 #!/bin/bash
 # to streamline debugging and testing of SoftTauTagging
-# usage: bash L1TriggerScouting/TauTagging/test/runScoutingPhase2TauTagging.sh <backend> <num_events> <run_number>
-# example usage: bash L1TriggerScouting/Phase2/test/runScoutingPhase2HeterogeneousW3Pi.sh cuda 10 37
+# usage: bash L1TriggerScouting/TauTagging/test/runScoutingPhase2TauTagging.sh <backend(-dump)> <num_events> <run_number> <step>
+# example usage: bash L1TriggerScouting/Phase2/test/runScoutingPhase2TauTagging.sh cuda 10 40 clustering
 function die { echo Failed $1: status $2 ; exit $2 ; }
 
 SCRIPT="L1TriggerScouting/TauTagging/test/runScoutingPhase2TauTagging.py"
 DATA="/mnt/ramdisk/gizago/raw"
 
 if [ "$#" != "4" ]; then
-    die "Need exactly 3 arguments: 1st ('cpu', 'cuda', or 'rocm'), 2nd ('num_events'), 3rd ('run_number'), 4th ('unpacking', 'clustering', 'sorting', 'reshaping', 'tagging') got $#" 1
+    die "Need exactly 4 arguments: 1st ('cpu', 'cuda', or 'rocm'), 2nd ('num_events'), 3rd ('run_number'), 4th ('unpacking', 'clustering', 'sorting', 'reshaping', 'tagging') got $#" 1
 fi
 if [[ "$1" =~ ^(cpu|cpu-dump|cuda|cuda-dump|rocm)$ ]]; then
     TARGET=$1

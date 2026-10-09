@@ -61,8 +61,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     static constexpr uint32_t kSliceU32 = sizeof(kernels::RawSlice) / sizeof(uint32_t);
 
     void reset() {
-      slot_of_bx_.fill(-1);
-      nslots_ = 0;
+      fill_bx_.fill(0u);
+      slices_bx_.fill(0u);
       nbx_ = 0;
       ngoodbx_ = 0;
       nslices_ = 0;
@@ -83,12 +83,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     const uint32_t splitFactor_;
 
     // per-event bookkeeping, reused across events
-    std::array<int32_t, kMaxNBX> slot_of_bx_;    // bx number -> slot of the event (-1 if absent)
-    std::array<uint32_t, kMaxNBX> fill_slot_;    // candidates appended so far per slot (== total at the end)
-    std::array<uint32_t, kMaxNBX> slices_slot_;  // number of slices merged so far per slot
-    std::array<uint32_t, kMaxNBX> row_of_slot_;  // slot -> bx lookup row
+    std::array<uint32_t, kMaxNBX> fill_bx_;    // candidates appended so far per bx (== total at the end)
+    std::array<uint32_t, kMaxNBX> slices_bx_;  // number of slices merged so far per bx
 
-    uint32_t nslots_, nbx_, ngoodbx_, nslices_;
+    uint32_t nbx_, ngoodbx_, nslices_;
     count_t tot_cands_;
     size_t words_used_;
 
@@ -104,7 +102,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     size_t words_ub = 0;
     for (auto stream_id : streams_)
       words_ub += raw_data.FEDData(stream_id).size() / sizeof(data_t);
-    const uint32_t slices_ub = static_cast<uint32_t>(words_ub / 2) + 1;  // a block holds at least 1 payload word
+    const uint32_t slices_ub = static_cast<uint32_t>(words_ub / 2) + 1;  // assume that a block holds at least 1 payload word
 
     // ---- pinned staging buffers ----------------------------------------------------------
     // words: full streams verbatim (headers included), concatenated per stream.
@@ -114,8 +112,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         queue, kSliceU32 * slices_ub + 2 * kMaxNBX);
     const uint32_t rows_offset = kSliceU32 * slices_ub;
     auto* slices = reinterpret_cast<kernels::RawSlice*>(h_meta.data());
-    uint32_t* bx_col = h_meta.data() + rows_offset;
-    uint32_t* cnt_col = bx_col + kMaxNBX;
 
     // ---- single-pass parse (slices + counts; word offsets into the verbatim copy) ---------
     reset();
@@ -132,33 +128,49 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         const data_t* block_header = ptr;
         const data_t header = *ptr++;
         if (header == 0)
-          continue;  // skip empty words
+          continue;  // skip empty words, this should be managed more carefully
         const uint32_t bx = (header >> 12) & 0xfff; // pay attention that the encoded value has [0, 3563] range, not [1, 3564]!
         const uint32_t nwords = header & 0xfff;
         const uint64_t orbit = (header >> 24) & 0xfffffffffULL;
-        if (orbit != event.id().event() || bx >= kMaxNBX || static_cast<size_t>(end - ptr) < nwords)
+        if (orbit != event.id().event() || bx < 0u || bx >= kMaxNBX || static_cast<size_t>(end - ptr) < nwords)
           throw cms::Exception("CorruptData")
               << "Invalid puppi block in stream " << stream_id << ", BX " << bx << ", orbit " << orbit << "\n";
 
-        int32_t slot = slot_of_bx_[bx];
-        if (slot < 0) { // the slot is a redundant index that allows to take into account also situations in which the order in which bxs are packed inside the raw data stream is scattered (e.g., BX 12 is before BX 0)
-          slot = nslots_++;
-          slot_of_bx_[bx] = slot;
-          fill_slot_[slot] = 0;
-          slices_slot_[slot] = 0;
+        // start tracking new BX
+        if (slices_bx_[bx] == 0u) {
+          ++nbx_;
         }
         
         slices[nslices_++] = kernels::RawSlice{static_cast<uint32_t>(words_base + (block_header - chunk_begin)) + 1, // one candidate per payload word, word_offset points at the payload start inside the verbatim stream copy
-                                               static_cast<uint32_t>(slot), // bx redundant index
-                                               fill_slot_[slot], // here we use the non-updated value beacause this field is a within-bx offset
+                                               bx,
+                                               fill_bx_[bx], // here we use the non-updated value beacause this field is a within-bx offset
                                                nwords}; // number of words belonging to this slice
-        fill_slot_[slot] += nwords;
-        ++slices_slot_[slot];
+
+        ++slices_bx_[bx];
+        fill_bx_[bx] += nwords;
         tot_cands_ += nwords;
 
+        // count number of good BXs
+        if (slices_bx_[bx] == splitFactor_) {
+          ++ngoodbx_;
+        }
+
+        // check on number of slices per BX
+        if (slices_bx_[bx] > splitFactor_) {
+          throw cms::Exception("CorruptData") 
+              << "Found more BX slices than expected for BX " << bx << ": expected " << splitFactor_ << ", got " << slices_bx_[bx] << "\n";
+        }
+        
+        // advance to the next BX header
         ptr += nwords;
       }
       words_base += stream.size() / sizeof(data_t);
+    }
+
+    // check on total number of BX
+    if (nbx_ != kMaxNBX) {
+      throw cms::Exception("CorruptData") 
+              << "Found only " << nbx_ << " in the current orbit, expected " << kMaxNBX << "\n";
     }
 
     // ---- one bulk copy per stream into the pinned staging buffer --------------------------
@@ -173,23 +185,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       words_used_ = words_base_copy;
     }
 
-    // ---- finalize bx rows (ascending bx for free, buckets are indexed by bx) ----------
-    // here the bx ordering is recovered
-    for (bx_t bx = 0; bx < kMaxNBX; ++bx) {
-      const int32_t slot = slot_of_bx_[bx];
-      if (slot < 0)
-        continue;
-      bx_col[nbx_] = bx;
-      cnt_col[nbx_] = fill_slot_[slot];
-      row_of_slot_[slot] = nbx_;
-      if (slices_slot_[slot] == splitFactor_)
-        ++ngoodbx_;
-      ++nbx_;
+    // fill the rows regions of the pinned buffer (bx values and per-bx candidate counts);
+    // rows are indexed by the bx value itself, the full orbit is present (checked above)
+    {
+      uint32_t* bx_col = h_meta.data() + rows_offset;
+      uint32_t* cnt_col = bx_col + nbx_;
+      for (uint32_t bx = 0; bx < nbx_; ++bx) {
+        bx_col[bx] = bx;
+        cnt_col[bx] = fill_bx_[bx];
+      }
     }
-
-    // map slice bucket index -> bx lookup row
-    for (uint32_t s = 0; s < nslices_; ++s)
-      slices[s].bx_row = row_of_slot_[slices[s].bx_row /* convert the slot into the corresponding bx */];
 
     // ---- allocate products --------------------------------------------------------------
     auto puppi = PuppiDeviceCollection(queue, tot_cands_);
@@ -207,15 +212,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
                      alpaka::createView(alpaka::getDev(queue), d_words.data(), Vec1D{static_cast<Idx>(words_used_)}),
                      alpaka::createView(cms::alpakatools::host(), h_words.data(), Vec1D{static_cast<Idx>(words_used_)}));
       const uint32_t slices_u32 = kSliceU32 * nslices_;
+      // copy the slices first
       alpaka::memcpy(queue,
                      alpaka::createView(alpaka::getDev(queue), d_meta.data(), Vec1D{slices_u32}),
                      alpaka::createView(cms::alpakatools::host(), h_meta.data(), Vec1D{slices_u32}));
+      // then copy the bx indexes and the bx object counts
       alpaka::memcpy(queue,
                      alpaka::createView(alpaka::getDev(queue), d_meta.data() + rows_offset, Vec1D{2 * nbx_}),
                      alpaka::createView(cms::alpakatools::host(), h_meta.data() + rows_offset, Vec1D{2 * nbx_}));
-
+      
+      // retrieve device pointer to bx index
       uint32_t* bx_col_d = d_meta.data() + rows_offset;
+      
+      // retrieve device pointer to bx object counts 
       uint32_t* cnt_col_d = bx_col_d + nbx_;
+
+      // initialize pointer to device-side raw slices
       const auto* slices_d = reinterpret_cast<const kernels::RawSlice*>(d_meta.data());
 
       // ---- bx lookups computed on device ---------------------------------------------------
