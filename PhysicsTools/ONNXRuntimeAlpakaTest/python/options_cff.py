@@ -15,6 +15,17 @@ def parse_args():
     parser.add_argument("-bs", "--batchSize", type=int, default=32, help="Size of the mini-batches")
     parser.add_argument("-o", "--only", nargs="+", default=MODELS, choices=MODELS,
                         help="Run selected test(s). Default: all modules run in parallel.")
+    parser.add_argument("--featureMajor", action="store_true",
+                        help="Also run SimpleNet with Layout::FeatureMajor (zero-copy, transposed model)")
     parser.add_argument("-ws", "--wantSummary", action="store_true", help="Modules execution summary")
+
+    parser.add_argument("--perfetto", action="store_true",
+                        help="Enable Perfetto tracing of the model inference")
+    parser.add_argument("--perfettoFile", type=str, default="onnxruntime_alpaka_test.pftrace",
+                        help="Output Perfetto trace file")
+    parser.add_argument("--perfettoTraceGpuKernels", action="store_true",
+                        help="Record CUDA kernels via CUPTI (requires --perfetto and a CUDA backend)")
+    parser.add_argument("--perfettoTraceAllocations", action="store_true",
+                        help="Record the alpaka caching-allocator transactions (requires --perfetto)")
 
     return parser.parse_args()

@@ -28,6 +28,15 @@ process.source = cms.Source("EmptySource")
 process.MessageLogger.cerr.FwkReport.reportEvery = 100
 process.options.wantSummary = args.wantSummary
 
+# Perfetto tracing
+if args.perfetto:
+    from PerfTools.Perfetto.customisePerfetto import customisePerfetto
+    customisePerfetto(process,
+                      fileName=args.perfettoFile,
+                      traceFunctions=True,
+                      traceGpuKernels=args.perfettoTraceGpuKernels,
+                      traceAllocations=args.perfettoTraceAllocations)
+
 # setup chain configs
 process.path = cms.Path()
 # data provider
@@ -41,36 +50,26 @@ process.DataSource = torchtest_DataSource_alpaka(
 process.path += process.DataSource
 # --only SimpleNet
 if "SimpleNet" in args.only:
-    from PhysicsTools.PyTorchAlpakaTest.modules import torchtest_SimpleNet_alpaka, torchtest_SimpleNetMiniBatch_alpaka
+    from PhysicsTools.PyTorchAlpakaTest.modules import torchtest_SimpleNet_alpaka
     process.SimpleNet = torchtest_SimpleNet_alpaka(
         model = cms.FileInPath(args.simpleNet),
         convertToFP16 = cms.bool(False),
         particles = 'DataSource',
         alpaka = cms.untracked.PSet(
-            backend = cms.untracked.string("serial_sync")  # force serial backend to emulate heterogeneous pipeline
+            backend = cms.untracked.string(args.backend)
         ),
         environment = cms.untracked.int32(args.environment)
     )
     process.path += process.SimpleNet
 
-    process.SimpleNetRuntineFP16 = torchtest_SimpleNet_alpaka(
-        model = cms.FileInPath(args.simpleNet),
-        convertToFP16 = cms.bool(True),
-        particles = 'DataSource',
-        alpaka = cms.untracked.PSet(
-            backend = cms.untracked.string("serial_sync")  # force serial backend to emulate heterogeneous pipeline
-        ),
-        environment = cms.untracked.int32(args.environment)
-    )
-    process.path += process.SimpleNetRuntineFP16
-    
     if "SimpleNetMiniBatch" in args.only:
+        from PhysicsTools.PyTorchAlpakaTest.modules import torchtest_SimpleNetMiniBatch_alpaka
         process.SimpleNetMiniBatch = torchtest_SimpleNetMiniBatch_alpaka(
             model = cms.FileInPath(args.simpleNet),
             batchSize = cms.int32(args.batchSize),
             particles = 'DataSource',
             alpaka = cms.untracked.PSet(
-                backend = cms.untracked.string("serial_sync")
+                backend = cms.untracked.string(args.backend)
             ),
             environment = cms.untracked.int32(args.environment)
         )
@@ -129,7 +128,7 @@ process.InspectionSink = torchtest_InspectionSink(
     particles = 'DataSource',
     simple_net = 'SimpleNet',
     simple_net_minibatch = 'SimpleNetMiniBatch',
-    simple_net_runtimeFP16 = 'SimpleNetRuntineFP16',
+    simple_net_runtimeFP16 = 'SimpleNet',
     masked_net = 'MaskedNet',
     multi_head_net = 'MultiHeadNet',
     images = 'DataSource',

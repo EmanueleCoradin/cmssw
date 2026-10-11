@@ -51,6 +51,10 @@
   <use name="PhysicsTools/PyTorchAlpaka"/>
   <use name="pytorch-cuda" for="alpaka/cuda"/>
   <use name="pytorch-rocm" for="alpaka/rocm"/>
+  <use name="onnxruntime"/>
+  <use name="PhysicsTools/ONNXRuntime"/>
+  <use name="PhysicsTools/ONNXRuntimeAlpaka"/>
+  <use name="PerfTools/Perfetto"/>
   <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
   <flags remove="1">ofast-flag</flags>

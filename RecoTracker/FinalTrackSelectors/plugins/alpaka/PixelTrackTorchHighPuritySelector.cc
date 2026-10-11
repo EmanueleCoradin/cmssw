@@ -74,6 +74,8 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
+
 // #define PIXEL_TRACK_HP_DEBUG
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
@@ -168,7 +170,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       dummy_outputs.add<PixelTrackScoresSoA>("track_scores", score_record.score());
 
-      model_.forward(queue, dummy_inputs, dummy_outputs, ::torch::kHalf);
+      model_.forward(queue, dummy_inputs, dummy_outputs, ::torch::kFloat);
     }
   }
 
@@ -181,6 +183,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       4. Score-based filtering
       5. Track compaction and output production
 */
+    CMS_PERFETTO_SCOPE("PixelTrackTorchHighPuritySelector");
     // Retrieve tokens
     auto& queue = iEvent.queue();
     const auto& tracks = iEvent.get(pixelTrackToken_).view();
@@ -229,7 +232,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // 1. CA-based preselection of tracks
     //  Launch first kernel to look which tracks need to be filtered out
     //  based on quality criteria from the CA
-
+    {
+    CMS_PERFETTO_SCOPE("CA-Preselection");
     launchCAPreselection(queue,
                          maxNumberOfTracks_,
                          minNumberOfHits_,
@@ -238,12 +242,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                          alpaka::getPtrNative(d_preselectedTrackIndices),
                          alpaka::getPtrNative(d_preselectionOffsets),
                          alpaka::getPtrNative(d_nPreselectedTracks));
-
+    }
 #ifdef PIXEL_TRACK_HP_DEBUG
     nPreselectedTracks = fetchNumPreselectedTracks();
     std::cout << "PixelTrackTorchHighPuritySelector::Prefiltered tracks=" << nPreselectedTracks << "\n";
 #endif
-
+    {
+    CMS_PERFETTO_SCOPE("FeaturesExtractor");
     launchFeaturesExtractor(queue,
                             maxPreselectedTracks_,
                             tracks.tracks(),
@@ -251,7 +256,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                             alpaka::getPtrNative(d_nPreselectedTracks),
                             trackFeatures.view(),
                             alpaka::getPtrNative(d_trackHitCounts));
-
+    }
     // 3. DNN inference
     //  Prepare TensorCollection inputs and outputs for the model
     auto track_record = trackFeatures.view().records();
@@ -288,10 +293,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                               track_record.covPhiQOverPt());
 
       batch.outputs.add<PixelTrackScoresSoA>("track_scores", i_batch, score_record.score());
-
-      model_.forward(queue, batch.inputs, batch.outputs, ::torch::kHalf);
+      {
+      CMS_PERFETTO_SCOPE("Forward call");
+      model_.forward(queue, batch.inputs, batch.outputs, ::torch::kFloat);
+      }
     }
-
+    { 
+    CMS_PERFETTO_SCOPE("Score Filter");
     launchScoreFilter(queue,
                       maxPreselectedTracks_,
                       scoreThreshold_,
@@ -302,13 +310,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                       alpaka::getPtrNative(d_selectedTrackIndices),
                       alpaka::getPtrNative(d_nSelectedTracks),
                       alpaka::getPtrNative(d_selectedTrackHitOffsets));
-
+    }
 #ifdef PIXEL_TRACK_HP_DEBUG
     nSelectedTracks = fetchNumSelectedTracks();
     std::cout << "PixelTrackTorchHighPuritySelector::Filtered tracks=" << nSelectedTracks << "\n";
 #endif
-
-    auto tracks_out = launchProduceOutputTracks(queue,
+    TkSoADevice tracks_out(queue, int(maxPreselectedTracks_), int(maxPreselectedTracks_ * avgHitsPerTrack_));
+    { 
+    CMS_PERFETTO_SCOPE("Output Tracks");
+    tracks_out = launchProduceOutputTracks(queue,
                                                 maxPreselectedTracks_,
                                                 avgHitsPerTrack_,
                                                 tracks.tracks(),
@@ -316,6 +326,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                 alpaka::getPtrNative(d_selectedTrackIndices),
                                                 alpaka::getPtrNative(d_nSelectedTracks),
                                                 alpaka::getPtrNative(d_selectedTrackHitOffsets));
+    }
     iEvent.emplace(tokenTrackOut_, std::move(tracks_out));
   }
 

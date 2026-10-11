@@ -11,6 +11,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "PhysicsTools/ONNXRuntimeAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/ONNXRuntimeAlpaka/interface/alpaka/AlpakaSession.h"
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::onnxtest {
 
@@ -39,6 +40,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::onnxtest {
     void beginStream(edm::StreamID, Queue queue) override { session_.bind(queue); }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
+      CMS_PERFETTO_FUNC();
       // in/out collections
       const auto &particles = event.get(particles_token_);
       const auto total_size = particles.const_view().metadata().size();
@@ -58,7 +60,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::onnxtest {
         outputs.set_layout("regression_head", Layout::FeatureMajor);
       }
 
-      session_.forward(event.queue(), inputs, outputs);
+      {
+        CMS_PERFETTO_SCOPE("inference");
+        session_.forward(event.queue(), inputs, outputs);
+      }
       // put device-side product into event
       event.emplace(simple_net_token_, std::move(regression_collection));
     }

@@ -13,7 +13,7 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 #include "PhysicsTools/PyTorchAlpakaTest/interface/Environment.h"
-
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
   class MultiHeadNet : public stream::FixedQueueEDProducer<> {
@@ -34,6 +34,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
+      CMS_PERFETTO_FUNC();
       // in/out collections
       const auto &particles = event.get(particles_token_);
       const auto total_size = particles.const_view().metadata().size();
@@ -50,7 +51,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
       outputs.add<portabletest::MultiHeadNetSoA>("regression_head", output_records.regression_head());
       outputs.add<portabletest::MultiHeadNetSoA>("classification_head", output_records.classification_head());
 
-      model_.forward(event.queue(), inputs, outputs);
+      {
+        CMS_PERFETTO_SCOPE("inference");
+        model_.forward(event.queue(), inputs, outputs);
+      }
       // put device-side product into event
       event.emplace(multi_head_net_token_, std::move(multi_head_output));
     }
