@@ -13,6 +13,7 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 #include "PhysicsTools/PyTorchAlpakaTest/interface/Environment.h"
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
@@ -41,6 +42,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
+      CMS_PERFETTO_FUNC();
       // in/out collections
       const auto &particles = event.get(particles_token_);
       const auto total_size = particles.const_view().metadata().size();
@@ -56,10 +58,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
       cms::torch::alpakatools::TensorCollection<Queue> outputs(total_size);
       outputs.add<portabletest::SimpleNetSoA>("regression_head", output_records.reco_pt());
 
-      if (convertToFP16_)
-        model_.forward(event.queue(), inputs, outputs, ::torch::kHalf);
-      else
-        model_.forward(event.queue(), inputs, outputs);
+      {
+        CMS_PERFETTO_SCOPE("inference");
+        if (convertToFP16_)
+          model_.forward(event.queue(), inputs, outputs, ::torch::kHalf);
+        else
+          model_.forward(event.queue(), inputs, outputs);
+      }
       // put device-side product into event
       event.emplace(simple_net_token_, std::move(regression_collection));
     }
