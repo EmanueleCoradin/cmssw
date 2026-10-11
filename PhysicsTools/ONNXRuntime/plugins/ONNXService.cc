@@ -23,6 +23,7 @@ namespace cms::Ort {
   namespace {
 
     constexpr const char* kCudaExecutionProvider = "CUDAExecutionProvider";
+    constexpr const char* kTensorRTExecutionProvider = "TRTPluginEP";
     constexpr const char* kMIGraphXExecutionProvider = "MIGraphXExecutionProvider";
 
     // Register an execution provider library with the ONNX Runtime environment, and return the devices it exposes;
@@ -93,7 +94,7 @@ namespace cms::Ort {
 
     // The execution provider device matching the given runtime device index, for the CUDA execution provider, which
     // runs on the device added to the session options and stores its index in the "cuda_device_id" metadata.
-    ::Ort::ConstEpDevice selectCudaDevice(int device) const;
+    ::Ort::ConstEpDevice selectNvidiaDevice(const Provider& provider, int device, const char* providerName) const;
 
     // The ONNX Runtime environment.
     // It is a function-local static rather than a data member, so that it is destroyed when the process ends and not
@@ -108,6 +109,7 @@ namespace cms::Ort {
     // non-const because the execution provider libraries are registered with it; the Ort::Env methods are thread safe
     ::Ort::Env& env_;
     Provider cuda_;
+    Provider tensorrt_;
     Provider rocm_;
   };
 
@@ -134,6 +136,26 @@ namespace cms::Ort {
           registerExecutionProvider(env_, kCudaExecutionProvider, ORT_TSTR("libonnxruntime_providers_cuda.so"));
     }
 
+    const auto tensorRTLibrary = config.getUntrackedParameter<std::string>("tensorRTLibrary", "");
+    if (!tensorRTLibrary.empty()) {
+      if (!cuda_.available()) {
+        throw edm::Exception(edm::errors::UnavailableAccelerator)
+            << "TensorRT EP requested, but the CUDA backend is unavailable";
+      }
+
+      tensorrt_.devices = registerExecutionProvider(
+        env_,
+        kTensorRTExecutionProvider,
+        tensorRTLibrary.c_str()
+      );
+
+      tensorrt_.number_of_devices = static_cast<int>(tensorrt_.devices.size());
+
+      if (!tensorrt_.available()) {
+        throw edm::Exception(edm::errors::UnavailableAccelerator) << "TensorRT EP registered but exposed no usable devices";
+      }
+    }
+
     if (amd and rocm_enabled) {
       rocm_.number_of_devices = rocm->numberOfDevices();
       rocm_.devices =
@@ -145,6 +167,9 @@ namespace cms::Ort {
     if (cuda_.available()) {
       message << ", CUDA backend available on " << cuda_.number_of_devices << " device(s)";
     }
+    if (tensorrt_.available()) {
+      message << ", TensorRT backend available on " << tensorrt_.number_of_devices << " device(s)";
+    }
     if (rocm_.available()) {
       message << ", ROCm backend available on " << rocm_.number_of_devices << " device(s)";
     }
@@ -153,6 +178,10 @@ namespace cms::Ort {
   void ONNXService::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
     desc.addUntracked<bool>("verbose", false)->setComment("Log the ONNX Runtime messages at the verbose level.");
+    desc.addUntracked<std::string>("tensorRTLibrary", "")
+    ->setComment(
+        "Absolute path to the optional TensorRT Execution Provider plugin. "
+        "An empty string disables TensorRT registration."); // TODO: I don't like this design, to be improved
     descriptions.add("ONNXService", desc);
   }
 
@@ -162,6 +191,8 @@ namespace cms::Ort {
         return true;
       case Backend::cuda:
         return cuda_.available();
+      case Backend::tensorRT:
+        return tensorrt_.available();
       case Backend::rocm:
         return rocm_.available();
     }
@@ -174,6 +205,8 @@ namespace cms::Ort {
         return 1;
       case Backend::cuda:
         return cuda_.available() ? cuda_.number_of_devices : 0;
+      case Backend::tensorRT:
+        return tensorrt_.available() ? tensorrt_.number_of_devices : 0;
       case Backend::rocm:
         return rocm_.available() ? rocm_.number_of_devices : 0;
     }
@@ -190,22 +223,30 @@ namespace cms::Ort {
     return id % devices;
   }
 
-  ::Ort::ConstEpDevice ONNXService::selectCudaDevice(int device) const {
+  ::Ort::ConstEpDevice ONNXService::selectNvidiaDevice(
+    const Provider& provider,
+    int device,
+    const char* providerName) const {
+
     const std::string id = std::to_string(device);
-    for (const auto& ep_device : cuda_.devices) {
+
+    for (const auto& ep_device : provider.devices) {
       const char* value = ep_device.EpMetadata().GetValue("cuda_device_id");
-      if (value and id == value) {
+      if (value && id == value) {
         return ep_device;
       }
     }
 
     edm::Exception ex(edm::errors::UnavailableAccelerator);
-    ex << "CUDA backend requested for device " << device << ", but the ONNX Runtime " << kCudaExecutionProvider
-       << " provides only the devices";
-    for (const auto& ep_device : cuda_.devices) {
+
+    ex << providerName << " requested for CUDA device " << device
+      << ", but the execution provider exposes only CUDA devices";
+
+    for (const auto& ep_device : provider.devices) {
       const char* value = ep_device.EpMetadata().GetValue("cuda_device_id");
       ex << ' ' << (value ? value : "(unknown)");
     }
+
     ex.addContext("Calling cms::Ort::ONNXService::configure()");
     throw ex;
   }
@@ -265,8 +306,21 @@ namespace cms::Ort {
         // forwarded by the plugin execution provider to the allocator it creates.
         provider_options["arena.extend_strategy"] = "1";
       }
-      options.AppendExecutionProvider_V2(env_, {selectCudaDevice(device)}, provider_options);
-    } else if (backend == Backend::rocm) {
+      options.AppendExecutionProvider_V2(env_, {selectNvidiaDevice(cuda_, device, kCudaExecutionProvider)}, provider_options);
+    } 
+    else if (backend == Backend::tensorRT){
+      provider_options["device_id"] = std::to_string(device);
+      if (compute_stream != nullptr) {
+        provider_options["has_user_compute_stream"] = "1";
+        provider_options["user_compute_stream"] = std::to_string(reinterpret_cast<std::uintptr_t>(compute_stream));
+      }
+      options.AppendExecutionProvider_V2(
+          env_,
+          {selectNvidiaDevice(tensorrt_, device, kTensorRTExecutionProvider)},
+          provider_options);
+    }
+    
+    else if (backend == Backend::rocm) {
       // The MIGraphX execution provider ignores the device added to the session options, and calls hipSetDevice()
       // with the device given by the "device_id" option, which can be any device of the HIP runtime. It validates
       // the device, and checks that the user compute stream belongs to it, while creating the session, inside a
@@ -284,9 +338,9 @@ namespace cms::Ort {
       options.AppendExecutionProvider_V2(env_, {rocm_.devices.front()}, provider_options);
     }
   }
-
 }  // namespace cms::Ort
 
 #include "FWCore/ServiceRegistry/interface/ServiceMaker.h"
 using ONNXServiceMaker = edm::serviceregistry::ParameterSetMaker<cms::Ort::ONNXInterface, cms::Ort::ONNXService>;
 DEFINE_FWK_SERVICE_MAKER(ONNXService, ONNXServiceMaker);
+

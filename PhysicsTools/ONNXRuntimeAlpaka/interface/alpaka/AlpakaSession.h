@@ -36,7 +36,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ort {
   // stream module.
   class AlpakaSession {
   public:
-    explicit AlpakaSession(std::string model_path) : model_path_(std::move(model_path)) {}
+    explicit AlpakaSession(std::string model_path, std::optional<cms::Ort::Backend> backend = std::nullopt) : model_path_(std::move(model_path)), backend_(backend) {}
 
     AlpakaSession(AlpakaSession const&) = delete;
     AlpakaSession& operator=(AlpakaSession const&) = delete;
@@ -51,7 +51,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ort {
       done_.emplace(alpaka::getDev(queue));
       memory_info_ = cms::Ort::alpakatools::getMemoryInfo(alpaka::getDev(queue));
 
-      auto options = cms::Ort::alpakatools::sessionOptions(queue);
+      auto options = cms::Ort::alpakatools::sessionOptions(queue, backend_);
       session_ = std::make_unique<::Ort::Session>(
           edm::Service<cms::Ort::ONNXInterface>()->environment(), model_path_.c_str(), options);
 
@@ -198,6 +198,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ort {
     }
 
     std::string model_path_;
+    std::optional<cms::Ort::Backend> backend_;
     std::optional<Queue> queue_;
     std::optional<alpaka::Event<Queue>> ready_;
     std::optional<alpaka::Event<Queue>> done_;

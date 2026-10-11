@@ -5,10 +5,11 @@ namespace cms::Ort {
 
   enum class Backend {
     cpu,
-    cuda,  // NVIDIA GPUs, using the CUDA execution provider
-    rocm,  // AMD GPUs, using the MIGraphX execution provider
-           // note: MIGraphX recompiles the model whenever the input shapes change from one call to the next,
-           // so it is best suited for models with fixed input shapes (e.g. a fixed or padded batch size)
+    cuda,      // NVIDIA GPUs, using the CUDA execution provider
+    tensorRT,  // NVIDIA GPUs, using the TensorRT execution provider
+    rocm,      // AMD GPUs, using the MIGraphX execution provider
+               // note: MIGraphX recompiles the model whenever the input shapes change from one call to the next,
+               // so it is best suited for models with fixed input shapes (e.g. a fixed or padded batch size)
   };
 
   // The name of the backend, for use in messages.
@@ -18,6 +19,8 @@ namespace cms::Ort {
         return "CPU";
       case Backend::cuda:
         return "CUDA";
+      case Backend::tensorRT:
+        return "TensorRT";
       case Backend::rocm:
         return "ROCm";
     }

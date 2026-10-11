@@ -54,6 +54,7 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/FixedQueueEDProducer.h"
 #include <deque>
+#include <optional>
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -73,6 +74,22 @@
 // #define PIXEL_TRACK_HP_DEBUG
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
+
+  std::optional<cms::Ort::Backend> parseBackend(const std::string& name) {
+    if (name == "auto")
+      return std::nullopt;
+    if (name == "cpu")
+      return cms::Ort::Backend::cpu;
+    if (name == "cuda")
+      return cms::Ort::Backend::cuda;
+    if (name == "tensorRT")
+      return cms::Ort::Backend::tensorRT;
+    if (name == "rocm")
+      return cms::Ort::Backend::rocm;
+
+    throw cms::Exception("Configuration")
+        << "Unsupported ONNX Runtime backend: " << name;
+  }
 
   /// Input/output tensors associated to a single inference batch.
   struct BatchIO {
@@ -118,7 +135,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         avgHitsPerTrack_(iConfig.getParameter<int>("avgHitsPerTrack")),
         minimumTrackQuality_(pixelTrack::qualityByName(iConfig.getParameter<std::string>("minimumTrackQuality"))),
         scoreThreshold_(iConfig.getParameter<double>("scoreThreshold")),
-        model_(iConfig.getParameter<edm::FileInPath>("model").fullPath()),
+        model_(iConfig.getParameter<edm::FileInPath>("model").fullPath(),
+        parseBackend(iConfig.getParameter<std::string>("backend"))),
 
       featureMajor_(iConfig.getParameter<bool>("featureMajor")),
         batchSize_(iConfig.getParameter<int>("batchSize")),
@@ -331,6 +349,7 @@ void PixelTrackONNXHighPuritySelector::produce(device::Event& iEvent, const devi
     desc.add<int>("avgHitsPerTrack", 8);
     desc.add<std::string>("minimumTrackQuality", "tight");
     desc.add<edm::FileInPath>("model");
+    desc.add<std::string>("backend", "auto");
     desc.add<double>("scoreThreshold", 0.5);
     desc.add<int>("batchSize", 10);
     desc.add<bool>("featureMajor", false);
