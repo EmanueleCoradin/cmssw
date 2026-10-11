@@ -101,6 +101,28 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--perfetto",
+        action="store_true",
+        help="Enable Perfetto tracing of the model inference"
+    )
+    parser.add_argument(
+        "--perfettoFile",
+        type=str,
+        default="pytorch_alpaka_test.pftrace",
+        help="Output Perfetto trace file"
+    )
+    parser.add_argument(
+        "--perfettoTraceGpuKernels",
+        action="store_true",
+        help="Record CUDA kernels via CUPTI (requires --perfetto and a CUDA backend)"
+    )
+    parser.add_argument(
+        "--perfettoTraceAllocations",
+        action="store_true",
+        help="Record the alpaka caching-allocator transactions (requires --perfetto)"
+    )
+
+    parser.add_argument(
         "-o", "--only",
         nargs="+",
         default=["SimpleNet", "SimpleNetMiniBatch", "MultiHeadNet", "MaskedNet", "TinyResNet", "TinyResNetMiniBatch"],

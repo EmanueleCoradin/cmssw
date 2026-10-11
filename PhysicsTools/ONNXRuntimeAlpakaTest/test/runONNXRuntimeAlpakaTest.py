@@ -27,6 +27,15 @@ process.source = cms.Source("EmptySource")
 process.MessageLogger.cerr.FwkReport.reportEvery = 100
 process.options.wantSummary = args.wantSummary
 
+# Perfetto tracing
+if args.perfetto:
+    from PerfTools.Perfetto.customisePerfetto import customisePerfetto
+    customisePerfetto(process,
+                      fileName=args.perfettoFile,
+                      traceFunctions=True,
+                      traceGpuKernels=args.perfettoTraceGpuKernels,
+                      traceAllocations=args.perfettoTraceAllocations)
+
 alpaka = cms.untracked.PSet(
     backend = cms.untracked.string(args.backend)
 )
@@ -52,23 +61,25 @@ if "SimpleNet" in args.only:
     )
     process.path += process.SimpleNet
 
-    # SoA memory used directly as a [3, padded size] tensor
-    process.SimpleNetFeatureMajor = onnxtest_SimpleNet_alpaka(
-        model = data + "SimpleNetFeatureMajor.onnx",
-        featureMajor = True,
-        particles = "DataSource",
-        alpaka = alpaka
-    )
-    process.path += process.SimpleNetFeatureMajor
+    # SoA memory used directly as a [3, padded size] tensor (zero-copy, transposed model)
+    if args.featureMajor:
+        process.SimpleNetFeatureMajor = onnxtest_SimpleNet_alpaka(
+            model = data + "SimpleNetFeatureMajor.onnx",
+            featureMajor = True,
+            particles = "DataSource",
+            alpaka = alpaka
+        )
+        process.path += process.SimpleNetFeatureMajor
 
     # mini-batches, in a module whose queue changes from event to event
-    process.SimpleNetMiniBatch = onnxtest_SimpleNetMiniBatch_alpaka(
-        model = data + "SimpleNet.onnx",
-        batchSize = args.batchSize,
-        particles = "DataSource",
-        alpaka = alpaka
-    )
-    process.path += process.SimpleNetMiniBatch
+    if "SimpleNetMiniBatch" in args.only:
+        process.SimpleNetMiniBatch = onnxtest_SimpleNetMiniBatch_alpaka(
+            model = data + "SimpleNet.onnx",
+            batchSize = args.batchSize,
+            particles = "DataSource",
+            alpaka = alpaka
+        )
+        process.path += process.SimpleNetMiniBatch
 
 # --only MultiHeadNet
 if "MultiHeadNet" in args.only:
@@ -112,8 +123,8 @@ if "TinyResNet" in args.only:
 process.InspectionSink = onnxtest_InspectionSink(
     particles = "DataSource",
     simple_net = "SimpleNet",
-    simple_net_feature_major = "SimpleNetFeatureMajor",
-    simple_net_minibatch = "SimpleNetMiniBatch",
+    simple_net_feature_major = "SimpleNetFeatureMajor" if args.featureMajor else "SimpleNet",
+    simple_net_minibatch = "SimpleNetMiniBatch" if "SimpleNetMiniBatch" in args.only else "SimpleNet",
     masked_net = "MaskedNet",
     multi_head_net = "MultiHeadNet",
     resnet = "TinyResNet",

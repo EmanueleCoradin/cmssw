@@ -11,6 +11,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "PhysicsTools/ONNXRuntimeAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/ONNXRuntimeAlpaka/interface/alpaka/AlpakaSession.h"
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::onnxtest {
 
@@ -36,6 +37,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::onnxtest {
     void beginStream(edm::StreamID, Queue queue) override { session_.bind(queue); }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
+      CMS_PERFETTO_FUNC();
       // in/out collections
       const auto &images = event.get(images_token_);
       const auto total_size = images.const_view().metadata().size();
@@ -48,6 +50,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::onnxtest {
       auto output_records = logits.view().records();
 
       for (int i_batch = 0; i_batch < n_batches; ++i_batch) {
+        CMS_PERFETTO_SCOPE("batch inference");
         // input tensor definition: [batch, 3, 9, 9] images, from three Eigen 9x9 matrix columns
         TensorCollection<Queue> inputs(batch_size, total_size);
         inputs.add<portabletest::ImageSoA>("images", i_batch, input_records.r(), input_records.g(), input_records.b());

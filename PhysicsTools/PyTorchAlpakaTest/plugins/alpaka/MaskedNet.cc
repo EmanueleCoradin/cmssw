@@ -16,6 +16,7 @@
 #include "PhysicsTools/PyTorchAlpakaTest/interface/Environment.h"
 #include "PhysicsTools/PyTorchAlpakaTest/plugins/alpaka/CommonKernels.h"
 
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
   class MaskedNet : public stream::FixedQueueEDProducer<> {
@@ -36,6 +37,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
+      CMS_PERFETTO_FUNC();
       // in/out collections
       const auto &particles = event.get(particles_token_);
       const auto total_size = particles.const_view().metadata().size();
@@ -66,7 +68,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
       // metadata for automatic tensor conversion
       // ModelMetadata metadata(inputs, outputs);
 
-      model_.forward(event.queue(), inputs, outputs);
+      {
+        CMS_PERFETTO_SCOPE("inference");
+        model_.forward(event.queue(), inputs, outputs);
+      }
       // put device-side product into event
       event.emplace(masked_net_token_, std::move(masked_net_output));
     }

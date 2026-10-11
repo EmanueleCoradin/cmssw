@@ -16,6 +16,7 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 #include "PhysicsTools/PyTorchAlpakaTest/interface/Environment.h"
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
 
@@ -44,6 +45,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
     }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
+      CMS_PERFETTO_FUNC();
       // in/out collections
       const auto &particles = event.get(particles_token_);
       const auto total_size = particles.const_view().metadata().size();
@@ -74,6 +76,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest {
       }
       // forward pass on mini-batches
       for (auto &batch : batches) {
+        CMS_PERFETTO_SCOPE("batch inference");
         model_.forward(event.queue(), batch.inputs, batch.outputs);
       }
       // put device-side product into event
