@@ -1,6 +1,7 @@
 #ifndef PhysicsTools_ONNXRuntimeAlpaka_interface_SessionOptions_h
 #define PhysicsTools_ONNXRuntimeAlpaka_interface_SessionOptions_h
 
+#include <optional>
 #include <type_traits>
 
 #include <alpaka/alpaka.hpp>
@@ -21,25 +22,25 @@ namespace cms::Ort::alpakatools {
   // All the kernels and memory operations of the session are then submitted to that stream, asynchronously.
   template <typename TQueue>
     requires(alpaka::isQueue<TQueue>)::Ort::SessionOptions
-  sessionOptions(TQueue const& queue) {
+  sessionOptions(TQueue const& queue, std::optional<cms::Ort::Backend> backend = std::nullopt) {
     edm::Service<cms::Ort::ONNXInterface> onnx;
 
 #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
     if constexpr (std::is_same_v<alpaka::Dev<TQueue>, alpaka::DevCudaRt>) {
       // Run the session on the device of the queue, and in the stream underlying it: the device is chosen by the
       // framework, which already distributes the framework streams over the devices.
-      return onnx->sessionOptions(
-          cms::Ort::Backend::cuda, alpaka::getDev(queue).getNativeHandle(), queue.getNativeHandle());
+      const auto selected = backend.value_or(cms::Ort::Backend::cuda);
+
+      return onnx->sessionOptions(selected, alpaka::getDev(queue).getNativeHandle(), queue.getNativeHandle());
     }
 #endif
 #ifdef ALPAKA_ACC_GPU_HIP_ENABLED
     if constexpr (std::is_same_v<alpaka::Dev<TQueue>, alpaka::DevHipRt>) {
       // Run the session on the device of the queue, and in the stream underlying it, like for the CUDA backend.
-      return onnx->sessionOptions(
-          cms::Ort::Backend::rocm, alpaka::getDev(queue).getNativeHandle(), queue.getNativeHandle());
+      return onnx->sessionOptions(cms::Ort::Backend::rocm, alpaka::getDev(queue).getNativeHandle(), queue.getNativeHandle());
     }
 #endif
-
+    
     // The serial_sync backend runs the session on the CPU.
     return onnx->sessionOptions(cms::Ort::Backend::cpu);
   }

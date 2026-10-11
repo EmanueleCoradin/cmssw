@@ -8,6 +8,7 @@ hltPhase2PixelTrackONNXHighPuritySelector = cms.EDProducer('PixelTrackONNXHighPu
     avgHitsPerTrack = cms.int32(8),
     minimumTrackQuality = cms.string('tight'),
     model = cms.FileInPath('RecoTracker/FinalTrackSelectors/data/pixel_track_classifier.onnx'),
+    backend = cms.string("tensorRT"),
     scoreThreshold = cms.double(0.4),
     #featureMajor=False,
     batchSize = cms.int32(4_992),
