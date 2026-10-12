@@ -160,6 +160,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                            total);
       event.emplace(trackstersOutToken_, std::move(outputTracksters));
     }
+
   private:
     void forward(Queue& queue,
                  cms::torch::alpakatools::TensorCollection<Queue>& inputs,

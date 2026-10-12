@@ -12,14 +12,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     struct SelectTrackstersKernel {
       template <typename TAcc>
-      ALPAKA_FN_ACC void operator()(
-        TAcc const& acc,
-        ::ticl::TracksterSoA::ConstView inputTracksters,
-        LayerClusterEnergyMultiView clusterEnergies,
-        float minClusterEnergy,
-        uint32_t* selectionMask,
-        uint32_t nTracksters) const
-      {
+      ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                    ::ticl::TracksterSoA::ConstView inputTracksters,
+                                    LayerClusterEnergyMultiView clusterEnergies,
+                                    float minClusterEnergy,
+                                    uint32_t* selectionMask,
+                                    uint32_t nTracksters) const {
         const auto associations = inputTracksters.vertices();
 
         for (auto tracksterIndex : cms::alpakatools::uniform_elements(acc, nTracksters)) {
@@ -37,18 +35,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     struct FillInputFeaturesKernel {
       template <typename TAcc>
-      ALPAKA_FN_ACC void operator()(
-        TAcc const& acc,
-        ::ticl::TracksterSoA::ConstView inputTracksters,
-        LayerClusterEnergyMultiView clusterEnergies,
-        LayerClusterPositionMultiView clusterPositions,
-        uint32_t layersPerEndcap,
-        uint32_t const* selectionMask,
-        uint32_t const* selectionOffsets,
-        uint32_t* selectedTracksters,
-        ::ticl::TracksterInferenceSoA::View features,
-        uint32_t nTracksters) const
-      {
+      ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                    ::ticl::TracksterSoA::ConstView inputTracksters,
+                                    LayerClusterEnergyMultiView clusterEnergies,
+                                    LayerClusterPositionMultiView clusterPositions,
+                                    uint32_t layersPerEndcap,
+                                    uint32_t const* selectionMask,
+                                    uint32_t const* selectionOffsets,
+                                    uint32_t* selectedTracksters,
+                                    ::ticl::TracksterInferenceSoA::View features,
+                                    uint32_t nTracksters) const {
         const auto verticesAssociations = inputTracksters.vertices();
         const auto multiplicityAssociations = inputTracksters.multiplicity();
 
@@ -57,7 +53,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         // One thread processes one Trackster.
         for (auto tracksterIndex : cms::alpakatools::uniform_elements(acc, nTracksters)) {
-
           // Discard low energetic tracksters
           if (selectionMask[tracksterIndex] == 0u) {
             continue;
@@ -85,8 +80,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             const auto vertexIndex = vertices[k];
             const auto position = clusterPositions[vertexIndex];
 
-            const auto layer =
-                static_cast<uint32_t>(position.layer()) % layersPerEndcap;
+            const auto layer = static_cast<uint32_t>(position.layer()) % layersPerEndcap;
 
             if (layer >= nLayers) {
               continue;
@@ -125,8 +119,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               minSlot[layer] = 0u;
 
               for (auto j = 1u; j < maxClusters; ++j) {
-                if (feature.energy()(layer, j) <
-                    feature.energy()(layer, minSlot[layer])) {
+                if (feature.energy()(layer, j) < feature.energy()(layer, minSlot[layer])) {
                   minSlot[layer] = j;
                 }
               }
@@ -145,8 +138,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
               if (end != count) {
                 for (auto j = 1u; j < end; ++j) {
-                  if (feature.energy()(layer, j) <
-                      feature.energy()(layer, minIndex)) {
+                  if (feature.energy()(layer, j) < feature.energy()(layer, minIndex)) {
                     minIndex = j;
                   }
                 }
@@ -205,16 +197,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
     };
 
-
     struct FillPIDProbabilitiesKernel {
       template <typename TAcc>
-      ALPAKA_FN_ACC void operator()(
-        TAcc const& acc,
-        uint32_t const* selectedTracksters,
-        ticl::TracksterInferencePIDScoresSoA::ConstView scores,
-        ticl::TracksterSoA::View outputTracksters,
-        int32_t total) const
-      {
+      ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                    uint32_t const* selectedTracksters,
+                                    ticl::TracksterInferencePIDScoresSoA::ConstView scores,
+                                    ticl::TracksterSoA::View outputTracksters,
+                                    int32_t total) const {
         for (auto row : cms::alpakatools::uniform_elements(acc, total)) {
           const auto source = scores[row];
           auto destination = outputTracksters.tracksters()[selectedTracksters[row]];
@@ -233,15 +222,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   }  // namespace
 
-  void selectTracksters(
-    Queue& queue,
-    ::ticl::TracksterSoA::ConstView inputTracksters,
-    LayerClusterEnergyMultiView clusterEnergies,
-    float minClusterEnergy,
-    uint32_t* selectionMask,
-    uint32_t* selectionOffsets,
-    uint32_t nTracksters)
-  {
+  void selectTracksters(Queue& queue,
+                        ::ticl::TracksterSoA::ConstView inputTracksters,
+                        LayerClusterEnergyMultiView clusterEnergies,
+                        float minClusterEnergy,
+                        uint32_t* selectionMask,
+                        uint32_t* selectionOffsets,
+                        uint32_t nTracksters) {
     if (nTracksters == 0) {
       return;
     }
@@ -275,51 +262,47 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         alpaka::getPreferredWarpSize(alpaka::getDev(queue)));
   }
 
-  void fillInputFeatures(
-    Queue& queue,
-    ::ticl::TracksterSoA::ConstView inputTracksters,
-    LayerClusterEnergyMultiView clusterEnergies,
-    LayerClusterPositionMultiView clusterPositions,
-    uint32_t layersPerEndcap,
-    uint32_t const* selectionMask,
-    uint32_t const* selectionOffsets,
-    uint32_t* selectedTracksters,
-    ::ticl::TracksterInferenceSoA::View features,
-    uint32_t nTracksters)
-  {
+  void fillInputFeatures(Queue& queue,
+                         ::ticl::TracksterSoA::ConstView inputTracksters,
+                         LayerClusterEnergyMultiView clusterEnergies,
+                         LayerClusterPositionMultiView clusterPositions,
+                         uint32_t layersPerEndcap,
+                         uint32_t const* selectionMask,
+                         uint32_t const* selectionOffsets,
+                         uint32_t* selectedTracksters,
+                         ::ticl::TracksterInferenceSoA::View features,
+                         uint32_t nTracksters) {
     if (nTracksters == 0) {
       return;
     }
     constexpr auto elementsPerBlock = 256u;
     const auto blocks = (nTracksters + elementsPerBlock - 1) / elementsPerBlock;
     const auto workDiv = cms::alpakatools::make_workdiv<Acc1D>(blocks, elementsPerBlock);
-    alpaka::exec<Acc1D>(
-      queue,
-      workDiv,
-      FillInputFeaturesKernel{},
-      inputTracksters,
-      clusterEnergies,
-      clusterPositions,
-      layersPerEndcap,
-      selectionMask,
-      selectionOffsets,
-      selectedTracksters,
-      features,
-      nTracksters);
+    alpaka::exec<Acc1D>(queue,
+                        workDiv,
+                        FillInputFeaturesKernel{},
+                        inputTracksters,
+                        clusterEnergies,
+                        clusterPositions,
+                        layersPerEndcap,
+                        selectionMask,
+                        selectionOffsets,
+                        selectedTracksters,
+                        features,
+                        nTracksters);
   }
 
-  void fillPIDProbabilities(
-    Queue& queue,
-    uint32_t const* selectedTracksters,
-    ticl::TracksterInferencePIDScoresSoA::ConstView scores,
-    ticl::TracksterSoA::View outputTracksters,
-    int32_t total)
-  {
+  void fillPIDProbabilities(Queue& queue,
+                            uint32_t const* selectedTracksters,
+                            ticl::TracksterInferencePIDScoresSoA::ConstView scores,
+                            ticl::TracksterSoA::View outputTracksters,
+                            int32_t total) {
     constexpr auto elementsPerBlock = 256u;
     const auto blocks = (static_cast<uint32_t>(total) + elementsPerBlock - 1) / elementsPerBlock;
     const auto workDiv = cms::alpakatools::make_workdiv<Acc1D>(blocks, elementsPerBlock);
 
-    alpaka::exec<Acc1D>(queue, workDiv, FillPIDProbabilitiesKernel{}, selectedTracksters, scores, outputTracksters, total);
+    alpaka::exec<Acc1D>(
+        queue, workDiv, FillPIDProbabilitiesKernel{}, selectedTracksters, scores, outputTracksters, total);
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE

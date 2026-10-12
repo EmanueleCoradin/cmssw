@@ -3,7 +3,7 @@
 
 #include "DataFormats/Portable/interface/alpaka/PortableCollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
-#include "RecoHGCal/TICL/interface/TracksterInferenceHost.h"
+#include "RecoTICL/Inference/interface/TracksterInferenceHost.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::ticl {
 

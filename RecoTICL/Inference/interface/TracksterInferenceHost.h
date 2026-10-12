@@ -2,7 +2,7 @@
 #define RecoHGCal_TICL_TracksterInferenceHost_h
 
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
-#include "RecoHGCal/TICL/interface/TracksterInferenceSoA.h"
+#include "RecoTICL/Inference/interface/TracksterInferenceSoA.h"
 
 namespace ticl {
 

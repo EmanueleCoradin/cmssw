@@ -14,36 +14,30 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using LayerClusterEnergyMultiView = SoAConstMultiView<::reco::CaloClusterSoAEnergy<>::ConstView, 3>;
   using LayerClusterPositionMultiView = SoAConstMultiView<::reco::CaloClusterSoAPosition<>::ConstView, 3>;
 
-  void selectTracksters(
-    Queue& queue,
-    ::ticl::TracksterSoA::ConstView inputTracksters,
-    LayerClusterEnergyMultiView clusterEnergies,
-    float minClusterEnergy,
-    uint32_t* selectionMask,
-    uint32_t* selectionOffsets,
-    uint32_t nTracksters
-  );
+  void selectTracksters(Queue& queue,
+                        ::ticl::TracksterSoA::ConstView inputTracksters,
+                        LayerClusterEnergyMultiView clusterEnergies,
+                        float minClusterEnergy,
+                        uint32_t* selectionMask,
+                        uint32_t* selectionOffsets,
+                        uint32_t nTracksters);
 
-  void fillInputFeatures(
-    Queue& queue,
-    ::ticl::TracksterSoA::ConstView inputTracksters,
-    LayerClusterEnergyMultiView clusterEnergies,
-    LayerClusterPositionMultiView clusterPositions,
-    uint32_t layersPerEndcap,
-    uint32_t const* selectionMask,
-    uint32_t const* selectionOffsets,
-    uint32_t* selectedTracksters,
-    ::ticl::TracksterInferenceSoA::View features,
-    uint32_t nTracksters
-  );
+  void fillInputFeatures(Queue& queue,
+                         ::ticl::TracksterSoA::ConstView inputTracksters,
+                         LayerClusterEnergyMultiView clusterEnergies,
+                         LayerClusterPositionMultiView clusterPositions,
+                         uint32_t layersPerEndcap,
+                         uint32_t const* selectionMask,
+                         uint32_t const* selectionOffsets,
+                         uint32_t* selectedTracksters,
+                         ::ticl::TracksterInferenceSoA::View features,
+                         uint32_t nTracksters);
 
-  void fillPIDProbabilities(
-    Queue& queue,
-    uint32_t const* selectedTracksters,
-    ::ticl::TracksterInferencePIDScoresSoA::ConstView scores,
-    ::ticl::TracksterSoA::View outputTracksters,
-    int32_t total
-  );
+  void fillPIDProbabilities(Queue& queue,
+                            uint32_t const* selectedTracksters,
+                            ::ticl::TracksterInferencePIDScoresSoA::ConstView scores,
+                            ::ticl::TracksterSoA::View outputTracksters,
+                            int32_t total);
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
 #endif

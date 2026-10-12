@@ -41,7 +41,7 @@
   <use name="RecoLocalCalo/HGCalRecProducers"/>
   <use name="RecoTICL/LayerClustering"/>
   <use name="alpaka"/>
-  <use name="clue"/>
+  <use name="cluestering"/>
   <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
 </library>
