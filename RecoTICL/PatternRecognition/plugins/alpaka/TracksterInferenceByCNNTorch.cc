@@ -19,9 +19,7 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/FixedQueueEDProducer.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
-#include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
-#include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
-#include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
+#include "PhysicsTools/PyTorchAlpaka/interface/BatchedTensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
 #include "RecoTICL/Inference/interface/TracksterInferenceSoA.h"
@@ -31,10 +29,6 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace {
-    struct BatchIO {
-      cms::torch::alpakatools::TensorCollection<Queue> inputs;
-      cms::torch::alpakatools::TensorCollection<Queue> outputs;
-    };
     int32_t checkedSize(std::size_t size, std::string_view name) {
       if (size > static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
         throw cms::Exception("TracksterInferenceByCNNTorch")
@@ -66,11 +60,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           trackstersToken_{consumes(config.getParameter<edm::InputTag>("tracksters"))},
           featuresToken_{consumes(config.getParameter<edm::InputTag>("features"))},
           model_{config.getParameter<edm::FileInPath>("model").fullPath()},
-          batchSize_{config.getParameter<int>("batchSize")},
+          batchSize_{config.getParameter<uint32_t>("batchSize")},
           convertToFP16_{config.getParameter<bool>("convertToFP16")},
           warmupIterations_{config.getParameter<int>("warmupIterations")},
           trackstersOutToken_{produces()} {
-      if (batchSize_ <= 0) {
+      if (batchSize_ == 0) {
         throw cms::Exception("TracksterInferenceByCNNTorch") << "batchSize must be positive";
       }
       if (warmupIterations_ < 0) {
@@ -82,7 +76,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       description.add<edm::InputTag>("tracksters", edm::InputTag("ticlTrackstersToSoAProducer"));
       description.add<edm::InputTag>("features", edm::InputTag("tracksterInferenceFeaturesProducer", "features"));
       description.add<edm::FileInPath>("model");
-      description.add<int>("batchSize", 64);
+      description.add<uint32_t>("batchSize", 64);
       description.add<bool>("convertToFP16", false);
       description.add<int>("warmupIterations", 3);
       descriptions.addWithDefaultLabel(description);
@@ -95,8 +89,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto featureRecords = features.view().records();
       auto scoreRecords = scores.view().records();
       for (int iteration = 0; iteration < warmupIterations_; ++iteration) {
-        cms::torch::alpakatools::TensorCollection<Queue> inputs(batchSize_);
-        cms::torch::alpakatools::TensorCollection<Queue> outputs(batchSize_);
+        cms::torch::alpakatools::BatchedTensorCollection<Queue> inputs, outputs;
         inputs.add<::ticl::TracksterInferenceSoA>(
             "input", featureRecords.energy(), featureRecords.absEta(), featureRecords.phi());
         outputs.add<::ticl::TracksterInferencePIDScoresSoA>("pid_output",
@@ -133,26 +126,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       scoresDevice.zeroInitialise(queue);
       auto featureRecords = features.const_view().records();
       auto scoreRecords = scoresDevice.view().records();
-      const auto nBatches = static_cast<uint32_t>((total + batchSize_ - 1) / batchSize_);
-      std::deque<BatchIO> batches;
-      for (auto batchIndex = 0u; batchIndex < nBatches; ++batchIndex) {
-        batches.emplace_back(BatchIO{cms::torch::alpakatools::TensorCollection<Queue>(batchSize_, total),
-                                     cms::torch::alpakatools::TensorCollection<Queue>(batchSize_, total)});
-        auto& batch = batches.back();
-        batch.inputs.add<::ticl::TracksterInferenceSoA>(
-            "input", batchIndex, featureRecords.energy(), featureRecords.absEta(), featureRecords.phi());
-        batch.outputs.add<::ticl::TracksterInferencePIDScoresSoA>("pid_output",
-                                                                  batchIndex,
-                                                                  scoreRecords.id_probabilities0(),
-                                                                  scoreRecords.id_probabilities1(),
-                                                                  scoreRecords.id_probabilities2(),
-                                                                  scoreRecords.id_probabilities3(),
-                                                                  scoreRecords.id_probabilities4(),
-                                                                  scoreRecords.id_probabilities5(),
-                                                                  scoreRecords.id_probabilities6(),
-                                                                  scoreRecords.id_probabilities7());
-        forward(queue, batch.inputs, batch.outputs);
-      }
+
+      cms::torch::alpakatools::BatchedTensorCollection<Queue> inputs, outputs;
+
+      inputs.addBatched<::ticl::TracksterInferenceSoA>(
+          "input", batchSize_, featureRecords.energy(), featureRecords.absEta(), featureRecords.phi());
+      outputs.addBatched<::ticl::TracksterInferencePIDScoresSoA>("pid_output",
+                                                                 batchSize_,
+                                                                 scoreRecords.id_probabilities0(),
+                                                                 scoreRecords.id_probabilities1(),
+                                                                 scoreRecords.id_probabilities2(),
+                                                                 scoreRecords.id_probabilities3(),
+                                                                 scoreRecords.id_probabilities4(),
+                                                                 scoreRecords.id_probabilities5(),
+                                                                 scoreRecords.id_probabilities6(),
+                                                                 scoreRecords.id_probabilities7());
+
+      forward(queue, inputs, outputs);
+
       fillPIDProbabilities(queue,
                            std::get<0>(featureRecords.selectedTracksterIndex()).data(),
                            scoresDevice.const_view(),
@@ -163,8 +154,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   private:
     void forward(Queue& queue,
-                 cms::torch::alpakatools::TensorCollection<Queue>& inputs,
-                 cms::torch::alpakatools::TensorCollection<Queue>& outputs) {
+                 cms::torch::alpakatools::BatchedTensorCollection<Queue>& inputs,
+                 cms::torch::alpakatools::BatchedTensorCollection<Queue>& outputs) {
       if (convertToFP16_) {
         model_.forward(queue, inputs, outputs, ::torch::kHalf);
       } else {
@@ -174,7 +165,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     device::EDGetToken<ticl::TracksterDevice> const trackstersToken_;
     device::EDGetToken<ticl::TracksterInferenceDevice> const featuresToken_;
     torch::AlpakaModel model_;
-    int const batchSize_;
+    uint32_t const batchSize_;
     bool const convertToFP16_;
     int const warmupIterations_;
     device::EDPutToken<ticl::TracksterDevice> const trackstersOutToken_;

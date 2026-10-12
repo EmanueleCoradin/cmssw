@@ -1,0 +1,17 @@
+<lcgdict>
+  <!-- CNN inference features -->
+  <class name="ticl::TracksterInferenceHost" rntupleStreamerMode="true"/>
+  <class name="ticl::TracksterInferenceHost::Layout"/>
+  <class name="ticl::TracksterInferenceSoA"/>
+  <class name="ticl::TracksterInferenceSoA::View"/>
+  <class name="ticl::TracksterInferenceSoA::ConstView"/>
+  <class name="edm::Wrapper<ticl::TracksterInferenceHost>" splitLevel="0"/>
+
+  <!-- CNN PID scores -->
+  <class name="ticl::TracksterInferencePIDScoresHost" rntupleStreamerMode="true"/>
+  <class name="ticl::TracksterInferencePIDScoresHost::Layout"/>
+  <class name="ticl::TracksterInferencePIDScoresSoA"/>
+  <class name="ticl::TracksterInferencePIDScoresSoA::View"/>
+  <class name="ticl::TracksterInferencePIDScoresSoA::ConstView"/>
+  <class name="edm::Wrapper<ticl::TracksterInferencePIDScoresHost>" splitLevel="0"/>
+</lcgdict>

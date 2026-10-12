@@ -5,7 +5,7 @@ from RecoTICL.PatternRecognition.trackstersProducer_cfi import trackstersProduce
 from RecoTICL.ClusterFilters.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoTICL.PatternRecognition.trackstersToSoAProducer_cfi import trackstersToSoAProducer as _trackstersToSoAProducer
 from RecoTICL.Configuration.tracksterInferenceFeaturesProducer_cfi import tracksterInferenceFeaturesProducer as _tracksterInferenceFeaturesProducer
-from RecoTICL.Inference.tracksterInferenceByCNNTorch_cfi import tracksterInferenceByCNNTorch as _tracksterInferenceByCNNTorch
+from RecoTICL.Configuration.tracksterInferenceByCNNTorch_cfi import tracksterInferenceByCNNTorch as _tracksterInferenceByCNNTorch
 from RecoTICL.Configuration.tracksterPIDComparisonAnalyzer_cfi import tracksterPIDComparisonAnalyzer as _tracksterPIDComparisonAnalyzer
 
 # CLUSTER FILTERING/MASKING
@@ -94,8 +94,8 @@ ticlTracksterInferenceFeaturesProducer = _tracksterInferenceFeaturesProducer.clo
 ticlTracksterInferenceByCNNTorch = _tracksterInferenceByCNNTorch.clone(
     tracksters = cms.InputTag("ticlTrackstersToSoAProducer"),
     features = cms.InputTag("ticlTracksterInferenceFeaturesProducer", "features"),
-    model = cms.FileInPath("RecoHGCal/TICL/data/trackster_pid_cnn.pt"),
-    batchSize = cms.int32(64),
+    model = cms.FileInPath("RecoTICL/PatternRecognition/data/trackster_pid_cnn.pt"),
+    batchSize = cms.uint32(64),
     convertToFP16 = cms.bool(False),
     warmupIterations = cms.int32(3),
 )
@@ -123,7 +123,7 @@ ticlCLUE3DHighStepTask = cms.Task(
 
 # with ticl_dev 3D pattern recognition swapped to CLUEstering.
 from Configuration.ProcessModifiers.ticl_dev import ticl_dev
-from RecoHGCal.TICL.trackstersCLUEsteringProducer_cfi import trackstersCLUEsteringProducer as _trackstersCLUEsteringProducer
+from RecoTICL.PatternRecognition.trackstersCLUEsteringProducer_cfi import trackstersCLUEsteringProducer as _trackstersCLUEsteringProducer
 
 ticlTrackstersCLUEsteringAssignment = _trackstersCLUEsteringProducer.clone()
 

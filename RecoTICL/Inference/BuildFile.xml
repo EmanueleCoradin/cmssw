@@ -5,6 +5,14 @@
 <use name="FWCore/Utilities"/>
 <use name="PhysicsTools/ONNXRuntime"/>
 <use name="RecoLocalCalo/HGCalRecAlgos"/>
+<use name="rootcling"/>
+<use name="alpaka"/>
+<use name="eigen"/>
+<use name="DataFormats/Common"/>
+<use name="DataFormats/Portable"/>
+<use name="DataFormats/SoATemplate"/>
+<use name="HeterogeneousCore/AlpakaInterface"/>
+<flags ALPAKA_BACKENDS="!serial"/>
 <export>
   <lib name="1"/>
 </export>

@@ -13,7 +13,6 @@
 <use name="RecoLocalCalo/HGCalRecAlgos"/>
 <use name="RecoTICL/Common"/>
 <use name="RecoTICL/Inference"/>
-<use name="RecoTICL/PatternRecognition"/>
 <use name="fastjet"/>
 <use name="tbb"/>
 <library file="*.cc" name="RecoTICLPatternRecognitionPlugins">
