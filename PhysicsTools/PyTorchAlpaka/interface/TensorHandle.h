@@ -13,7 +13,7 @@
 // Forward declaration for friend
 namespace cms::torch::alpakatools {
   template <typename TQueue>
-    requires alpaka::isQueue<TQueue>
+    requires alpaka::concepts::Queue<TQueue>
   class TensorCollection;
 }
 
@@ -54,8 +54,25 @@ namespace cms::torch::alpakatools::detail {
     bool is_scalar_;
   };
 
+  inline size_t num_spanned_elements(const Dims& dims,
+                                     const int total_size,
+                                     const size_t alignment,
+                                     const size_t bytes) {
+    // Returns the number of memory elements spanned by the tensor.
+
+    if (dims.volume() == 0 || dims.batch_size() == 0)
+      return 0;
+    if (dims.is_scalar())
+      return 1;
+
+    const auto padded_column_size = static_cast<size_t>(num_elements_per_column(total_size, alignment, bytes));
+    const auto offset_to_last_column = static_cast<size_t>(dims.volume() - 1) * padded_column_size;
+
+    return offset_to_last_column + static_cast<size_t>(dims.batch_size());
+  }
+
   template <typename TQueue>
-    requires alpaka::isQueue<TQueue>
+    requires alpaka::concepts::Queue<TQueue>
   class ITensorHandle {
   public:
     virtual ~ITensorHandle() = default;
@@ -72,14 +89,14 @@ namespace cms::torch::alpakatools::detail {
     friend class ::cms::torch::alpakatools::TensorCollection<TQueue>;
 
   private:
-    virtual void copy(TQueue& queue, const cms::torch::alpakatools::detail::MemcpyKind kind) = 0;
+    virtual void copy(TQueue& queue) = 0;
     virtual void* data() = 0;
   };
 
   // TODO: handle case when user register only one column:
   // e.g. .register_tensor("test", soa.pt()); (stride should be [1] instead of e.g. [1, 32])
   template <typename TQueue, typename T>
-    requires alpaka::isQueue<TQueue>
+    requires alpaka::concepts::Queue<TQueue>
   class TensorHandle : public ITensorHandle<TQueue> {
   public:
     explicit TensorHandle(const size_t alignment,
@@ -114,9 +131,7 @@ namespace cms::torch::alpakatools::detail {
     iterator_t cend() const { return dims_.cend(); }
 
   private:
-    void copy(TQueue& queue, const cms::torch::alpakatools::detail::MemcpyKind kind) override {
-      policy_.copy(queue, kind);
-    }
+    void copy(TQueue& queue) override { policy_.copy(queue); }
     void* data() override { return static_cast<void*>(policy_.data()); }
     void init_sizes() {
       sizes_ = std::vector<long int>(dims_.size() + 1);
