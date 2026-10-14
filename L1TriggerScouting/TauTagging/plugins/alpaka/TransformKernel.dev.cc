@@ -6,6 +6,8 @@
 
 #include "DataFormats/L1ScoutingSoA/interface/SoftTauHostTensor.h"
 
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   using namespace cms::alpakatools;
@@ -245,46 +247,55 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     auto workDiv = make_workdiv<Acc1D>(nbx, threadsPerBlock);
     
     // generate uint32_t keys that are accepted by radixSort
-    alpaka::exec<Acc1D>(
-      queue, 
-      workDiv, 
-      BuildBxWiseRadixSortKeysOffsets{}, 
-      bxClustersMap.const_view(),
-      clusterCandsMap.const_view(),
-      pf.const_view(),
-      clusters.const_view(),
-      alpaka::getPtrNative(bxClusteredCandsOffsets), 
-      alpaka::getPtrNative(keys) 
-    );
+    {
+      CMS_PERFETTO_SCOPE("BuildBxWiseRadixSortKeysOffsets");
+      alpaka::exec<Acc1D>(
+        queue, 
+        workDiv, 
+        BuildBxWiseRadixSortKeysOffsets{}, 
+        bxClustersMap.const_view(),
+        clusterCandsMap.const_view(),
+        pf.const_view(),
+        clusters.const_view(),
+        alpaka::getPtrNative(bxClusteredCandsOffsets), 
+        alpaka::getPtrNative(keys) 
+      );
+    }
     
     // run radix sort
-    alpaka::exec<Acc1D>(
-      queue,
-      workDiv, 
-      radixSortMultiWrapper2<uint32_t, 4>{}, 
-      alpaka::getPtrNative(keys), 
-      alpaka::getPtrNative(perm),
-      alpaka::getPtrNative(bxClusteredCandsOffsets),
-      alpaka::getPtrNative(permWork)
-    );
-
-    alpaka::wait(queue);
+    {
+      CMS_PERFETTO_SCOPE("radixSortMultiWrapper2");
+      alpaka::exec<Acc1D>(
+        queue,
+        workDiv, 
+        radixSortMultiWrapper2<uint32_t, 4>{}, 
+        alpaka::getPtrNative(keys), 
+        alpaka::getPtrNative(perm),
+        alpaka::getPtrNative(bxClusteredCandsOffsets),
+        alpaka::getPtrNative(permWork)
+      );
+    }
+    
+    // alpaka::wait(queue);
     
     // instantiate new sorted association map
     AssociationMapDevice clusterCandsMapSorted(queue,
                                                 clusterCandsMap.const_view().index().metadata().size(),
                                                 clusterCandsMap.const_view().offset().metadata().size()); 
-
-    // apply permutation returned by radix sort
-    alpaka::exec<Acc1D>(
-      queue, 
-      workDiv, 
-      ApplyBxWisePermutationKernel{}, 
-      clusterCandsMap.const_view(),
-      alpaka::getPtrNative(bxClusteredCandsOffsets),
-      alpaka::getPtrNative(perm), 
-      clusterCandsMapSorted.view().index().index().data()
-    );
+      
+      // apply permutation returned by radix sort
+    {
+      CMS_PERFETTO_SCOPE("ApplyBxWisePermutationKernel");
+      alpaka::exec<Acc1D>(
+        queue, 
+        workDiv, 
+        ApplyBxWisePermutationKernel{}, 
+        clusterCandsMap.const_view(),
+        alpaka::getPtrNative(bxClusteredCandsOffsets),
+        alpaka::getPtrNative(perm), 
+        clusterCandsMapSorted.view().index().index().data()
+      );
+    }
 
     // copy also the offsets column to the new sorted map
     auto srcOffsets = alpaka::createView(alpaka::getDev(queue),
@@ -294,7 +305,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                         clusterCandsMapSorted.view().offset().offset().data(), 
                                         Vec1D{clusterCandsMapSorted.view().offset().metadata().size()});
     alpaka::memcpy(queue, dstOffsets, srcOffsets);
-    alpaka::wait(queue);
+    // alpaka::wait(queue);
 
     /* BEGIN DEBUG */
     // std::vector<uint32_t> cc_indexes(static_cast<size_t>(clusterCandsMapSorted.const_view().index().metadata().size()));
@@ -331,13 +342,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     // work division
     auto threadsPerBlock = 256;
     auto workDiv = make_workdiv<Acc1D>(num_clusters, threadsPerBlock);
-
-    alpaka::exec<Acc1D>(queue, 
-      workDiv, 
-      ComputeClueTauFeaturesKernel{}, 
-      pf.const_view(),
-      clusterCandsMap.const_view(),
-      input_tensor.view());
+    
+    {
+      CMS_PERFETTO_SCOPE("ComputeClueTauFeaturesKernel");
+      alpaka::exec<Acc1D>(queue, 
+        workDiv, 
+        ComputeClueTauFeaturesKernel{}, 
+        pf.const_view(),
+        clusterCandsMap.const_view(),
+        input_tensor.view());
+    }
 
     /* BEGIN DEBUG */
     // auto host_tensor = SoftTauInputHostTensor(num_clusters);

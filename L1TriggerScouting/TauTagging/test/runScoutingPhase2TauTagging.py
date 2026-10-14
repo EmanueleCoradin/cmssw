@@ -159,3 +159,11 @@ process.schedule = cms.Schedule(
     process.p_tables,
     process.end
 )
+
+# tracing with Perfetto
+from PerfTools.Perfetto.customisePerfetto import customisePerfetto
+customisePerfetto(process,
+              fileName="tau_tagging_nomemcpy.pftrace",
+              traceFunctions=True,
+              traceGpuKernels=True,
+              traceAllocations=True)

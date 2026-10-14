@@ -1,21 +1,20 @@
 #include "L1TriggerScouting/Phase2/plugins/alpaka/L1TScPhase2CLUEJetsKernels.h"
 
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   CLUEsteringAlgo::CLUEsteringAlgo(float dc, float rhoc, float dm, bool wrap_coords)
       : dc_(dc), rhoc_(rhoc), dm_(dm), wrap_coords_(wrap_coords) {}
 
-  std::tuple<BxLookupDevice, ClusterObjDeviceCollection, AssociationMapDevice>
+  
+  CLUEsteringAlgo::return_type  
   CLUEsteringAlgo::run(Queue& queue,
                       const PFCandidateDeviceCollection& pf,
-                      const BxLookupDevice& bx_sizes,
+                      const BxLookupHost& bx_sizes,
                       ClustersDeviceCollection& points_clusters) const {
-    // move bx_sizes from device to host because make_clusters (batched) requires bx_sizes to be on the host
     const auto nbx = static_cast<int32_t>(bx_sizes.const_view().bx().metadata().size());
-    auto bx_sizes_host = BxLookupHost(queue, nbx, nbx);
-    alpaka::memcpy(queue, bx_sizes_host.buffer(), bx_sizes.buffer());
-    alpaka::wait(queue);
-
+    
     // buffers
     // CLUEstering call internally reinterpret_cast<T*> to non-const ptr
     auto* eta_coord_ptr = const_cast<float*>(pf.const_view().eta().data());
@@ -34,8 +33,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     }
     
     // call the batched clustering function
-    clue_algo.make_clusters(queue, points_device, bx_sizes_host.const_view().offset().offset());
-    alpaka::wait(queue); // wait before copying
+    {
+      CMS_PERFETTO_SCOPE("Run Batched CLUEstering");
+      clue_algo.make_clusters(queue, points_device, bx_sizes.const_view().offset().offset());
+      alpaka::wait(queue); // wait before copying
+    }
 
     // get clusters -> candidates (clue) association map and copy the buffer to a portable collection
     auto clusters_cands_map_clue = clue_algo.getClusters(queue, points_device);
@@ -54,7 +56,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
                                                       Vec1D{clusters_cands_map_clue.extents().values});
     auto srcOffsetsClustersCands = alpaka::createView(alpaka::getDev(queue),
                                                       reinterpret_cast<const uint32_t *>(clusters_cands_map_clue.extract().keys.data()), 
-                                                      Vec1D{clusters_cands_map_clue.extents().keys + 1});
+                                                      Vec1D{clusters_cands_map_clue.extents().keys + 1}); 
+                                                                                                    
     alpaka::memcpy(queue, dstIndexesClustersCands, srcIndexesClustersCands);
     alpaka::memcpy(queue, dstOffsetsClustersCands, srcOffsetsClustersCands);
 

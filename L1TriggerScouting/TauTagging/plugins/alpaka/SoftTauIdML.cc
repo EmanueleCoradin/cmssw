@@ -17,6 +17,8 @@
 #include "PhysicsTools/PyTorchAlpaka/interface/BatchedTensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
   enum class Substep : uint8_t {
@@ -101,6 +103,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
+      CMS_PERFETTO_SCOPE("SoftTauIdML produce()");
       const auto &pf = event.get(pf_candidates_token_); // pf collection
       const auto &bx_clusters_map = event.get(bx_clusters_map_token_); // bx -> clusters map
       const auto &cluster_cands_map = event.get(cluster_cands_map_token_); // clusters->candidates map
@@ -114,6 +117,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         SoftTauInputDeviceTensor input_tensor = kernels::transform(event.queue(), pf, cluster_cands_map_sorted);
 
         if (substep_ >= Substep::Tagging) {
+          CMS_PERFETTO_SCOPE("Run Batched STT Inference");
+
           // initialize output tensor
           const auto job_size = cluster_cands_map.const_view().offset().metadata().size() - 1; // number of elements to run the inference on, which is the number of clusters
           auto output_tensor = SoftTauOutputDeviceTensor(event.queue(), job_size);

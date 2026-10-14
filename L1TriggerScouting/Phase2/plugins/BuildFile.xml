@@ -25,4 +25,5 @@
   <flags CXXFLAGS="-Wno-type-limits"/>
   <flags CXXFLAGS="-I${CLUESTERING_BASE}/include"/>
   <flags ADDINCLUDE="-I${CLUESTERING_BASE}/src/CLUEstering/include"/>
+  <use name="PerfTools/Perfetto"/>
 </library>

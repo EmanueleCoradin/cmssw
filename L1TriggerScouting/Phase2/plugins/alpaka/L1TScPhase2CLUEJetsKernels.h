@@ -5,6 +5,7 @@
 #include <fmt/core.h> 
 
 #include "CLUEstering/CLUEstering.hpp"
+#include "DataFormats/L1ScoutingSoA/interface/BxLookupHost.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/AssociationMapDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
@@ -29,7 +30,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
     return_type run(Queue& queue,
                     const PFCandidateDeviceCollection& pf,
-                    const BxLookupDevice& bx_sizes,
+                    const BxLookupHost& bx_sizes,
                     ClustersDeviceCollection& points_clusters) const;
 
   private:

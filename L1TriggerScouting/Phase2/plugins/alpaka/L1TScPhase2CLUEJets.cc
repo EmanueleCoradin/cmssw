@@ -1,4 +1,5 @@
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/AssociationMapDevice.h"
+#include "DataFormats/L1ScoutingSoA/interface/BxLookupHost.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PFCandidateDeviceCollection.h"
@@ -13,6 +14,8 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "L1TriggerScouting/Phase2/interface/L1TScPhase2Common.h"
 #include "L1TriggerScouting/Phase2/plugins/alpaka/L1TScPhase2CLUEJetsKernels.h"
+
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
@@ -32,6 +35,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
                       params.getParameter<bool>("wrapCoords")) {}
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
+      CMS_PERFETTO_SCOPE("L1TScPhase2CLUEJets produce()");
+
       // get collection from device memory space (implicit copy done by framework)
       const auto &pf = event.get(pf_candidates_token_);
       const auto &bx_sizes = event.get(bx_sizes_token_);
@@ -64,7 +69,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
   private:
     // get device pf data
     const device::EDGetToken<PFCandidateDeviceCollection> pf_candidates_token_;
-    const device::EDGetToken<BxLookupDevice> bx_sizes_token_;
+    const edm::EDGetTokenT<BxLookupHost> bx_sizes_token_;
     // put device clustering data
     const device::EDPutToken<BxLookupDevice> bx_clusters_map_token_;
     const device::EDPutToken<AssociationMapDevice> clusters_cands_map_token_;
