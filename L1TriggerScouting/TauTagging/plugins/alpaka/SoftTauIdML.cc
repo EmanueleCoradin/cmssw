@@ -11,18 +11,13 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/Event.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/MakerMacros.h"
-#include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/EDProducer.h"
+#include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/FixedQueueEDProducer.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "L1TriggerScouting/TauTagging/plugins/alpaka/TransformKernel.h"
-#include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
+#include "PhysicsTools/PyTorchAlpaka/interface/BatchedTensorCollection.h"
 #include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
-
-  struct BatchIO {
-    cms::torch::alpakatools::TensorCollection<Queue> inputs;
-    cms::torch::alpakatools::TensorCollection<Queue> outputs;
-  };
 
   enum class Substep : uint8_t {
     Sorting = 0, 
@@ -46,19 +41,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         << "Allowed values are: sorting, reshaping, tagging.";
   }
 
-  class SoftTauIdML : public stream::EDProducer<> {
+  class SoftTauIdML : public stream::FixedQueueEDProducer<> {
   public:
     SoftTauIdML(const edm::ParameterSet &params)
-        : EDProducer<>(params),
+        : FixedQueueEDProducer<>(params),
           pf_candidates_token_(consumes(params.getParameter<edm::InputTag>("srcCandidates"))),
           bx_clusters_map_token_(consumes(params.getParameter<edm::InputTag>("srcBxClustersMap"))),
           cluster_cands_map_token_(consumes(params.getParameter<edm::InputTag>("srcClustersCandsMap"))),
           clusters_token_(consumes(params.getParameter<edm::InputTag>("srcClusters"))),
           cluster_cands_map_sorted_token_(produces("clusterCandsMapSorted")),
           model_(params.getParameter<edm::FileInPath>("model").fullPath()),
-          substep_(parseSubstep(
-              params.getParameter<std::string>("substep")
-            )
+          substep_(parseSubstep(params.getParameter<std::string>("substep"))
           ),
           batch_size_(params.getParameter<uint32_t>("batchSize")) {
             if (substep_ >= Substep::Reshaping) {
@@ -79,6 +72,32 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       desc.add<std::string>("substep", "tagging");
       desc.add<uint32_t>("batchSize", 32u);
       descriptions.addWithDefaultLabel(desc);
+    }
+
+    void beginStream(edm::StreamID, Queue queue) {
+      // Warming up the model with dummy data. This allows for fast inference since the first iteration
+      // and should ensure a more homogeneous memory balance
+
+      SoftTauInputDeviceTensor input_tensor(queue, batch_size_);
+      SoftTauOutputDeviceTensor output_tensor(queue, batch_size_);
+      auto input_records = input_tensor.view().records(); 
+      auto output_records = output_tensor.view().records();
+
+      for (auto ii = 0; ii < warmupIterations_; ++ii) {
+        cms::torch::alpakatools::TensorCollection<Queue> inputs_d, outputs_d;
+
+        // register inputs
+        inputs_d.add<SoftTauInputTensorSoA>("features", input_records.features());
+        inputs_d.add<SoftTauInputTensorSoA>("pad_mask", input_records.pad_mask());
+
+        // register outputs
+        outputs_d.add<SoftTauOutputTensorSoA>("cls", output_records.cls());
+        outputs_d.add<SoftTauOutputTensorSoA>("pt", output_records.pt());
+        outputs_d.add<SoftTauOutputTensorSoA>("charge", output_records.charge());
+
+        // inference on dummy data
+        model_.forward(queue, inputs_d, outputs_d, ::torch::kHalf);
+      }
     }
 
     void produce(device::Event &event, const device::EventSetup &event_setup) override {
@@ -102,38 +121,35 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           
           // set batch size
           assert(batch_size_ > 0 && "batch_size_ is expected to be greater than zero, as unbatched inference will probably make the device go out of memory");
-          auto num_batches = (job_size + batch_size_ - 1) / batch_size_;
 
           // records
           auto input_records = input_tensor.view().records(); // pay A LOT OF attention here to constness
           auto output_records = output_tensor.view().records();
+          
+          // batched tensors
+          cms::torch::alpakatools::BatchedTensorCollection<Queue> inputs, outputs;
 
-          std::deque<BatchIO> batches;
-          for (auto batch_idx = 0u; batch_idx < num_batches; ++batch_idx) {
-            BatchIO batch{cms::torch::alpakatools::TensorCollection<Queue>(batch_size_, job_size),
-                          cms::torch::alpakatools::TensorCollection<Queue>(batch_size_, job_size)};
-            
-            batch.inputs.add<SoftTauInputTensorSoA>("features", batch_idx, input_records.features());
-            batch.inputs.add<SoftTauInputTensorSoA>("pad_mask", batch_idx, input_records.pad_mask());
+          // register inputs
+          inputs.addBatched<SoftTauInputTensorSoA>("features", batch_size_, input_records.features());
+          inputs.addBatched<SoftTauInputTensorSoA>("pad_mask", batch_size_, input_records.pad_mask());
 
-            batch.outputs.add<SoftTauOutputTensorSoA>("cls", batch_idx, output_records.cls());
-            batch.outputs.add<SoftTauOutputTensorSoA>("vz", batch_idx, output_records.vz());
-            batch.outputs.add<SoftTauOutputTensorSoA>("pt", batch_idx, output_records.pt());
-            batch.outputs.add<SoftTauOutputTensorSoA>("charge", batch_idx, output_records.charge());
+          // register outputs
+          outputs.addBatched<SoftTauOutputTensorSoA>("cls", batch_size_, output_records.cls());
+          outputs.addBatched<SoftTauOutputTensorSoA>("pt", batch_size_, output_records.pt());
+          outputs.addBatched<SoftTauOutputTensorSoA>("charge", batch_size_, output_records.charge());
 
-            batches.push_back(std::move(batch));
-          }
-
-          for (auto &batch : batches) {
-            model_.forward(event.queue(), batch.inputs, batch.outputs);
-          }
-
+          // do inference
+          model_.forward(event.queue(), inputs, outputs, ::torch::kHalf);
+          
+          // emplace output
           event.emplace(soft_tau_output_token_, std::move(output_tensor));
         }
 
+        // emplace input
         event.emplace(soft_tau_input_token_, std::move(input_tensor));
       }
 
+      // emplace sorted map
       event.emplace(cluster_cands_map_sorted_token_, std::move(cluster_cands_map_sorted)); 
     }
 
@@ -158,6 +174,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     Substep substep_;
     // scouting switch
     const uint32_t batch_size_;
+    // warmup iterations
+    const int warmupIterations_ = 10;
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::torchtest

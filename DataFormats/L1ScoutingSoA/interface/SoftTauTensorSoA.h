@@ -10,7 +10,7 @@
 namespace l1sc {
 
   using JetFeatures = Eigen::Matrix<float, 16, 10>;
-  using PaddingMask = Eigen::Vector<float, 16>;
+  using PaddingMask = Eigen::Vector<bool, 16>;
   GENERATE_SOA_LAYOUT(SoftTauInputTensorLayout,
                       SOA_EIGEN_COLUMN(JetFeatures, features),
                       SOA_EIGEN_COLUMN(PaddingMask, pad_mask))
@@ -18,7 +18,6 @@ namespace l1sc {
 
   GENERATE_SOA_LAYOUT(SoftTauOutputTensorLayout,
                       SOA_COLUMN(float, cls),
-                      SOA_COLUMN(float, vz),
                       SOA_COLUMN(float, pt),
                       SOA_COLUMN(float, charge))
   using SoftTauOutputTensorSoA = SoftTauOutputTensorLayout<>;

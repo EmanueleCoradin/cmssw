@@ -76,13 +76,11 @@ void SoftTauOutputTensorToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEv
 
   // soft tau output tensor
   const auto *cls = outputs_view.cls().data();
-  const auto *vz = outputs_view.vz().data();
   const auto *pt = outputs_view.pt().data();
   const auto *charge = outputs_view.charge().data();
 
   // table with output logits and outputTensorIndex
   std::vector<float> cls_vec{cls, cls + num_outputs};
-  std::vector<float> vz_vec{vz, vz + num_outputs};
   std::vector<float> pt_vec{pt, pt + num_outputs};
   std::vector<float> charge_vec{charge, charge + num_outputs};
   std::vector<int> tensorIndex(num_outputs);
@@ -91,7 +89,6 @@ void SoftTauOutputTensorToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEv
   auto out_table = std::make_unique<l1ScoutingRun3::OrbitFlatTable>(bxOffsets, name_); // singleton and extension set to false by default
   out_table->setDoc(doc_);
   out_table->addColumn<float>("cls", cls_vec, "Classification score");
-  out_table->addColumn<float>("vz", vz_vec, "vZ regression");
   out_table->addColumn<float>("pt", pt_vec, "pT regression");
   out_table->addColumn<float>("charge", charge_vec, "Charge score");
   out_table->addColumn<int>("outputTensorIndex", tensorIndex, "Index of the output tensor (corresponds to the cluster index)");

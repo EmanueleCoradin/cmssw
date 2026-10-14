@@ -17,7 +17,7 @@ options.register ("pipelineStep",
 )
 
 options.register ("model", 
-    "L1TriggerScouting/TauTagging/data/softtauid_sigmoid_col.pt", 
+    "L1TriggerScouting/TauTagging/data/STT_jit.pt", 
     VarParsing.VarParsing.multiplicity.singleton, 
     VarParsing.VarParsing.varType.string,
     "PyTorch model to be used."
