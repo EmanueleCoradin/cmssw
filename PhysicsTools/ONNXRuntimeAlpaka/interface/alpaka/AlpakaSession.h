@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -43,6 +44,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ort {
 
     // Create the ONNX Runtime session, running on the device and in the stream of the given queue.
     void bind(Queue const& queue) {
+      static std::mutex sessionInitializationMutex;
+      std::lock_guard<std::mutex> lock(sessionInitializationMutex);
+
       if (session_) {
         throw cms::Exception("LogicError") << "The ONNX Runtime session for " << model_path_ << " is already bound.";
       }

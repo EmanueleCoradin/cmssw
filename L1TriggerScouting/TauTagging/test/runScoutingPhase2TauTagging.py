@@ -1,4 +1,6 @@
 import FWCore.ParameterSet.Config as cms
+import os
+
 process = cms.Process("ScoutingPhase2TauTagging")
 
 # import TauTagging options
@@ -41,6 +43,12 @@ setupPhase2Scouting(process, options)
 
 # disable pytorch inner threading
 process.PyTorchService = cms.Service("PyTorchService")
+
+# Initialize ONNX Runtime service
+process.ONNXService = cms.Service(
+    "ONNXService",
+    tensorRTLibrary = cms.untracked.string("/shared/INFN_scholarship/tensor-rt/build/el9_amd64_gcc14/external/onnxruntime-ep-tensorrt/1.0.0-d26531cb1a7a5e9068be7f82863f2386/lib/libonnxruntime_ep_tensorrt.so")
+)
 
 # timing
 process.load( "HLTrigger.Timer.FastTimerService_cfi" )
@@ -90,7 +98,7 @@ process.L1TScPhase2CLUEJetsProducer.candidates = cms.InputTag("unpacker", "candi
 process.L1TScPhase2CLUEJetsProducer.bxSizes = cms.InputTag("unpacker", "bxSizes")
 
 # sorting, reshaping, tagging
-process.softTaus = cms.EDProducer("l1sc::SoftTauIdML@alpaka", 
+process.softTausTorch = cms.EDProducer("l1sc::SoftTauIdML@alpaka", 
     alpaka = cms.untracked.PSet(
         backend = cms.untracked.string(options.backend)
     ),
@@ -100,7 +108,21 @@ process.softTaus = cms.EDProducer("l1sc::SoftTauIdML@alpaka",
     srcClusters = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clusters"),
     model = cms.FileInPath(options.model), 
     substep = cms.string(options.pipelineStep), 
-    batchSize = cms.uint32(options.batchSize)
+    batchSize = cms.uint32(1024)
+)
+
+process.softTaus = cms.EDProducer("l1sc::SoftTauIdONNX@alpaka",
+    alpaka = cms.untracked.PSet(
+        backend = cms.untracked.string(options.backend)
+    ),
+    srcCandidates = cms.InputTag("unpacker", "candidates"),
+    srcBxClustersMap = cms.InputTag("L1TScPhase2CLUEJetsProducer", "bxClustersMap"),
+    srcClustersCandsMap = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clustersCandsMap"),
+    srcClusters = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clusters"),
+    model = cms.FileInPath("epcontext/STT_tensorrt.onnx"),
+    substep = cms.string(options.pipelineStep),
+    batchSize = cms.uint32(1024)
+    #backend = cms.string("tensorRT")
 )
 
 if step_mapper[options.pipelineStep] >= step_mapper["clustering"]:

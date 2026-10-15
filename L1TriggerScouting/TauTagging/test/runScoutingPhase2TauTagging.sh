@@ -5,7 +5,7 @@
 function die { echo Failed $1: status $2 ; exit $2 ; }
 
 SCRIPT="L1TriggerScouting/TauTagging/test/runScoutingPhase2TauTagging.py"
-DATA="/mnt/ramdisk/gizago/raw"
+DATA="/dev/shm"
 
 if [ "$#" != "6" ]; then
     die "Need exactly 6 arguments: 1st ('cpu', 'cpu-dump', 'cuda', 'cuda-dump'), 2nd ('num_events'), 3rd ('num_threads'), 4th ('num_streams'), 5rd ('run_number'), 6th ('unpacking', 'clustering', 'sorting', 'reshaping', 'tagging') got $#" 1

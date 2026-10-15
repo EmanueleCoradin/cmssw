@@ -281,21 +281,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                              track_record.covPhiDxy(),
                                              track_record.covPhiQOverPt());
 
-<<<<<<< HEAD
-      batch.outputs.add<PixelTrackScoresSoA>("track_scores", i_batch, score_record.score());
-      {
-      CMS_PERFETTO_SCOPE("Forward call");
-      model_.forward(queue, batch.inputs, batch.outputs, ::torch::kFloat);
-      }
-    }
-    { 
-    CMS_PERFETTO_SCOPE("Score Filter");
-=======
     outputs.addBatched<PixelTrackScoresSoA>("track_scores", batchSize_, score_record.score());
 
     model_.forward(queue, inputs, outputs, ::torch::kHalf);
 
->>>>>>> aa9c10a718e (Support per-tensor sizes and more flexible batching in PyTorchAlpaka)
     launchScoreFilter(queue,
                       maxPreselectedTracks_,
                       scoreThreshold_,
@@ -306,15 +295,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                       alpaka::getPtrNative(d_selectedTrackIndices),
                       alpaka::getPtrNative(d_nSelectedTracks),
                       alpaka::getPtrNative(d_selectedTrackHitOffsets));
-    }
+
 #ifdef PIXEL_TRACK_HP_DEBUG
     nSelectedTracks = fetchNumSelectedTracks();
     std::cout << "PixelTrackTorchHighPuritySelector::Filtered tracks=" << nSelectedTracks << "\n";
 #endif
-    TkSoADevice tracks_out(queue, int(maxPreselectedTracks_), int(maxPreselectedTracks_ * avgHitsPerTrack_));
-    { 
-    CMS_PERFETTO_SCOPE("Output Tracks");
-    tracks_out = launchProduceOutputTracks(queue,
+    
+    auto tracks_out = launchProduceOutputTracks(queue,
                                                 maxPreselectedTracks_,
                                                 avgHitsPerTrack_,
                                                 tracks.tracks(),
@@ -322,7 +309,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                 alpaka::getPtrNative(d_selectedTrackIndices),
                                                 alpaka::getPtrNative(d_nSelectedTracks),
                                                 alpaka::getPtrNative(d_selectedTrackHitOffsets));
-    }
+    
     iEvent.emplace(tokenTrackOut_, std::move(tracks_out));
   }
 

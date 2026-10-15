@@ -217,7 +217,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
             input_tensor.features()(tid, 8) = (pdgid_abs == 13) ? 1.0f : 0.0f;
             input_tensor.features()(tid, 9) = (pdgid_abs == 22) ? 1.0f : 0.0f;
             // pad mask
-            input_tensor.pad_mask()(tid) = false;
+            input_tensor.pad_mask()(tid) = 0.f;
           }
         }
       }
