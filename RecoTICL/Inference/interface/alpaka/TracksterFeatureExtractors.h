@@ -3,18 +3,21 @@
 
 #include <cstdint>
 
+#include "DataFormats/CaloRecHit/interface/CaloClusterSoA.h"
 #include "DataFormats/HGCalReco/interface/TracksterSoA.h"
+#include "DataFormats/SoATemplate/interface/SoAConstMultiView.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "RecoTICL/Inference/interface/alpaka/TracksterInferenceDevice.h"
-#include "RecoTICL/Inference/interface/alpaka/TracksterInferenceKernels.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
+  using LayerClusterEnergyMultiView = SoAConstMultiView<::reco::CaloClusterSoAEnergy<>::ConstView, 3>;
+  using LayerClusterPositionMultiView = SoAConstMultiView<::reco::CaloClusterSoAPosition<>::ConstView, 3>;
+
   // Extractor policy for the legacy Trackster CNN features.
-  // The policy owns model-specific configuration and delegates GPU work to
-  // the existing TracksterInferenceKernels implementations.
+  // The policy owns model-specific configuration and CNN GPU kernels.
   //
   // A different model can supply its own FeaturesDevice, selection policy,
   // and feature-filling implementation without changing the producer.
