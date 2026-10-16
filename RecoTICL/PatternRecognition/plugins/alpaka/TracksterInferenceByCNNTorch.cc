@@ -24,7 +24,7 @@
 
 #include "RecoTICL/Inference/interface/TracksterInferenceSoA.h"
 #include "RecoTICL/Inference/interface/alpaka/TracksterInferenceDevice.h"
-#include "RecoTICL/PatternRecognition/plugins/alpaka/TracksterInferenceKernels.h"
+#include "RecoTICL/Inference/interface/alpaka/TracksterInferenceKernels.h"
 #include "RecoLocalCalo/HGCalRecAlgos/interface/TICLGeomTools.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {

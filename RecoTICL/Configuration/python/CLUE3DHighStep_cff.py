@@ -100,9 +100,23 @@ ticlTracksterInferenceByCNNTorch = _tracksterInferenceByCNNTorch.clone(
     warmupIterations = cms.int32(3),
 )
 
+ticlTracksterInferenceProducer = cms.EDProducer(
+    "TracksterInferenceProducer@alpaka",
+    tracksters = cms.InputTag("ticlTrackstersToSoAProducer"),
+    features = cms.InputTag(
+        "ticlTracksterInferenceFeaturesProducer", "features"
+    ),
+    model = cms.FileInPath(
+        "RecoTICL/PatternRecognition/data/trackster_pid_cnn.pt"
+    ),
+    batchSize = cms.uint32(64),
+    convertToFP16 = cms.bool(False),
+    warmupIterations = cms.int32(3),
+)
+
 ticlTracksterPIDComparison = _tracksterPIDComparisonAnalyzer.clone(
     reference="ticlTrackstersToSoAProducer",
-    candidate="ticlTracksterInferenceByCNNTorch",
+    candidate="ticlTracksterInferenceProducer",
     # Start loose enough to accommodate the different inference runtimes.
     # Tighten these after inspecting the measured maximum differences.
     absoluteTolerance=1.e-5,
@@ -118,7 +132,7 @@ ticlCLUE3DHighStepTask = cms.Task(
     ticlTrackstersCLUE3DHigh,
     ticlTrackstersToSoAProducer,
     ticlTracksterInferenceFeaturesProducer,
-    ticlTracksterInferenceByCNNTorch,
+    ticlTracksterInferenceProducer,
 )
 
 # with ticl_dev 3D pattern recognition swapped to CLUEstering.
@@ -146,6 +160,6 @@ ticl_dev.toReplaceWith(
         ticlTrackstersCLUE3DHigh,
         ticlTrackstersToSoAProducer,
         ticlTracksterInferenceFeaturesProducer,
-        ticlTracksterInferenceByCNNTorch,
+        ticlTracksterInferenceProducer,
     )
 )

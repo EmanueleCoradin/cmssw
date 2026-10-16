@@ -1,7 +1,7 @@
 #include <Eigen/Core>
 #include <xtd/math.h>
 
-#include "RecoTICL/PatternRecognition/plugins/alpaka/TracksterInferenceKernels.h"
+#include "RecoTICL/Inference/interface/alpaka/TracksterInferenceKernels.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/prefixScan.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"

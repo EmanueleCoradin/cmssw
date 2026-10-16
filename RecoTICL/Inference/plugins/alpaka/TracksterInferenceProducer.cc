@@ -1,9 +1,9 @@
 #include <Eigen/Core>
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <utility>
 
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
@@ -79,6 +79,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     void produce(device::Event& event, device::EventSetup const&) override {
       // Retrieve both products before launching work on this module's queue.
+      edm::LogError("TrackstersInference") << "producing";
+
       const auto& inputFeatures = event.get(featuresToken_);
       const auto& inputTracksters = event.get(trackstersToken_);
       auto& queue = event.queue();
