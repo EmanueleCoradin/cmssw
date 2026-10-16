@@ -1,0 +1,17 @@
+<bin file="alpaka/testTracksterPreprocessing.dev.cc" name="testTracksterPreprocessing">
+  <use name="RecoTICL/Inference"/>
+  <use name="DataFormats/CaloRecHit"/>
+  <use name="DataFormats/HGCalReco"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="PhysicsTools/PyTorchAlpaka"/>
+  <use name="FWCore/ParameterSet"/>
+  <use name="alpaka"/>
+  <use name="eigen"/>
+  <use name="pytorch"/>
+  <use name="pytorch-cuda" for="alpaka/cuda"/>
+  <use name="pytorch-rocm" for="alpaka/rocm"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
+<test name="testTracksterInferenceConfig" command="python3 ${SCRAM_TEST_PATH}/testTracksterInferenceConfig.py"/>
+
+<bin file="testTracksterClusterOrder.cc" name="testTracksterClusterOrder"/>
