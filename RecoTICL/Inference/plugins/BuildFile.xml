@@ -14,7 +14,6 @@
   <use name="DataFormats/CaloRecHit"/>
   <use name="DataFormats/SoATemplate"/>
   <use name="DataFormats/HGCalReco"/>
-  <use name="FWCore/ParameterSet"/>
   <use name="FWCore/Utilities"/>
   <use name="Geometry/Records"/>
   <use name="HeterogeneousCore/AlpakaCore"/>

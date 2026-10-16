@@ -9,13 +9,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   template <typename Adapter>
   TracksterInferenceRunner<Adapter>::TracksterInferenceRunner(std::string const& modelPath,
-                                                               uint32_t batchSize,
-                                                               bool convertToFP16,
-                                                               int warmupIterations)
-      : model_{modelPath},
-        batchSize_{batchSize},
-        convertToFP16_{convertToFP16},
-        warmupIterations_{warmupIterations} {
+                                                              uint32_t batchSize,
+                                                              bool convertToFP16,
+                                                              int warmupIterations)
+      : model_{modelPath}, batchSize_{batchSize}, convertToFP16_{convertToFP16}, warmupIterations_{warmupIterations} {
     if (batchSize_ == 0u) {
       throw cms::Exception("TracksterInferenceRunner") << "batchSize must be positive";
     }

@@ -1,7 +1,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -27,9 +27,8 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/SynchronizingEDProducer.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
-#include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "RecoLocalCalo/HGCalRecAlgos/interface/TICLGeomTools.h"
-#include "RecoTICL/Inference/interface/alpaka/TracksterFeatureExtractors.h"
+#include "RecoTICL/Inference/interface/alpaka/TracksterFeatureExtractionRunner.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -43,11 +42,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   }  // namespace
 
-  // Common Trackster-to-device-feature lifecycle. The extractor policy
-  // chooses how Tracksters are selected and how their feature SoA is filled.
-  // It is required to expose:
-  //   FeaturesDevice; constructor(config); fillDescription(description);
-  //   select(...); makeFeatures(queue, selectedCount); fill(...).
+  // The EDM module owns only tokens, geometry setup and the acquire/produce
+  // lifecycle. Device selection, count transfer and feature filling live in
+  // the reusable TracksterFeatureExtractionRunner.
   template <typename Extractor>
   class TracksterInferenceFeaturesProducerT : public stream::SynchronizingEDProducer<edm::stream::WatchRuns> {
   public:
@@ -63,14 +60,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           ticlGeomLayersToken_{
               esConsumes<TICLGeomLayersHost, CaloGeometryRecord, edm::Transition::BeginRun>(edm::ESInputTag("", ""))},
           trackstersToken_{consumes(config.getParameter<edm::InputTag>("tracksters"))},
-          extractor_{config},
+          runner_{config},
           featuresOutToken_{produces("features")} {
-      const auto tags = config.getParameter<std::vector<edm::InputTag>>("layerClusters");
+      auto const tags = config.getParameter<std::vector<edm::InputTag>>("layerClusters");
       if (tags.size() != 3) {
         throw cms::Exception("TracksterInferenceFeaturesProducer")
             << "Expected exactly three LayerCluster collections (EE, HSi, HSci)";
       }
-      for (const auto& tag : tags) {
+      for (auto const& tag : tags) {
         layerClustersTokens_.emplace_back(consumes(tag));
       }
     }
@@ -98,99 +95,63 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
 
     void acquire(device::Event const& event, device::EventSetup const&) override {
-      const auto& input = event.get(trackstersToken_);
-      const auto tracksters = input.const_view();
-      const auto nTracksters = checkedSize(tracksters.tracksters().metadata().size(), "Tracksters");
+      auto const& input = event.get(trackstersToken_);
+      auto const tracksters = input.const_view();
       auto& queue = event.queue();
 
-      selectedCountHost_.emplace(cms::alpakatools::make_host_buffer<uint32_t>(queue));
-      *alpaka::getPtrNative(*selectedCountHost_) = 0u;
-      selectionMaskDevice_.reset();
-      selectionOffsetsDevice_.reset();
-
-      if (nTracksters == 0) {
+      // Preserve the original empty-event behavior: no need to retrieve
+      // the layer-cluster products if no Tracksters were produced.
+      if (tracksters.tracksters().metadata().size() == 0u) {
+        runner_.prepare(queue, tracksters, LayerClusterEnergyMultiView{});
         return;
       }
 
-      const auto& ee = event.get(layerClustersTokens_[0]);
-      const auto& hsi = event.get(layerClustersTokens_[1]);
-      const auto& hsci = event.get(layerClustersTokens_[2]);
-      const auto nEE = checkedSize(ee.const_view().metadata().size()[0], "EE LayerClusters");
-      const auto nHSi = checkedSize(hsi.const_view().metadata().size()[0], "HSi LayerClusters");
-      const auto nHSci = checkedSize(hsci.const_view().metadata().size()[0], "HSci LayerClusters");
+      auto const& ee = event.get(layerClustersTokens_[0]);
+      auto const& hsi = event.get(layerClustersTokens_[1]);
+      auto const& hsci = event.get(layerClustersTokens_[2]);
+      auto const nEE = checkedSize(ee.const_view().metadata().size()[0], "EE LayerClusters");
+      auto const nHSi = checkedSize(hsi.const_view().metadata().size()[0], "HSi LayerClusters");
+      auto const nHSci = checkedSize(hsci.const_view().metadata().size()[0], "HSci LayerClusters");
 
-      LayerClusterEnergyMultiView clusterEnergies;
-      clusterEnergies.addView(ee.const_view().energy(), nEE);
-      clusterEnergies.addView(hsi.const_view().energy(), nHSi);
-      clusterEnergies.addView(hsci.const_view().energy(), nHSci);
-
-      selectionMaskDevice_.emplace(cms::alpakatools::make_device_buffer<uint32_t[]>(queue, nTracksters));
-      selectionOffsetsDevice_.emplace(cms::alpakatools::make_device_buffer<uint32_t[]>(queue, nTracksters));
-
-      extractor_.select(queue,
-                        tracksters,
-                        clusterEnergies,
-                        selectionMaskDevice_->data(),
-                        selectionOffsetsDevice_->data(),
-                        static_cast<uint32_t>(nTracksters));
-
-      // select() must produce an inclusive prefix sum; the last offset
-      // gives the exact output size. SynchronizingEDProducer waits before produce().
-      auto lastOffset =
-          cms::alpakatools::make_device_view(queue, selectionOffsetsDevice_->data() + nTracksters - 1, 1u);
-      auto hostCount = cms::alpakatools::make_host_view(alpaka::getPtrNative(*selectedCountHost_), 1u);
-      alpaka::memcpy(queue, hostCount, lastOffset);
+      LayerClusterEnergyMultiView energies;
+      energies.addView(ee.const_view().energy(), nEE);
+      energies.addView(hsi.const_view().energy(), nHSi);
+      energies.addView(hsci.const_view().energy(), nHSci);
+      runner_.prepare(queue, tracksters, energies);
     }
 
     void produce(device::Event& event, device::EventSetup const&) override {
       auto& queue = event.queue();
-      const auto selectedCount = *alpaka::getPtrNative(*selectedCountHost_);
-      const auto& input = event.get(trackstersToken_);
-      const auto tracksters = input.const_view();
-      const auto nTracksters = checkedSize(tracksters.tracksters().metadata().size(), "Tracksters");
+      auto const& input = event.get(trackstersToken_);
+      auto const tracksters = input.const_view();
 
-      if (selectedCount > static_cast<uint32_t>(nTracksters)) {
-        throw cms::Exception("TracksterInferenceFeaturesProducer")
-            << "Selected " << selectedCount << " Tracksters out of " << nTracksters;
-      }
-
-      auto features = extractor_.makeFeatures(queue, selectedCount);
-      if (selectedCount == 0u) {
-        event.emplace(featuresOutToken_, std::move(features));
-        selectionMaskDevice_.reset();
-        selectionOffsetsDevice_.reset();
+      // The count has been transferred by acquire() and synchronized by
+      // SynchronizingEDProducer before this method is called.
+      if (runner_.selectedCount() == 0u) {
+        auto output = runner_.run(
+            queue, tracksters, LayerClusterEnergyMultiView{}, LayerClusterPositionMultiView{}, layersPerEndcap_);
+        event.emplace(featuresOutToken_, std::move(output));
         return;
       }
 
-      const auto& ee = event.get(layerClustersTokens_[0]);
-      const auto& hsi = event.get(layerClustersTokens_[1]);
-      const auto& hsci = event.get(layerClustersTokens_[2]);
-      const auto nEE = checkedSize(ee.const_view().metadata().size()[0], "EE LayerClusters");
-      const auto nHSi = checkedSize(hsi.const_view().metadata().size()[0], "HSi LayerClusters");
-      const auto nHSci = checkedSize(hsci.const_view().metadata().size()[0], "HSci LayerClusters");
+      auto const& ee = event.get(layerClustersTokens_[0]);
+      auto const& hsi = event.get(layerClustersTokens_[1]);
+      auto const& hsci = event.get(layerClustersTokens_[2]);
+      auto const nEE = checkedSize(ee.const_view().metadata().size()[0], "EE LayerClusters");
+      auto const nHSi = checkedSize(hsi.const_view().metadata().size()[0], "HSi LayerClusters");
+      auto const nHSci = checkedSize(hsci.const_view().metadata().size()[0], "HSci LayerClusters");
 
-      LayerClusterEnergyMultiView clusterEnergies;
-      LayerClusterPositionMultiView clusterPositions;
-      clusterEnergies.addView(ee.const_view().energy(), nEE);
-      clusterEnergies.addView(hsi.const_view().energy(), nHSi);
-      clusterEnergies.addView(hsci.const_view().energy(), nHSci);
-      clusterPositions.addView(ee.const_view().position(), nEE);
-      clusterPositions.addView(hsi.const_view().position(), nHSi);
-      clusterPositions.addView(hsci.const_view().position(), nHSci);
+      LayerClusterEnergyMultiView energies;
+      LayerClusterPositionMultiView positions;
+      energies.addView(ee.const_view().energy(), nEE);
+      energies.addView(hsi.const_view().energy(), nHSi);
+      energies.addView(hsci.const_view().energy(), nHSci);
+      positions.addView(ee.const_view().position(), nEE);
+      positions.addView(hsi.const_view().position(), nHSi);
+      positions.addView(hsci.const_view().position(), nHSci);
 
-      extractor_.fill(queue,
-                      tracksters,
-                      clusterEnergies,
-                      clusterPositions,
-                      static_cast<uint32_t>(layersPerEndcap_),
-                      selectionMaskDevice_->data(),
-                      selectionOffsetsDevice_->data(),
-                      features,
-                      static_cast<uint32_t>(nTracksters));
-
-      event.emplace(featuresOutToken_, std::move(features));
-      selectionMaskDevice_.reset();
-      selectionOffsetsDevice_.reset();
+      auto output = runner_.run(queue, tracksters, energies, positions, static_cast<uint32_t>(layersPerEndcap_));
+      event.emplace(featuresOutToken_, std::move(output));
     }
 
   private:
@@ -204,17 +165,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     device::EDGetToken<ticl::TracksterDevice> const trackstersToken_;
     std::vector<device::EDGetToken<reco::CaloClusterDeviceCollection>> layerClustersTokens_;
 
-    Extractor extractor_;
+    TracksterFeatureExtractionRunner<Extractor> runner_;
     device::EDPutToken<FeaturesDevice> const featuresOutToken_;
 
     int32_t layersPerEndcap_ = 0;
-    std::optional<cms::alpakatools::device_buffer<Device, uint32_t[]>> selectionMaskDevice_;
-    std::optional<cms::alpakatools::device_buffer<Device, uint32_t[]>> selectionOffsetsDevice_;
-    std::optional<cms::alpakatools::host_buffer<uint32_t>> selectedCountHost_;
   };
 
-  // Preserve the module name and product type expected by existing Python
-  // configurations and downstream inference modules.
+  // Preserve the existing plugin name and product type.
   using TracksterInferenceFeaturesProducer = TracksterInferenceFeaturesProducerT<CNNFeatureExtractor>;
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
