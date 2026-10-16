@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <limits>
 
+#include <Eigen/Core>
 #include <alpaka/alpaka.hpp>
 
 #include "FWCore/Utilities/interface/Exception.h"
