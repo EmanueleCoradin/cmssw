@@ -94,7 +94,7 @@ ticlTracksterInferenceFeaturesProducer = _tracksterInferenceFeaturesProducer.clo
 ticlTracksterInferenceByCNNTorch = _tracksterInferenceByCNNTorch.clone(
     tracksters = cms.InputTag("ticlTrackstersToSoAProducer"),
     features = cms.InputTag("ticlTracksterInferenceFeaturesProducer", "features"),
-    model = cms.FileInPath("RecoTICL/PatternRecognition/data/trackster_pid_cnn.pt"),
+    model = cms.FileInPath("RecoTICL/Inference/data/trackster_pid_cnn.pt"),
     batchSize = cms.uint32(64),
     convertToFP16 = cms.bool(False),
     warmupIterations = cms.int32(3),
@@ -107,7 +107,7 @@ ticlTracksterInferenceProducer = cms.EDProducer(
         "ticlTracksterInferenceFeaturesProducer", "features"
     ),
     model = cms.FileInPath(
-        "RecoTICL/PatternRecognition/data/trackster_pid_cnn.pt"
+        "RecoTICL/Inference/data/trackster_pid_cnn.pt"
     ),
     batchSize = cms.uint32(64),
     convertToFP16 = cms.bool(False),

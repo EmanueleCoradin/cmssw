@@ -18,13 +18,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                    uint32_t* selectionMask,
                                    uint32_t* selectionOffsets,
                                    uint32_t nTracksters) const {
-    selectTracksters(queue,
-                     tracksters,
-                     clusterEnergies,
-                     minClusterEnergy_,
-                     selectionMask,
-                     selectionOffsets,
-                     nTracksters);
+    selectTracksters(
+        queue, tracksters, clusterEnergies, minClusterEnergy_, selectionMask, selectionOffsets, nTracksters);
   }
 
   CNNFeatureExtractor::FeaturesDevice CNNFeatureExtractor::makeFeatures(Queue& queue, uint32_t selectedCount) const {

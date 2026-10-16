@@ -60,8 +60,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               edm::ESInputTag("", doBarrel_ ? "withBarrel" : ""))},
           ticlGeomLookupToken_{esConsumes<TICLGeomLookupHost, CaloGeometryRecord, edm::Transition::BeginRun>(
               edm::ESInputTag("", doBarrel_ ? "withBarrel" : ""))},
-          ticlGeomLayersToken_{esConsumes<TICLGeomLayersHost, CaloGeometryRecord, edm::Transition::BeginRun>(
-              edm::ESInputTag("", ""))},
+          ticlGeomLayersToken_{
+              esConsumes<TICLGeomLayersHost, CaloGeometryRecord, edm::Transition::BeginRun>(edm::ESInputTag("", ""))},
           trackstersToken_{consumes(config.getParameter<edm::InputTag>("tracksters"))},
           extractor_{config},
           featuresOutToken_{produces("features")} {
@@ -80,9 +80,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       description.add<std::string>("detector", "HGCAL");
       description.add<edm::InputTag>("tracksters", edm::InputTag("ticlTrackstersToSoAProducer"));
       description.add<std::vector<edm::InputTag>>("layerClusters",
-                                                   {edm::InputTag("hgcalSoALayerClustersEE"),
-                                                    edm::InputTag("hgcalSoALayerClustersHSi"),
-                                                    edm::InputTag("hgcalSoALayerClustersHSci")});
+                                                  {edm::InputTag("hgcalSoALayerClustersEE"),
+                                                   edm::InputTag("hgcalSoALayerClustersHSi"),
+                                                   edm::InputTag("hgcalSoALayerClustersHSci")});
       Extractor::fillDescription(description);
       descriptions.addWithDefaultLabel(description);
     }
@@ -136,7 +136,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // select() must produce an inclusive prefix sum; the last offset
       // gives the exact output size. SynchronizingEDProducer waits before produce().
-      auto lastOffset = cms::alpakatools::make_device_view(queue, selectionOffsetsDevice_->data() + nTracksters - 1, 1u);
+      auto lastOffset =
+          cms::alpakatools::make_device_view(queue, selectionOffsetsDevice_->data() + nTracksters - 1, 1u);
       auto hostCount = cms::alpakatools::make_host_view(alpaka::getPtrNative(*selectedCountHost_), 1u);
       alpaka::memcpy(queue, hostCount, lastOffset);
     }
