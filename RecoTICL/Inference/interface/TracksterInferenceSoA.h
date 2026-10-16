@@ -16,8 +16,7 @@ namespace ticl {
                       SOA_EIGEN_COLUMN(TracksterCNNImage, energy),
                       SOA_EIGEN_COLUMN(TracksterCNNImage, absEta),
                       SOA_EIGEN_COLUMN(TracksterCNNImage, phi),
-                      SOA_COLUMN(uint32_t, selectedTracksterIndex),
-                      SOA_SCALAR(uint32_t, selectedCount))
+                      SOA_COLUMN(uint32_t, selectedTracksterIndex))
 
   GENERATE_SOA_LAYOUT(TracksterInferencePIDScoresLayout,
                       SOA_COLUMN(float, id_probabilities0),

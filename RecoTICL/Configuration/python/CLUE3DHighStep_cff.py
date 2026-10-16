@@ -5,7 +5,6 @@ from RecoTICL.PatternRecognition.trackstersProducer_cfi import trackstersProduce
 from RecoTICL.ClusterFilters.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoTICL.PatternRecognition.trackstersToSoAProducer_cfi import trackstersToSoAProducer as _trackstersToSoAProducer
 from RecoTICL.Configuration.tracksterInferenceFeaturesProducer_cfi import tracksterInferenceFeaturesProducer as _tracksterInferenceFeaturesProducer
-from RecoTICL.Configuration.tracksterInferenceByCNNTorch_cfi import tracksterInferenceByCNNTorch as _tracksterInferenceByCNNTorch
 from RecoTICL.Configuration.tracksterPIDComparisonAnalyzer_cfi import tracksterPIDComparisonAnalyzer as _tracksterPIDComparisonAnalyzer
 
 # CLUSTER FILTERING/MASKING
@@ -89,15 +88,6 @@ ticlTracksterInferenceFeaturesProducer = _tracksterInferenceFeaturesProducer.clo
         "hgcalSoALayerClustersHSci"),
     detector = cms.string("HGCAL"),
     minClusterEnergy = cms.double(1.0),
-)
-
-ticlTracksterInferenceByCNNTorch = _tracksterInferenceByCNNTorch.clone(
-    tracksters = cms.InputTag("ticlTrackstersToSoAProducer"),
-    features = cms.InputTag("ticlTracksterInferenceFeaturesProducer", "features"),
-    model = cms.FileInPath("RecoTICL/Inference/data/trackster_pid_cnn.pt"),
-    batchSize = cms.uint32(64),
-    convertToFP16 = cms.bool(False),
-    warmupIterations = cms.int32(3),
 )
 
 ticlTracksterInferenceProducer = cms.EDProducer(
