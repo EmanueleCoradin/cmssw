@@ -16,13 +16,13 @@
 #include "FWCore/Utilities/interface/Exception.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
-#include "PhysicsTools/PyTorchAlpaka/interface/BatchedTensorCollection.h"
+#include "RecoTICL/Inference/interface/alpaka/BatchedInferenceRunner.h"
 #include "RecoTICL/Inference/interface/TracksterInferenceSoA.h"
 #include "RecoTICL/Inference/interface/alpaka/TracksterInferenceDevice.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-  using InferenceTensors = cms::torch::alpakatools::BatchedTensorCollection<Queue>;
+
 
   namespace detail {
 

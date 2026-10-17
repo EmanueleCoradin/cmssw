@@ -13,8 +13,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                               uint32_t batchSize,
                                                               bool convertToFP16,
                                                               int warmupIterations)
-      : model_{modelPath}, batchSize_{batchSize}, convertToFP16_{convertToFP16}, warmupIterations_{warmupIterations} {
-    model_.to(convertToFP16_ ? ::torch::kHalf : ::torch::kFloat);
+      : runner_{modelPath, convertToFP16}, batchSize_{batchSize}, warmupIterations_{warmupIterations} {
     if (batchSize_ == 0u || batchSize_ > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
       throw cms::Exception("TracksterInferenceRunner") << "batchSize must be positive and fit the SoA int32_t size";
     }
@@ -72,35 +71,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   template <typename Adapter>
   void TracksterInferenceRunner<Adapter>::forward(Queue& queue, InferenceTensors& inputs, InferenceTensors& outputs) {
-    if (inputs.batchCount() != outputs.batchCount())
-      throw cms::Exception("TracksterInference") << "Input/output batch counts differ";
-    torch::QueueGuard guard(queue);
-    ::torch::NoGradGuard noGrad;
-    auto dtype = convertToFP16_ ? ::torch::kHalf : ::torch::kFloat;
-    model_.to(queue, dtype);
-    for (uint32_t batch = 0; batch < inputs.batchCount(); ++batch) {
-      cms::torch::alpakatools::TensorCollection<Queue> input, output;
-      inputs.materializeBatch(batch, input);
-      outputs.materializeBatch(batch, output);
-      input.copy(queue);
-      auto arguments = cms::torch::alpakatools::detail::convertInput(input, model_.device(), dtype);
-      if constexpr (Adapter::channelsLast)
-        arguments[0] = arguments[0].toTensor().permute({0, 2, 3, 1});
-      auto result = model_.forward(arguments);
-      if (!result.isTensor())
-        throw cms::Exception("TracksterInference") << "TorchScript forward must return one Tensor";
-      auto prediction = result.toTensor();
-      auto destination = cms::torch::alpakatools::detail::convertOutput(output, model_.device());
-      // Permit the conventional [B] regression output as well as [B, 1].
-      if (prediction.dim() == 1 && destination.dim() == 2 && destination.size(1) == 1)
-        prediction = prediction.unsqueeze(1);
-      if (prediction.sizes() != destination.sizes())
-        throw cms::Exception("TracksterInference") << "Unexpected TorchScript output shape: " << prediction.sizes()
-                                                   << "; expected " << destination.sizes();
-      if (prediction.device() != destination.device() || !prediction.is_floating_point())
-        throw cms::Exception("TracksterInference") << "Model output must be floating point on the Alpaka device";
-      destination.copy_(prediction);
-    }
+    runner_.run(queue, inputs, outputs,
+                Adapter::channelsLast ? InputTransform::ImageChannelsLast : InputTransform::Identity);
   }
 
   template class TracksterInferenceRunner<CNNPIDAdapter>;

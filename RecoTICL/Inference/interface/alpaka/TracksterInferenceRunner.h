@@ -5,7 +5,7 @@
 #include <string>
 
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
-#include "PhysicsTools/PyTorchAlpaka/interface/alpaka/AlpakaModel.h"
+#include "RecoTICL/Inference/interface/alpaka/BatchedInferenceRunner.h"
 #include "RecoTICL/Inference/interface/alpaka/TracksterInferenceTensorAdapters.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
@@ -36,9 +36,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   private:
     void forward(Queue& queue, InferenceTensors& inputs, InferenceTensors& outputs);
 
-    torch::AlpakaModel model_;
+    BatchedInferenceRunner runner_;
     uint32_t const batchSize_;
-    bool const convertToFP16_;
     int const warmupIterations_;
   };
 
