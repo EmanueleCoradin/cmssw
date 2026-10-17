@@ -212,3 +212,6 @@ iterBarrelTICLTask = cms.Task(ticlLayerTileBarrel
 
 ticl_barrel.toModify(mergeTICLTask, func=lambda x : x.add(ticlLayerTileBarrelTask, iterBarrelTICLTask))
 
+
+# Optional in-producer PyTorchAlpaka inference; defaults above remain ONNX.
+from RecoTICL.Configuration.stageInference_cff import makeCandidateInference, withCandidateInference

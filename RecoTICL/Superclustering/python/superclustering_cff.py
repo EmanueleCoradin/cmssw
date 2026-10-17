@@ -33,3 +33,6 @@ ticl_superclustering_mustache_ticl.toModify(ticlEGammaSuperClusterProducer,
                                             enableRegression=cms.bool(False))
 _mustache_ticl_task = cms.Task(ticlTracksterLinksSuperclusteringMustache, ticlEGammaSuperClusterProducer)
 ticl_superclustering_mustache_ticl.toReplaceWith(ticlSuperclusteringTask, _mustache_ticl_task)
+
+# Optional in-producer PyTorchAlpaka inference; defaults above remain ONNX.
+from RecoTICL.Configuration.stageInference_cff import withSuperclusteringInference
