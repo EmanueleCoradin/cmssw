@@ -1,4 +1,5 @@
 // Author: Felice Pantaleo, Wahid Redjeb, Aurora Perego (CERN) - felice.pantaleo@cern.ch, wahid.redjeb@cern.ch, aurora.perego@cern.ch Date: 12/2023
+#include "RecoTICL/Inference/interface/PyTorchInferenceConfiguration.h"
 #include <memory>  // unique_ptr
 #include "DataFormats/Common/interface/MultiSpan.h"
 #include "FWCore/Framework/interface/stream/EDProducer.h"
@@ -202,10 +203,13 @@ TICLCandidateProducer::TICLCandidateProducer(const edm::ParameterSet &ps, const 
       const bool hasEnergyModel = inferencePSet.existsAs<std::string>("onnxEnergyModelPath", true) &&
                                   !inferencePSet.getParameter<std::string>("onnxEnergyModelPath").empty();
 
-      // Only instantiate the plugin if at least one model path is configured.
-      if (hasSingleModel || hasPIDModel || hasEnergyModel) {
+      // PyTorch validates only enabled task paths; keep legacy ONNX opt-out behavior.
+      if (inferencePlugin == "PyTorchAlpaka" || hasSingleModel || hasPIDModel || hasEnergyModel) {
+        const auto pluginName = inferencePlugin == "PyTorchAlpaka"
+            ? ticl::inferencePluginName(inferencePSet.getParameter<std::string>("backend"),
+                                        "TracksterInferenceByPyTorchAlpaka") : inferencePlugin;
         inferenceAlgo_ = std::unique_ptr<TracksterInferenceAlgoBase>(
-            TracksterInferenceAlgoFactory::get()->create(inferencePlugin, inferencePSet, cache));
+            TracksterInferenceAlgoFactory::get()->create(pluginName, inferencePSet, cache));
       }
     }
   }
@@ -393,7 +397,7 @@ void TICLCandidateProducer::produce(edm::Event &evt, const edm::EventSetup &es) 
                         rhtools_.getPositionLayer(rhtools_.lastLayerEE()).z(),
                         rhtools_,
                         true);
-  if (regressionAndPid_) {
+  if (regressionAndPid_ && inferenceAlgo_) {
     // Run inference algorithm
     inferenceAlgo_->runInference(layerClusters, *resultTracksters, rhtools_);
   }
@@ -592,6 +596,8 @@ void TICLCandidateProducer::assignTimeToCandidates(std::vector<TICLCandidate> &r
 
 void TICLCandidateProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
+  desc.add<edm::ParameterSetDescription>("pluginInferenceAlgoPyTorchAlpaka",
+                                          ticl::pytorchInferenceDescription(true));
   edm::ParameterSetDescription interpretationDesc;
   interpretationDesc.addNode(edm::PluginDescription<TICLGeneralInterpretationPluginFactory>("type", "General", true));
   edm::ParameterSetDescription muonInterpretationDesc;
