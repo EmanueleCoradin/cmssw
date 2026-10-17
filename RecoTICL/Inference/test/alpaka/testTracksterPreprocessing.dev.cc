@@ -1,6 +1,7 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -16,6 +17,7 @@
 #include "RecoTICL/Inference/interface/alpaka/TracksterFeatureExtractionRunner.h"
 #include "RecoTICL/Inference/interface/alpaka/TracksterInferenceTensorAdapters.h"
 #include "RecoTICL/Inference/test/PreprocessingReference.h"
+#include "RecoTICL/Inference/interface/alpaka/LegacyTracksterInferenceInput.h"
 
 using namespace ALPAKA_ACCELERATOR_NAMESPACE;
 namespace {
@@ -28,7 +30,7 @@ namespace {
   template <typename Extractor, typename InputAdapter>
   void run(Queue& queue, trackster_test::Family family,
            std::vector<trackster_test::Cluster> const& clusters,
-           std::vector<trackster_test::Trackster> const& tracksters, float threshold) {
+           std::vector<trackster_test::Trackster> const& tracksters, float threshold, bool legacy = false) {
     int n = tracksters.size(), nv = 0, nc = clusters.size();
     for (auto const& ts : tracksters)
       nv += ts.vertices.size();
@@ -68,22 +70,55 @@ namespace {
     ALPAKA_ACCELERATOR_NAMESPACE::reco::CaloClusterDeviceCollection clusterDevice(queue, nc, nc, nc, nc);
     alpaka::memcpy(queue, device.buffer(), host.buffer());
     alpaka::memcpy(queue, clusterDevice.buffer(), clusterHost.buffer());
+    // Exercise the production candidate bridge with real legacy Tracksters.
+    // Geometry is replaced only by a deterministic layer lookup; feature
+    // extraction and tensor registration are the production implementations.
+    std::vector<::reco::CaloCluster> legacyClusters;
+    std::vector<::ticl::Trackster> legacyTracksters;
+    std::unique_ptr<LegacyTracksterInferenceInput> bridge;
+    if (legacy) {
+      for (auto const& cl : clusters) {
+        DetId seed(cl.barrel ? DetId::Ecal : DetId::HGCalEE, 1);
+        legacyClusters.emplace_back(cl.energy, math::XYZPoint(cl.x, cl.y, cl.z), ::reco::CaloID(),
+            std::vector<std::pair<DetId, float>>(cl.cells, {seed, 1.f}), ::reco::CaloCluster::hgcal_em, seed);
+      }
+      for (auto const& ts : tracksters) {
+        auto& out = legacyTracksters.emplace_back();
+        out.vertices() = ts.vertices;
+        out.vertex_multiplicity() = ts.multiplicity;
+        out.setRawEnergy(ts.energy);
+        out.setRawEmEnergy(ts.emEnergy);
+        out.setBarycenter({ts.x, ts.y, ts.z});
+        out.setTimeAndError(7.f, 0.25f);
+        out.addTrackIdx(42); out.addGSFTrackIdx(17);
+        out.fillPCAVariables(Eigen::Vector3f(9,1,0), Eigen::Matrix3f::Identity(),
+                            Eigen::Vector3f::Ones(), Eigen::Vector3f::Ones(), 3,
+                            ::ticl::Trackster::PCAOrdering::descending);
+        out.setRegressedEnergy(123.f);
+        for (int j = 0; j < 8; ++j)
+          out.setIdProbability(static_cast<::ticl::Trackster::ParticleType>(j), 0.125f);
+      }
+      bridge = std::make_unique<LegacyTracksterInferenceInput>(queue, legacyClusters, legacyTracksters,
+          [&](auto const& cl) { return clusters[&cl - legacyClusters.data()].layer; });
+    }
+    auto tracksterView = legacy ? bridge->tracksters().const_view() : device.const_view();
+    auto clusterView = legacy ? bridge->clusters().const_view() : clusterDevice.const_view();
     LayerClusterEnergyMultiView energies;
     LayerClusterPositionMultiView positions;
     LayerClusterIndexMultiView indexes;
     // The production multi-view is also exercised for empty collections.
-    energies.addView(clusterDevice.const_view().energy(), nc);
-    positions.addView(clusterDevice.const_view().position(), nc);
-    indexes.addView(clusterDevice.const_view().indexes(), nc);
+    energies.addView(clusterView.energy(), nc);
+    positions.addView(clusterView.position(), nc);
+    indexes.addView(clusterView.indexes(), nc);
     edm::ParameterSet config;
     config.addParameter<double>("minClusterEnergy", threshold);
     TracksterFeatureExtractionRunner<Extractor> runner(config);
-    runner.prepare(queue, device.const_view(), energies, indexes);
+    runner.prepare(queue, tracksterView, energies, indexes);
     alpaka::wait(queue);  // test stands in for SynchronizingEDProducer
     auto expected = trackster_test::reference(family, clusters, tracksters, threshold);
     if (runner.selectedCount() != expected.size())
       throw std::runtime_error("Selection count differs from CPU reference");
-    auto features = runner.run(queue, device.const_view(), energies, positions, 60, indexes);
+    auto features = runner.run(queue, tracksterView, energies, positions, 60, indexes);
     using Host = PortableHostCollection<typename InputAdapter::InputSoA>;
     Host result(queue, expected.size());
     alpaka::memcpy(queue, result.buffer(), features.buffer());
@@ -136,14 +171,37 @@ namespace {
             check(tr.data_ptr<float>()[i * 7 + j], expected[batch * 2 + i].trackster[j], "Trackster tensor layout");
       }
     }
+    if (legacy && !legacyTracksters.empty()) {
+      resetTracksterPredictions(queue,
+          std::get<0>(features.const_view().records().selectedTracksterIndex()).data(),
+          bridge->mutableTracksters(), expected.size());
+      bridge->apply(legacyTracksters);
+      for (unsigned i = 0; i < legacyTracksters.size(); ++i) {
+        bool selected = std::any_of(expected.begin(), expected.end(),
+                                     [i](auto const& sample) { return sample.index == i; });
+        auto const& ts = legacyTracksters[i];
+        check(ts.regressed_energy(), selected ? 0.f : 123.f, "Bridge prediction mapping");
+        for (auto value : ts.id_probabilities()) check(value, selected ? 0.f : 0.125f, "Bridge PID mapping");
+        check(ts.time(), 7.f, "Preserved time");
+        check(ts.eigenvalues()[0], 9.f, "Preserved PCA eigenvalues");
+        if (ts.trackIdx() != 42 || ts.gsftrackIdx() != 17)
+          throw std::runtime_error("Bridge changed original track associations");
+        check(ts.timeError(), 0.25f, "Preserved time error");
+        check(ts.barycenter().z(), tracksters[i].z, "Preserved PCA barycenter");
+        if (ts.vertices() != tracksters[i].vertices || ts.vertex_multiplicity() != tracksters[i].multiplicity)
+          throw std::runtime_error("Bridge changed original-object associations");
+      }
+    }
     alpaka::wait(queue);
   }
 
   void allFamilies(Queue& queue, std::vector<trackster_test::Cluster> const& clusters,
                    std::vector<trackster_test::Trackster> const& tracksters, float threshold) {
-    run<CNNFeatureExtractor, CNNInputAdapter>(queue, trackster_test::Family::CNN, clusters, tracksters, threshold);
-    run<DNNFeatureExtractor, DNNInputAdapter>(queue, trackster_test::Family::DNN, clusters, tracksters, threshold);
-    run<PFNFeatureExtractor, PFNInputAdapter>(queue, trackster_test::Family::PFN, clusters, tracksters, threshold);
+    for (bool legacy : {false, true}) {
+      run<CNNFeatureExtractor, CNNInputAdapter>(queue, trackster_test::Family::CNN, clusters, tracksters, threshold, legacy);
+      run<DNNFeatureExtractor, DNNInputAdapter>(queue, trackster_test::Family::DNN, clusters, tracksters, threshold, legacy);
+      run<PFNFeatureExtractor, PFNInputAdapter>(queue, trackster_test::Family::PFN, clusters, tracksters, threshold, legacy);
+    }
   }
 }
 

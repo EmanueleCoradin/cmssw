@@ -1,3 +1,7 @@
+For the incremental candidate-reconstruction and superclustering backends, model
+contracts, configuration examples and validation status, see [StageInference.md](StageInference.md).
+The standalone device-producer behavior described below remains unchanged.
+
 # Portable Trackster inference
 
 This implementation extends `heterogeneous-trackster` at
