@@ -27,6 +27,7 @@ Improved memory usage and inference performance.
 Date: 02/2026
 */
 #include <cstdint>
+#include "RecoTICL/Inference/interface/PyTorchInferenceConfiguration.h"
 #include <algorithm>
 #include <memory>
 #include <numeric>
@@ -48,9 +49,11 @@ using namespace ticl;
 
 TracksterLinkingbySuperClusteringDNN::TracksterLinkingbySuperClusteringDNN(const edm::ParameterSet& ps,
                                                                            edm::ConsumesCollector iC,
-                                                                           cms::Ort::ONNXRuntime const* onnxRuntime)
+                                                                           cms::Ort::ONNXRuntime const* onnxRuntime,
+                                                                           std::unique_ptr<PairScoreInference> pairInference)
     : TracksterLinkingAlgoBase(ps, iC, onnxRuntime),
       dnnInputs_(makeSuperclusteringDNNInputFromString(ps.getParameter<std::string>("dnnInputsVersion"))),
+      pairInference_(std::move(pairInference)),
       inferenceBatchSize_(ps.getParameter<unsigned int>("inferenceBatchSize")),
       nnWorkingPoint_(ps.getParameter<float>("nnWorkingPoint")),
       deltaEtaWindow_(ps.getParameter<float>("deltaEtaWindow")),
@@ -63,6 +66,17 @@ TracksterLinkingbySuperClusteringDNN::TracksterLinkingbySuperClusteringDNN(const
       filterByTracksterPID_(ps.getParameter<bool>("filterByTracksterPID")),
       tracksterPIDCategoriesToFilter_(ps.getParameter<std::vector<int>>("tracksterPIDCategoriesToFilter")),
       PIDThreshold_(ps.getParameter<float>("PIDThreshold")) {
+  if (pairInference_) return;
+  const auto backend = ps.getParameter<std::string>("inferenceBackend");
+  if (backend == "PyTorchAlpaka") {
+    auto const config = ps.getParameter<edm::ParameterSet>("pytorchInference");
+    pairInference_.reset(PairScoreInferenceFactory::get()->create(
+        ticl::inferencePluginName(config.getParameter<std::string>("backend"), "PairScoreInferenceByPyTorchAlpaka"),
+        config));
+    return;
+  }
+  if (backend != "ONNX")
+    throw cms::Exception("Configuration") << "Unknown superclustering inferenceBackend '" << backend << "'";
   const auto model = ps.getParameter<std::string>("onnxModelPath");
   if (model.empty()) {
     throw cms::Exception("Configuration")
@@ -118,7 +132,14 @@ void TracksterLinkingbySuperClusteringDNN::linkTracksters(
     std::vector<Trackster>& resultTracksters,
     std::vector<std::vector<unsigned int>>& outputSuperclusters,
     std::vector<std::vector<unsigned int>>& linkedTracksterIdToInputTracksterId) {
-  auto const& inputTracksters = input.tracksters;
+  linkTracksters(input.tracksters, resultTracksters, outputSuperclusters, linkedTracksterIdToInputTracksterId);
+}
+
+void TracksterLinkingbySuperClusteringDNN::linkTracksters(
+    edm::MultiSpan<Trackster> const& inputTracksters,
+    std::vector<Trackster>& resultTracksters,
+    std::vector<std::vector<unsigned int>>& outputSuperclusters,
+    std::vector<std::vector<unsigned int>>& linkedTracksterIdToInputTracksterId) {
   const auto tracksterCount = static_cast<unsigned int>(inputTracksters.size());
   if (tracksterCount == 0) {
     return;
@@ -216,8 +237,12 @@ void TracksterLinkingbySuperClusteringDNN::linkTracksters(
     inputs_for_onnx[0].swap(inputBatch);
 
     outputs_for_onnx.clear();
-    onnxRuntime_->runInto(
-        kInputNames, inputs_for_onnx, input_shapes, {}, outputs_for_onnx, {}, static_cast<int64_t>(pairsInBatch));
+    if (pairInference_) {
+      outputs_for_onnx.emplace_back(pairInference_->evaluate(inputs_for_onnx[0], pairsInBatch, featuresPerPair));
+    } else {
+      onnxRuntime_->runInto(
+          kInputNames, inputs_for_onnx, input_shapes, {}, outputs_for_onnx, {}, static_cast<int64_t>(pairsInBatch));
+    }
 
     if (outputs_for_onnx.empty()) {
       throw cms::Exception("RuntimeError") << "ONNX model returned no outputs.";
@@ -330,7 +355,9 @@ void TracksterLinkingbySuperClusteringDNN::linkTracksters(
 
 void TracksterLinkingbySuperClusteringDNN::fillPSetDescription(edm::ParameterSetDescription& desc) {
   TracksterLinkingAlgoBase::fillPSetDescription(desc);  // adds algo_verbosity
-  desc.add<std::string>("onnxModelPath")->setComment("Path to DNN (as ONNX model), empty disables loading");
+  desc.add<std::string>("inferenceBackend", "ONNX");
+  desc.add<edm::ParameterSetDescription>("pytorchInference", ticl::pytorchInferenceDescription());
+  desc.add<std::string>("onnxModelPath", "")->setComment("Path to DNN (as ONNX model), empty disables loading");
   desc.ifValue(edm::ParameterDescription<std::string>("dnnInputsVersion", "v3", true),
                edm::allowedValues<std::string>("v1", "v2", "v3"))
       ->setComment(

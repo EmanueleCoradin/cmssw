@@ -27,6 +27,7 @@ namespace cms {
 }  // namespace cms
 
 #include "RecoTICL/Linking/interface/TracksterLinkingAlgoBase.h"
+#include "RecoTICL/Inference/interface/PairScoreInference.h"
 #include "RecoTICL/Superclustering/interface/SuperclusteringDNNInputs.h"
 #include "DataFormats/HGCalReco/interface/TracksterFwd.h"
 
@@ -35,7 +36,8 @@ namespace ticl {
   public:
     TracksterLinkingbySuperClusteringDNN(const edm::ParameterSet& ps,
                                          edm::ConsumesCollector iC,
-                                         cms::Ort::ONNXRuntime const* onnxRuntime = nullptr);
+                                         cms::Ort::ONNXRuntime const* onnxRuntime = nullptr,
+                                         std::unique_ptr<PairScoreInference> pairInference = {});
     ~TracksterLinkingbySuperClusteringDNN() override = default;
 
     static void fillPSetDescription(edm::ParameterSetDescription& iDesc);
@@ -44,6 +46,13 @@ namespace ticl {
                         std::vector<Trackster>& resultTracksters,
                         std::vector<std::vector<unsigned int>>& linkedResultTracksters,
                         std::vector<std::vector<unsigned int>>& linkedTracksterIdToInputTracksterId) override;
+
+    // Event-independent entry point; also permits model-free validation with a
+    // supplied scorer. It executes exactly the same ordered reconstruction.
+    void linkTracksters(edm::MultiSpan<Trackster> const& inputTracksters,
+                        std::vector<Trackster>& resultTracksters,
+                        std::vector<std::vector<unsigned int>>& linkedResultTracksters,
+                        std::vector<std::vector<unsigned int>>& linkedTracksterIdToInputTracksterId);
 
     void initialize(const HGCalDDDConstants* hgcons,
                     const ticlgeom::Tools rhtools,
@@ -56,6 +65,7 @@ namespace ticl {
 
     // --- Configuration
     std::unique_ptr<AbstractSuperclusteringDNNInput> dnnInputs_;
+    std::unique_ptr<PairScoreInference> pairInference_;
     unsigned int inferenceBatchSize_;
     float nnWorkingPoint_;
     float deltaEtaWindow_;
