@@ -42,17 +42,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   }
 
   template <typename Adapter>
-  typename TracksterInferenceRunner<Adapter>::PublishedOutputDevice TracksterInferenceRunner<Adapter>::run(
-      Queue& queue, InputDevice const& features, PublishedSourceDevice const& tracksters) {
-    const int total = detail::checkedSoASize(features.const_view().metadata().size(), "inference samples");
-    Adapter::validateSampleCount(tracksters, total);
-
-    auto publishedOutput = Adapter::makePublishedOutput(queue, tracksters);
-    runInto(queue, features, publishedOutput);
-    return publishedOutput;
-  }
-
-  template <typename Adapter>
   void TracksterInferenceRunner<Adapter>::runInto(Queue& queue, InputDevice const& features,
                                                  PublishedOutputDevice& output, float minEnergy) {
     const int total = detail::checkedSoASize(features.const_view().metadata().size(), "inference samples");

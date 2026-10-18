@@ -32,3 +32,5 @@
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
 <test name="testStageInferenceConfig" command="python3 ${SCRAM_TEST_PATH}/testStageInferenceConfig.py"/>
+<test name="testCLUE3DInferenceConfig" command="python3 ${SCRAM_TEST_PATH}/testCLUE3DInferenceConfig.py"/>
+<test name="testCLUE3DInferenceConfigDev" command="python3 ${SCRAM_TEST_PATH}/testCLUE3DInferenceConfig.py --ticl-dev"/>

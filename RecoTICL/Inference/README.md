@@ -44,9 +44,20 @@ pfn_energy = makeTracksterInference(model="PFN", doPID=False, doRegression=True,
 `pidModel` and `regressionModel` override the defaults independently. Both tasks
 may be disabled, in which case the output is an unchanged device copy and the
 feature product is not retrieved. CNN regression is rejected in Python and C++.
-The original `TracksterInferenceFeaturesProducer@alpaka` and
-`TracksterInferenceProducer@alpaka` remain available; existing reconstruction
-configurations are not switched automatically.
+The three standalone inference plugins share one producer template and the existing
+runners and tensor adapters. `CLUE3DHighStep_cff` uses this factory with CNN PID
+only, preserving its module labels, input tags, model path and execution settings.
+The CNN feature plugin retains its name `TracksterInferenceFeaturesProducer@alpaka`.
+The superseded `TracksterInferenceProducer@alpaka` plugin and hand-written
+`Configuration.tracksterInferenceFeaturesProducer_cfi` are removed; custom
+configurations should use the factory (`pidModel` replaces `model`). The output
+remains `ticl::TracksterDevice` with no instance label. CPU ONNX settings are unchanged.
+
+Validation is opt-in: load
+`RecoTICL.Configuration.tracksterPIDComparisonAnalyzer_cfi` and schedule
+`process.ticlTracksterPIDComparison` on an EndPath. This configured analyzer is
+no longer exported by the production CLUE3D fragment; it was never in its task.
+
 
 `layerClusters` has three entries, in exactly the concatenation order used by
 the input Trackster vertex indices (by default EE, HSi, HSci). All families
