@@ -4,8 +4,7 @@ from RecoTICL.SeedingRegions.TICLSeedingRegions_cff import ticlSeedingGlobal, ti
 from RecoTICL.PatternRecognition.trackstersProducer_cfi import trackstersProducer as _trackstersProducer
 from RecoTICL.ClusterFilters.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoTICL.PatternRecognition.trackstersToSoAProducer_cfi import trackstersToSoAProducer as _trackstersToSoAProducer
-from RecoTICL.Configuration.tracksterInferenceFeaturesProducer_cfi import tracksterInferenceFeaturesProducer as _tracksterInferenceFeaturesProducer
-from RecoTICL.Configuration.tracksterPIDComparisonAnalyzer_cfi import tracksterPIDComparisonAnalyzer as _tracksterPIDComparisonAnalyzer
+from RecoTICL.Configuration.tracksterInference_cff import makeTracksterInference
 
 # CLUSTER FILTERING/MASKING
 
@@ -80,40 +79,11 @@ ticlTrackstersToSoAProducer = _trackstersToSoAProducer.clone(
     src=cms.InputTag("ticlTrackstersCLUE3DHigh")
 )
 
-ticlTracksterInferenceFeaturesProducer = _tracksterInferenceFeaturesProducer.clone(
-    tracksters = cms.InputTag("ticlTrackstersToSoAProducer"),
-    layerClusters = cms.VInputTag(
-        "hgcalSoALayerClustersEE",
-        "hgcalSoALayerClustersHSi",
-        "hgcalSoALayerClustersHSci"),
-    detector = cms.string("HGCAL"),
-    minClusterEnergy = cms.double(1.0),
-)
-
-ticlTracksterInferenceProducer = cms.EDProducer(
-    "TracksterInferenceProducer@alpaka",
-    tracksters = cms.InputTag("ticlTrackstersToSoAProducer"),
-    features = cms.InputTag(
-        "ticlTracksterInferenceFeaturesProducer", "features"
-    ),
-    model = cms.FileInPath(
-        "RecoTICL/Inference/data/trackster_pid_cnn.pt"
-    ),
-    batchSize = cms.uint32(64),
-    convertToFP16 = cms.bool(False),
-    warmupIterations = cms.int32(3),
-)
-
-ticlTracksterPIDComparison = _tracksterPIDComparisonAnalyzer.clone(
-    reference="ticlTrackstersToSoAProducer",
-    candidate="ticlTracksterInferenceProducer",
-    # Start loose enough to accommodate the different inference runtimes.
-    # Tighten these after inspecting the measured maximum differences.
-    absoluteTolerance=1.e-5,
-    relativeTolerance=1.e-4,
-    maxMismatchesToPrint=3,
-    failOnMismatch=False,
-    reportEveryEvent=True,
+# Retain the public module labels and the existing CNN PID-only defaults.
+_clue3DHighInference = makeTracksterInference(model="CNN", doPID=True, doRegression=False)
+ticlTracksterInferenceFeaturesProducer = _clue3DHighInference.features
+ticlTracksterInferenceProducer = _clue3DHighInference.producer.clone(
+    features=cms.InputTag("ticlTracksterInferenceFeaturesProducer", "features")
 )
 
 ticlCLUE3DHighStepTask = cms.Task(

@@ -17,7 +17,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   class TracksterInferenceRunner {
   public:
     using InputDevice = typename Adapter::InputDevice;
-    using PublishedSourceDevice = typename Adapter::PublishedSourceDevice;
     using PublishedOutputDevice = typename Adapter::PublishedOutputDevice;
 
     TracksterInferenceRunner(std::string const& modelPath, uint32_t batchSize, bool convertToFP16, int warmupIterations);
@@ -26,12 +25,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     // Update an already copied output, allowing PID and regression to share it.
     void runInto(Queue& queue, InputDevice const& features, PublishedOutputDevice& output, float minEnergy = 1.f);
-
-    // Enqueues copies, model inference and result scattering on queue.
-    // As in the original producer, completion is coordinated by Alpaka/EDM.
-    [[nodiscard]] PublishedOutputDevice run(Queue& queue,
-                                            InputDevice const& features,
-                                            PublishedSourceDevice const& tracksters);
 
   private:
     void forward(Queue& queue, InferenceTensors& inputs, InferenceTensors& outputs);

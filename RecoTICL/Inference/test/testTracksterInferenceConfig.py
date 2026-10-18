@@ -1,4 +1,6 @@
 import unittest
+import re
+from pathlib import Path
 import FWCore.ParameterSet.Config as cms
 from RecoTICL.Configuration.tracksterInference_cff import makeTracksterInference
 
@@ -24,6 +26,17 @@ class ConfigurationTest(unittest.TestCase):
                 namespace = {}
                 exec(dumped, namespace)
                 self.assertEqual(namespace["process"].inference.type_(), "Trackster" + family + "InferenceProducer@alpaka")
+
+    def test_factory_plugins_are_registered(self):
+        # Source check: runtime plugin discovery additionally requires a CMSSW build.
+        plugins = Path(__file__).resolve().parents[1] / "plugins" / "alpaka"
+        sources = "\n".join(p.read_text() for p in plugins.glob("*.cc"))
+        registrations = re.findall(r"DEFINE_FWK_ALPAKA_MODULE\((\w+)\)", sources)
+        for family in ("CNN", "DNN", "PFN"):
+            config = makeTracksterInference(model=family)
+            for module in (config.features, config.producer):
+                self.assertEqual(registrations.count(module.type_().removesuffix("@alpaka")), 1)
+        self.assertNotIn("TracksterInferenceProducer", registrations)
 
     def test_independent_instances(self):
         process = cms.Process("TEST")
