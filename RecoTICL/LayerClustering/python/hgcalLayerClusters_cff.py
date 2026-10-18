@@ -15,7 +15,7 @@ from SimCalorimetry.HGCalSimProducers.hgcalDigitizer_cfi import nonAgedNoises_v9
 
 
 #####################################################################
-# CLUEstering layer-clustering chain 
+# CLUEstering layer-clustering chain
 #
 # The chain per detector is:
 #   hgcalSoARecHits<Det>       (HGCRecHit  -> HGCalSoARecHits SoA)
@@ -23,10 +23,10 @@ from SimCalorimetry.HGCalSimProducers.hgcalDigitizer_cfi import nonAgedNoises_v9
 #   hgcalSoALayerClusters<Det> (build the CaloCluster SoA)
 #   _fromSoA<Det>              (SoA -> legacy reco::CaloCluster products)
 #####################################################################
-from RecoLocalCalo.HGCalRecProducers.hgCalSoARecHitsProducer_cfi import hgCalSoARecHitsProducer
-from RecoLocalCalo.HGCalRecProducers.hgCalCLUEsteringLayerClustersProducer_cfi import hgCalCLUEsteringLayerClustersProducer
-from RecoLocalCalo.HGCalRecProducers.hgCalSoALayerClustersProducer_cfi import hgCalSoALayerClustersProducer
-from RecoLocalCalo.HGCalRecProducers.hgCalLayerClustersFromSoAProducer_cfi import hgCalLayerClustersFromSoAProducer
+from RecoTICL.LayerClustering.hgCalSoARecHitsProducer_cfi import hgCalSoARecHitsProducer
+from RecoTICL.LayerClustering.hgCalCLUEsteringLayerClustersProducer_cfi import hgCalCLUEsteringLayerClustersProducer
+from RecoTICL.LayerClustering.hgCalSoALayerClustersProducer_cfi import hgCalSoALayerClustersProducer
+from RecoTICL.LayerClustering.hgCalLayerClustersFromSoAProducer_cfi import hgCalLayerClustersFromSoAProducer
 
 # EE/FH/BH share the same silicon energy-threshold constants. Scintillator
 # (BH) also uses them: its own thickness index is out of range and the

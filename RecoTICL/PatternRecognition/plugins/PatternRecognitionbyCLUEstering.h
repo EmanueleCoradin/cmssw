@@ -6,7 +6,7 @@
 
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/Utilities/interface/EDGetToken.h"
-#include "RecoHGCal/TICL/interface/PatternRecognitionAlgoBase.h"
+#include "RecoTICL/PatternRecognition/interface/PatternRecognitionAlgoBase.h"
 #include "RecoLocalCalo/HGCalRecAlgos/interface/TICLGeomTools.h"
 
 namespace ticl {

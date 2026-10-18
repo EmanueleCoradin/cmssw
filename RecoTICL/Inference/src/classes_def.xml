@@ -1,0 +1,25 @@
+<lcgdict>
+  <!-- CNN inference features -->
+  <class name="ticl::TracksterInferenceHost" rntupleStreamerMode="true"/>
+  <class name="ticl::TracksterInferenceHost::Layout"/>
+  <class name="ticl::TracksterInferenceSoA"/>
+  <class name="ticl::TracksterInferenceSoA::View"/>
+  <class name="edm::Wrapper<ticl::TracksterInferenceHost>" splitLevel="0"/>
+
+  <!-- CNN PID scores -->
+  <class name="ticl::TracksterInferencePIDScoresHost" rntupleStreamerMode="true"/>
+  <class name="ticl::TracksterInferencePIDScoresHost::Layout"/>
+  <class name="ticl::TracksterInferencePIDScoresSoA"/>
+  <class name="ticl::TracksterInferencePIDScoresSoA::View"/>
+  <class name="edm::Wrapper<ticl::TracksterInferencePIDScoresHost>" splitLevel="0"/>
+  <class name="ticl::TracksterPFNFeaturesHost" rntupleStreamerMode="true"/>
+  <class name="ticl::TracksterPFNFeaturesHost::Layout"/>
+  <class name="ticl::TracksterPFNFeaturesSoA"/>
+  <class name="ticl::TracksterPFNFeaturesSoA::View"/>
+  <class name="edm::Wrapper<ticl::TracksterPFNFeaturesHost>" splitLevel="0"/>
+  <class name="ticl::TracksterInferenceEnergyHost" rntupleStreamerMode="true"/>
+  <class name="ticl::TracksterInferenceEnergyHost::Layout"/>
+  <class name="ticl::TracksterInferenceEnergySoA"/>
+  <class name="ticl::TracksterInferenceEnergySoA::View"/>
+  <class name="edm::Wrapper<ticl::TracksterInferenceEnergyHost>" splitLevel="0"/>
+</lcgdict>

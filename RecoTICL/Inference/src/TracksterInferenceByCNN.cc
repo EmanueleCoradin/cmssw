@@ -35,7 +35,6 @@ namespace ticl {
     if (!enabled_ || tracksters.empty()) {
       return;
     }
-
     std::vector<int> indices;
     indices.reserve(tracksters.size());
 
@@ -116,10 +115,10 @@ namespace ticl {
       }
 
       ortScratch.outputs.clear();
-
-      onnxSession_->runInto(
-          inputNames_, ortScratch.inputs, ortScratch.input_shapes, outputNames_, ortScratch.outputs, {}, n);
-
+      {
+        onnxSession_->runInto(
+            inputNames_, ortScratch.inputs, ortScratch.input_shapes, outputNames_, ortScratch.outputs, {}, n);
+      }
       if (!ortScratch.outputs.empty() && !outputNames_.empty()) {
         float* probs = ortScratch.outputs[0].data();
         for (int bi = 0; bi < n; ++bi) {

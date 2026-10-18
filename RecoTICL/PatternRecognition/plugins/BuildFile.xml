@@ -13,7 +13,6 @@
 <use name="RecoLocalCalo/HGCalRecAlgos"/>
 <use name="RecoTICL/Common"/>
 <use name="RecoTICL/Inference"/>
-<use name="RecoTICL/PatternRecognition"/>
 <use name="fastjet"/>
 <use name="tbb"/>
 <library file="*.cc" name="RecoTICLPatternRecognitionPlugins">
@@ -22,15 +21,17 @@
 
 <library file="alpaka/*.cc" name="RecoTICLPatternRecognitionPluginsPortable">
   <use name="alpaka"/>
+  <use name="pytorch-cuda" for="alpaka/cuda"/>
+  <use name="pytorch-rocm" for="alpaka/rocm"/>
   <use name="cluestering"/>
+  <use name="xtd"/>
   <use name="CondFormats/HGCalObjects"/>
   <use name="DataFormats/DetId"/>
   <use name="DataFormats/ForwardDetId"/>
-  <use name="Geometry/CaloGeometry"/>
-  <use name="Geometry/Records"/>
+  <use name="DataFormats/SoATemplate"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
-  <use name="RecoLocalCalo/HGCalRecAlgos"/>
+  <use name="PhysicsTools/PyTorchAlpaka"/>
   <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
 </library>
