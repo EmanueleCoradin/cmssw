@@ -24,6 +24,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     void warmup(Queue& queue);
 
+    // Update an already copied output, allowing PID and regression to share it.
+    void runInto(Queue& queue, InputDevice const& features, PublishedOutputDevice& output, float minEnergy = 1.f);
+
     // Enqueues copies, model inference and result scattering on queue.
     // As in the original producer, completion is coordinated by Alpaka/EDM.
     [[nodiscard]] PublishedOutputDevice run(Queue& queue,
@@ -42,6 +45,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   // Explicitly instantiated in RecoTICL/Inference/src/alpaka for each backend.
   // Add corresponding instantiations when introducing another adapter.
   extern template class TracksterInferenceRunner<CNNPIDAdapter>;
+  extern template class TracksterInferenceRunner<DNNPIDAdapter>;
+  extern template class TracksterInferenceRunner<PFNPIDAdapter>;
+  extern template class TracksterInferenceRunner<DNNEnergyAdapter>;
+  extern template class TracksterInferenceRunner<PFNEnergyAdapter>;
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
