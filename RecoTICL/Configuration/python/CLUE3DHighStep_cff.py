@@ -4,6 +4,7 @@ from RecoTICL.SeedingRegions.TICLSeedingRegions_cff import ticlSeedingGlobal, ti
 from RecoTICL.PatternRecognition.trackstersProducer_cfi import trackstersProducer as _trackstersProducer
 from RecoTICL.ClusterFilters.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoTICL.PatternRecognition.trackstersToSoAProducer_cfi import trackstersToSoAProducer as _trackstersToSoAProducer
+from RecoTICL.Configuration.tracksterInference_cff import makeTracksterInference
 
 # CLUSTER FILTERING/MASKING
 
@@ -28,7 +29,7 @@ ticlTrackstersCLUE3DHigh = _trackstersProducer.clone(
         doPidCut = True,
         cutHadProb = 999
     ),
-    inferenceAlgo = cms.string('TracksterInferenceByCNN'),
+    inferenceAlgo = cms.string('TracksterInferenceByPFN'),
     pluginInferenceAlgoTracksterInferenceByCNN = cms.PSet(
         algo_verbosity = cms.int32(0),
         type = cms.string("TracksterInferenceByCNN"),
@@ -59,7 +60,7 @@ ticlTrackstersCLUE3DHigh = _trackstersProducer.clone(
     pluginInferenceAlgoTracksterInferenceByPFN = cms.PSet(
         algo_verbosity = cms.int32(0),
         onnxPIDModelPath = cms.string('RecoHGCal/TICL/data/ticlv5/onnx_models/PFN/patternrecognition/id_v0.onnx'),
-        onnxEnergyModelPath = cms.string(''),
+        onnxEnergyModelPath=cms.string("RecoHGCal/TICL/data/ticlv5/onnx_models/PFN/patternrecognition/energy_v0.onnx"),
         inputNames  = cms.vstring('input','input_tr_features'),
         output_en   = cms.vstring('enreg_output'),
         output_id   = cms.vstring('pid_output'),
@@ -78,15 +79,32 @@ ticlTrackstersToSoAProducer = _trackstersToSoAProducer.clone(
     src=cms.InputTag("ticlTrackstersCLUE3DHigh")
 )
 
-ticlCLUE3DHighStepTask = cms.Task(ticlSeedingGlobal
-    ,filteredLayerClustersCLUE3DHigh
-    ,ticlTrackstersCLUE3DHigh
-    ,ticlTrackstersToSoAProducer)
+# Retain the public module labels and the existing CNN PID-only defaults.
+_clue3DHighInference = makeTracksterInference(
+    model="PFN", 
+    doPID=True, 
+    doRegression=True,
+    pidModel="RecoTICL/Inference/data/trackster_pid_pfn.pt",
+    regressionModel="RecoTICL/Inference/data/trackster_energy_pfn.pt",
+    minClusterEnergy=1.0
+)
+ticlTracksterFeaturesProducer = _clue3DHighInference.features
+ticlTracksterInferenceProducer = _clue3DHighInference.producer.clone(
+    features=cms.InputTag("ticlTracksterFeaturesProducer", "features")
+)
 
+ticlCLUE3DHighStepTask = cms.Task(
+    ticlSeedingGlobal,
+    filteredLayerClustersCLUE3DHigh,
+    ticlTrackstersCLUE3DHigh,
+    ticlTrackstersToSoAProducer,
+    ticlTracksterFeaturesProducer,
+    ticlTracksterInferenceProducer,
+)
 
 # with ticl_dev 3D pattern recognition swapped to CLUEstering.
 from Configuration.ProcessModifiers.ticl_dev import ticl_dev
-from RecoHGCal.TICL.trackstersCLUEsteringProducer_cfi import trackstersCLUEsteringProducer as _trackstersCLUEsteringProducer
+from RecoTICL.PatternRecognition.trackstersCLUEsteringProducer_cfi import trackstersCLUEsteringProducer as _trackstersCLUEsteringProducer
 
 ticlTrackstersCLUEsteringAssignment = _trackstersCLUEsteringProducer.clone()
 
@@ -100,9 +118,15 @@ ticl_dev.toModify(ticlTrackstersCLUE3DHigh,
     )
 )
 
-ticl_dev.toReplaceWith(ticlCLUE3DHighStepTask, cms.Task(ticlSeedingGlobal
-    ,filteredLayerClustersCLUE3DHigh
-    ,ticlTrackstersCLUEsteringAssignment
-    ,ticlTrackstersCLUE3DHigh
-    ,ticlTrackstersToSoAProducer))
-
+ticl_dev.toReplaceWith(
+    ticlCLUE3DHighStepTask,
+    cms.Task(
+        ticlSeedingGlobal,
+        filteredLayerClustersCLUE3DHigh,
+        ticlTrackstersCLUEsteringAssignment,
+        ticlTrackstersCLUE3DHigh,
+        ticlTrackstersToSoAProducer,
+        ticlTracksterFeaturesProducer,
+        ticlTracksterInferenceProducer,
+    )
+)

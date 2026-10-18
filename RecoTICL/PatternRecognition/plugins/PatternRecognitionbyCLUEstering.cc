@@ -5,7 +5,7 @@
 #include "FWCore/Utilities/interface/Exception.h"
 
 #include "PatternRecognitionbyCLUEstering.h"
-#include "TrackstersPCA.h"
+#include "RecoTICL/Common/interface/TrackstersPCA.h"
 
 using namespace ticl;
 
