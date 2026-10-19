@@ -10,8 +10,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   struct PairScoreTensorAdapter {
     using ScalarSoA = ::ticl::TracksterInferenceEnergySoA;
     template <typename Records>
-    static void registerInputs(InferenceTensors& tensors, Records const& records,
-                               unsigned int batchSize, unsigned int features) {
+    static void registerInputs(InferenceTensors& tensors,
+                               Records const& records,
+                               unsigned int batchSize,
+                               unsigned int features) {
       tensors.addBatched<ScalarSoA>("input", batchSize * features, records.energy());
     }
     template <typename Records>
@@ -19,5 +21,5 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       tensors.addBatched<ScalarSoA>("score", batchSize, records.energy());
     }
   };
-}
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 #endif

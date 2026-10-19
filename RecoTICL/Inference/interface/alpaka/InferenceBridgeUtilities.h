@@ -15,8 +15,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto const& devices = cms::alpakatools::devices<Platform>();
     auto index = config.getParameter<unsigned int>("deviceIndex");
     if (index >= devices.size())
-      throw cms::Exception("Configuration") << "TICL inference deviceIndex=" << index
-                                             << " is unavailable for the selected Alpaka backend";
+      throw cms::Exception("Configuration")
+          << "TICL inference deviceIndex=" << index << " is unavailable for the selected Alpaka backend";
     return devices[index];
   }
   inline unsigned int inferenceBatchSize(edm::ParameterSet const& config) {
@@ -33,8 +33,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     try {
       return edm::FileInPath(path).fullPath();
     } catch (std::exception const& error) {
-      throw cms::Exception("Configuration") << "Supply the production TorchScript model " << parameter << "='"
-                                             << path << "', or disable this task. " << error.what();
+      throw cms::Exception("Configuration") << "Supply the production TorchScript model " << parameter << "='" << path
+                                            << "', or disable this task. " << error.what();
     }
   }
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE

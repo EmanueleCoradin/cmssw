@@ -42,8 +42,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   }
 
   template <typename Adapter>
-  void TracksterInferenceRunner<Adapter>::runInto(Queue& queue, InputDevice const& features,
-                                                 PublishedOutputDevice& output, float minEnergy) {
+  void TracksterInferenceRunner<Adapter>::runInto(Queue& queue,
+                                                  InputDevice const& features,
+                                                  PublishedOutputDevice& output,
+                                                  float minEnergy) {
     const int total = detail::checkedSoASize(features.const_view().metadata().size(), "inference samples");
     Adapter::validateSampleCount(output, total);
     if (total == 0)
@@ -60,8 +62,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   template <typename Adapter>
   void TracksterInferenceRunner<Adapter>::forward(Queue& queue, InferenceTensors& inputs, InferenceTensors& outputs) {
-    runner_.run(queue, inputs, outputs,
-                Adapter::channelsLast ? InputTransform::ImageChannelsLast : InputTransform::Identity);
+    runner_.run(
+        queue, inputs, outputs, Adapter::channelsLast ? InputTransform::ImageChannelsLast : InputTransform::Identity);
   }
 
   template class TracksterInferenceRunner<CNNPIDAdapter>;

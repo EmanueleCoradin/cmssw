@@ -32,8 +32,10 @@ namespace trackster_test {
     double r = std::hypot(double(x), double(y));
     return r > 0 ? std::asinh(std::abs(double(z)) / r) : (z == 0 ? 0.f : std::abs(z) + 22756.f);
   }
-  inline std::vector<Sample> reference(Family family, std::vector<Cluster> const& clusters,
-                                      std::vector<Trackster> const& tracksters, float threshold) {
+  inline std::vector<Sample> reference(Family family,
+                                       std::vector<Cluster> const& clusters,
+                                       std::vector<Trackster> const& tracksters,
+                                       float threshold) {
     std::vector<Sample> result;
     int features = family == Family::PFN ? 7 : 3;
     for (uint32_t i = 0; i < tracksters.size(); ++i) {
@@ -58,9 +60,10 @@ namespace trackster_test {
       }
       if (!selected)
         continue;
-      Sample sample{i, std::vector<float>(50 * 10 * features, 0.f),
-                    {ts.energy, ts.emEnergy, ts.x, ts.y, std::abs(ts.z), absEta(ts.x, ts.y, ts.z),
-                     std::atan2(ts.y, ts.x)}};
+      Sample sample{
+          i,
+          std::vector<float>(50 * 10 * features, 0.f),
+          {ts.energy, ts.emEnergy, ts.x, ts.y, std::abs(ts.z), absEta(ts.x, ts.y, ts.z), std::atan2(ts.y, ts.x)}};
       std::vector<int> order(ts.vertices.size());
       std::iota(order.begin(), order.end(), 0);
       std::sort(order.begin(), order.end(), [&](int a, int b) {
@@ -89,5 +92,5 @@ namespace trackster_test {
     }
     return result;
   }
-}
+}  // namespace trackster_test
 #endif

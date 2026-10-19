@@ -22,8 +22,6 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-
-
   namespace detail {
 
     inline int32_t checkedSoASize(std::size_t size, std::string_view name) {
@@ -100,17 +98,41 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     template <typename Records>
     static void registerTensors(InferenceTensors& inputs, Records const& records, std::optional<uint32_t> batchSize) {
       if (batchSize) {
-        inputs.addBatched<InputSoA>("input", *batchSize, records.energy(), records.absEta(), records.phi(),
-                                    records.x(), records.y(), records.absZ(), records.cells());
-        inputs.addBatched<InputSoA>("input_tr_features", *batchSize, records.rawEnergy(), records.rawEmEnergy(),
-                                    records.barycenterX(), records.barycenterY(), records.barycenterAbsZ(),
-                                    records.barycenterAbsEta(), records.barycenterPhi());
+        inputs.addBatched<InputSoA>("input",
+                                    *batchSize,
+                                    records.energy(),
+                                    records.absEta(),
+                                    records.phi(),
+                                    records.x(),
+                                    records.y(),
+                                    records.absZ(),
+                                    records.cells());
+        inputs.addBatched<InputSoA>("input_tr_features",
+                                    *batchSize,
+                                    records.rawEnergy(),
+                                    records.rawEmEnergy(),
+                                    records.barycenterX(),
+                                    records.barycenterY(),
+                                    records.barycenterAbsZ(),
+                                    records.barycenterAbsEta(),
+                                    records.barycenterPhi());
       } else {
-        inputs.add<InputSoA>("input", records.energy(), records.absEta(), records.phi(),
-                             records.x(), records.y(), records.absZ(), records.cells());
-        inputs.add<InputSoA>("input_tr_features", records.rawEnergy(), records.rawEmEnergy(),
-                             records.barycenterX(), records.barycenterY(), records.barycenterAbsZ(),
-                             records.barycenterAbsEta(), records.barycenterPhi());
+        inputs.add<InputSoA>("input",
+                             records.energy(),
+                             records.absEta(),
+                             records.phi(),
+                             records.x(),
+                             records.y(),
+                             records.absZ(),
+                             records.cells());
+        inputs.add<InputSoA>("input_tr_features",
+                             records.rawEnergy(),
+                             records.rawEmEnergy(),
+                             records.barycenterX(),
+                             records.barycenterY(),
+                             records.barycenterAbsZ(),
+                             records.barycenterAbsEta(),
+                             records.barycenterPhi());
       }
     }
   };
@@ -172,7 +194,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                              uint32_t const* selectedTracksters,
                              ModelOutputDevice const& predictions,
                              PublishedOutputDevice& published,
-                             uint32_t total, float minEnergy = 1.f);
+                             uint32_t total,
+                             float minEnergy = 1.f);
   };
 
   // Independent regression tensor [B, 1]; reuse publication and count checks.
@@ -195,14 +218,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         outputs.add<ModelOutputSoA>("enreg_output", records.energy());
     }
 
-    static void applyResults(Queue& queue, uint32_t const* selectedTracksters,
-                             ModelOutputDevice const& predictions, PublishedOutputDevice& published,
-                             uint32_t total, float minEnergy);
+    static void applyResults(Queue& queue,
+                             uint32_t const* selectedTracksters,
+                             ModelOutputDevice const& predictions,
+                             PublishedOutputDevice& published,
+                             uint32_t total,
+                             float minEnergy);
   };
 
   // CPU DNN/PFN reset both outputs for selected Tracksters before enabled tasks.
-  void resetTracksterPredictions(Queue& queue, uint32_t const* selectedTracksters,
-                                 ticl::TracksterDevice& published, uint32_t total);
+  void resetTracksterPredictions(Queue& queue,
+                                 uint32_t const* selectedTracksters,
+                                 ticl::TracksterDevice& published,
+                                 uint32_t total);
 
   // The inference producer deals only with this interface, independent of
   // which concrete SoA columns the adapters register.
@@ -247,8 +275,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                              FeatureRecords const& featureRecords,
                              ModelOutputDevice const& predictions,
                              PublishedOutputDevice& published,
-                             uint32_t total, float minEnergy = 1.f) {
-      OutputAdapter::applyResults(queue, InputAdapter::selectedIndices(featureRecords), predictions, published, total, minEnergy);
+                             uint32_t total,
+                             float minEnergy = 1.f) {
+      OutputAdapter::applyResults(
+          queue, InputAdapter::selectedIndices(featureRecords), predictions, published, total, minEnergy);
     }
   };
 

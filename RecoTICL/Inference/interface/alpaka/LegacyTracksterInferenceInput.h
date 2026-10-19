@@ -17,9 +17,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   class LegacyTracksterInferenceInput {
   public:
     template <typename LayerOfCluster>
-    LegacyTracksterInferenceInput(Queue& queue, std::vector<::reco::CaloCluster> const& clusters,
-                                  std::vector<::ticl::Trackster> const& tracksters, LayerOfCluster layer)
-        : queue_(queue), host_(queue, blockSizes(tracksters)), device_(queue, blockSizes(tracksters)),
+    LegacyTracksterInferenceInput(Queue& queue,
+                                  std::vector<::reco::CaloCluster> const& clusters,
+                                  std::vector<::ticl::Trackster> const& tracksters,
+                                  LayerOfCluster layer)
+        : queue_(queue),
+          host_(queue, blockSizes(tracksters)),
+          device_(queue, blockSizes(tracksters)),
           clusterHost_(queue, clusterSize(clusters), clusterSize(clusters), clusterSize(clusters), 0),
           clusterDevice_(queue, clusterSize(clusters), clusterSize(clusters), clusterSize(clusters), 0) {
       host_.zeroInitialise();
@@ -57,7 +61,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       for (unsigned int i = 0; i < clusters.size(); ++i) {
         auto const& cl = clusters[i];
         auto pos = clusterHost_.view().position()[i];
-        pos.x() = cl.x(); pos.y() = cl.y(); pos.z() = cl.z();
+        pos.x() = cl.x();
+        pos.y() = cl.y();
+        pos.z() = cl.z();
         pos.layer() = layer(cl);
         pos.cells() = detail::checkedSoASize(cl.hitsAndFractions().size(), "cluster hits");
         clusterHost_.view().energy()[i].energy() = cl.energy();
@@ -75,7 +81,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void apply(std::vector<::ticl::Trackster>& tracksters) {
       if (tracksters.size() != static_cast<std::size_t>(host_.const_view().tracksters().metadata().size()))
         throw cms::Exception("InvalidTrackster") << "Prediction destination size changed during inference";
-      if (tracksters.empty()) return;
+      if (tracksters.empty())
+        return;
       // Transfer only predictions, not vertices, multiplicities or unused PCA
       // columns. Equal-sized portable layouts have identical column padding.
       auto hostRecords = host_.view().tracksters().records();
@@ -83,20 +90,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto* firstPID = std::get<0>(hostRecords.id_probabilities0()).data();
       auto pidSize = std::get<0>(hostRecords.id_probabilities7()).data() - firstPID + tracksters.size();
       auto hostPID = cms::alpakatools::make_host_view(firstPID, pidSize);
-      auto devicePID = cms::alpakatools::make_device_view(
-          queue_, std::get<0>(deviceRecords.id_probabilities0()).data(), pidSize);
+      auto devicePID =
+          cms::alpakatools::make_device_view(queue_, std::get<0>(deviceRecords.id_probabilities0()).data(), pidSize);
       alpaka::memcpy(queue_, hostPID, devicePID);
-      auto hostEnergy = cms::alpakatools::make_host_view(
-          std::get<0>(hostRecords.regressed_energy()).data(), tracksters.size());
+      auto hostEnergy =
+          cms::alpakatools::make_host_view(std::get<0>(hostRecords.regressed_energy()).data(), tracksters.size());
       auto deviceEnergy = cms::alpakatools::make_device_view(
           queue_, std::get<0>(deviceRecords.regressed_energy()).data(), tracksters.size());
       alpaka::memcpy(queue_, hostEnergy, deviceEnergy);
       alpaka::wait(queue_);
       for (unsigned int i = 0; i < tracksters.size(); ++i) {
         auto row = host_.const_view().tracksters()[i];
-        float probabilities[]{row.id_probabilities0(), row.id_probabilities1(), row.id_probabilities2(),
-                              row.id_probabilities3(), row.id_probabilities4(), row.id_probabilities5(),
-                              row.id_probabilities6(), row.id_probabilities7()};
+        float probabilities[]{row.id_probabilities0(),
+                              row.id_probabilities1(),
+                              row.id_probabilities2(),
+                              row.id_probabilities3(),
+                              row.id_probabilities4(),
+                              row.id_probabilities5(),
+                              row.id_probabilities6(),
+                              row.id_probabilities7()};
         // Do not reconstruct Tracksters from this deliberately partial SoA:
         // all PCA, timing, edges and original-object associations stay intact.
         tracksters[i].setProbabilities(probabilities);
@@ -108,12 +120,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     static int32_t clusterSize(std::vector<::reco::CaloCluster> const& clusters) {
       return detail::checkedSoASize(clusters.size(), "layer clusters");
     }
-    static std::array<int32_t, ::ticl::TracksterSoA::blocksNumber> blockSizes(std::vector<::ticl::Trackster> const& tracksters) {
+    static std::array<int32_t, ::ticl::TracksterSoA::blocksNumber> blockSizes(
+        std::vector<::ticl::Trackster> const& tracksters) {
       auto n = detail::checkedSoASize(tracksters.size(), "tracksters");
       std::size_t vertices = 0;
-      for (auto const& ts : tracksters) vertices += ts.vertices().size();
+      for (auto const& ts : tracksters)
+        vertices += ts.vertices().size();
       auto nv = detail::checkedSoASize(vertices, "vertices");
-      return std::array<int32_t, ::ticl::TracksterSoA::blocksNumber>{n,n,nv,n,nv,n,0,n,0,n,0,n,0};
+      return std::array<int32_t, ::ticl::TracksterSoA::blocksNumber>{n, n, nv, n, nv, n, 0, n, 0, n, 0, n, 0};
     }
     Queue& queue_;
     ::ticl::TracksterHost host_;

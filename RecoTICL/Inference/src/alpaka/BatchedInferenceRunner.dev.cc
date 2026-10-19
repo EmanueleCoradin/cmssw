@@ -2,7 +2,8 @@
 #include "FWCore/Utilities/interface/Exception.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
-  void adaptInferenceInputs(std::vector<::torch::IValue>& arguments, InputTransform transform,
+  void adaptInferenceInputs(std::vector<::torch::IValue>& arguments,
+                            InputTransform transform,
                             unsigned int featuresPerRow) {
     if (transform == InputTransform::ImageChannelsLast)
       arguments[0] = arguments[0].toTensor().permute({0, 2, 3, 1});
@@ -20,10 +21,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   }
 
   void BatchedInferenceRunner::run(Queue& queue,
-                                  InferenceTensors& inputs,
-                                  InferenceTensors& outputs,
-                                  InputTransform transform,
-                                  unsigned int featuresPerRow) {
+                                   InferenceTensors& inputs,
+                                   InferenceTensors& outputs,
+                                   InputTransform transform,
+                                   unsigned int featuresPerRow) {
     if (inputs.batchCount() != outputs.batchCount())
       throw cms::Exception("TracksterInference") << "Input/output batch counts differ";
     torch::QueueGuard guard(queue);
@@ -46,8 +47,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       if (prediction.dim() == 1 && destination.dim() == 2 && destination.size(1) == 1)
         prediction = prediction.unsqueeze(1);
       if (prediction.sizes() != destination.sizes())
-        throw cms::Exception("TracksterInference") << "Unexpected TorchScript output shape: " << prediction.sizes()
-                                                   << "; expected " << destination.sizes();
+        throw cms::Exception("TracksterInference")
+            << "Unexpected TorchScript output shape: " << prediction.sizes() << "; expected " << destination.sizes();
       if (prediction.device() != destination.device() || !prediction.is_floating_point())
         throw cms::Exception("TracksterInference") << "Model output must be floating point on the Alpaka device";
       destination.copy_(prediction);

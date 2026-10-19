@@ -35,8 +35,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     struct ResetPredictionsKernel {
       template <typename TAcc>
-      ALPAKA_FN_ACC void operator()(TAcc const& acc, uint32_t const* selected,
-                                    ::ticl::TracksterSoA::View output, uint32_t total) const {
+      ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                    uint32_t const* selected,
+                                    ::ticl::TracksterSoA::View output,
+                                    uint32_t total) const {
         for (auto row : cms::alpakatools::uniform_elements(acc, total)) {
           auto ts = output.tracksters()[selected[row]];
           ts.regressed_energy() = 0.f;
@@ -49,9 +51,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     template <bool PFN>
     struct ScatterEnergyKernel {
       template <typename TAcc>
-      ALPAKA_FN_ACC void operator()(TAcc const& acc, uint32_t const* selected,
+      ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                    uint32_t const* selected,
                                     ::ticl::TracksterInferenceEnergySoA::ConstView predictions,
-                                    ::ticl::TracksterSoA::View output, uint32_t total, float minEnergy) const {
+                                    ::ticl::TracksterSoA::View output,
+                                    uint32_t total,
+                                    float minEnergy) const {
         for (auto row : cms::alpakatools::uniform_elements(acc, total)) {
           auto ts = output.tracksters()[selected[row]];
           ts.regressed_energy() = PFN && !(ts.raw_energy() > minEnergy) ? ts.raw_energy() : predictions[row].energy();
@@ -65,7 +70,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                       uint32_t const* selectedTracksters,
                                       ModelOutputDevice const& predictions,
                                       PublishedOutputDevice& published,
-                                      uint32_t total, float) {
+                                      uint32_t total,
+                                      float) {
     if (total == 0u) {
       return;
     }
@@ -85,8 +91,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         total);
   }
 
-  void resetTracksterPredictions(Queue& queue, uint32_t const* selected,
-                                 ticl::TracksterDevice& output, uint32_t total) {
+  void resetTracksterPredictions(Queue& queue, uint32_t const* selected, ticl::TracksterDevice& output, uint32_t total) {
     if (total == 0u)
       return;
     auto workDiv = cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(total, 256u), 256u);
@@ -94,14 +99,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   }
 
   template <bool PFN>
-  void EnergyOutputAdapter<PFN>::applyResults(Queue& queue, uint32_t const* selected,
-                                             ModelOutputDevice const& predictions, PublishedOutputDevice& output,
-                                             uint32_t total, float minEnergy) {
+  void EnergyOutputAdapter<PFN>::applyResults(Queue& queue,
+                                              uint32_t const* selected,
+                                              ModelOutputDevice const& predictions,
+                                              PublishedOutputDevice& output,
+                                              uint32_t total,
+                                              float minEnergy) {
     if (total == 0u)
       return;
     auto workDiv = cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(total, 256u), 256u);
-    alpaka::exec<Acc1D>(queue, workDiv, ScatterEnergyKernel<PFN>{}, selected,
-                        predictions.const_view(), output.view(), total, minEnergy);
+    alpaka::exec<Acc1D>(
+        queue, workDiv, ScatterEnergyKernel<PFN>{}, selected, predictions.const_view(), output.view(), total, minEnergy);
   }
   template struct EnergyOutputAdapter<false>;
   template struct EnergyOutputAdapter<true>;

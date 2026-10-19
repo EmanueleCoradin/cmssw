@@ -47,10 +47,11 @@ Date: 02/2026
 
 using namespace ticl;
 
-TracksterLinkingbySuperClusteringDNN::TracksterLinkingbySuperClusteringDNN(const edm::ParameterSet& ps,
-                                                                           edm::ConsumesCollector iC,
-                                                                           cms::Ort::ONNXRuntime const* onnxRuntime,
-                                                                           std::unique_ptr<PairScoreInference> pairInference)
+TracksterLinkingbySuperClusteringDNN::TracksterLinkingbySuperClusteringDNN(
+    const edm::ParameterSet& ps,
+    edm::ConsumesCollector iC,
+    cms::Ort::ONNXRuntime const* onnxRuntime,
+    std::unique_ptr<PairScoreInference> pairInference)
     : TracksterLinkingAlgoBase(ps, iC, onnxRuntime),
       dnnInputs_(makeSuperclusteringDNNInputFromString(ps.getParameter<std::string>("dnnInputsVersion"))),
       pairInference_(std::move(pairInference)),
@@ -66,7 +67,8 @@ TracksterLinkingbySuperClusteringDNN::TracksterLinkingbySuperClusteringDNN(const
       filterByTracksterPID_(ps.getParameter<bool>("filterByTracksterPID")),
       tracksterPIDCategoriesToFilter_(ps.getParameter<std::vector<int>>("tracksterPIDCategoriesToFilter")),
       PIDThreshold_(ps.getParameter<float>("PIDThreshold")) {
-  if (pairInference_) return;
+  if (pairInference_)
+    return;
   const auto backend = ps.getParameter<std::string>("inferenceBackend");
   if (backend == "PyTorchAlpaka") {
     auto const config = ps.getParameter<edm::ParameterSet>("pytorchInference");

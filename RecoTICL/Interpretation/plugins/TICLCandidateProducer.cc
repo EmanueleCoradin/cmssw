@@ -206,8 +206,9 @@ TICLCandidateProducer::TICLCandidateProducer(const edm::ParameterSet &ps, const 
       // PyTorch validates only enabled task paths; keep legacy ONNX opt-out behavior.
       if (inferencePlugin == "PyTorchAlpaka" || hasSingleModel || hasPIDModel || hasEnergyModel) {
         const auto pluginName = inferencePlugin == "PyTorchAlpaka"
-            ? ticl::inferencePluginName(inferencePSet.getParameter<std::string>("backend"),
-                                        "TracksterInferenceByPyTorchAlpaka") : inferencePlugin;
+                                    ? ticl::inferencePluginName(inferencePSet.getParameter<std::string>("backend"),
+                                                                "TracksterInferenceByPyTorchAlpaka")
+                                    : inferencePlugin;
         inferenceAlgo_ = std::unique_ptr<TracksterInferenceAlgoBase>(
             TracksterInferenceAlgoFactory::get()->create(pluginName, inferencePSet, cache));
       }
@@ -596,8 +597,7 @@ void TICLCandidateProducer::assignTimeToCandidates(std::vector<TICLCandidate> &r
 
 void TICLCandidateProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
-  desc.add<edm::ParameterSetDescription>("pluginInferenceAlgoPyTorchAlpaka",
-                                          ticl::pytorchInferenceDescription(true));
+  desc.add<edm::ParameterSetDescription>("pluginInferenceAlgoPyTorchAlpaka", ticl::pytorchInferenceDescription(true));
   edm::ParameterSetDescription interpretationDesc;
   interpretationDesc.addNode(edm::PluginDescription<TICLGeneralInterpretationPluginFactory>("type", "General", true));
   edm::ParameterSetDescription muonInterpretationDesc;

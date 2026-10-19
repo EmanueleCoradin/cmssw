@@ -36,17 +36,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           throw cms::Exception("Configuration") << "CNN supports PID only";
       }
       if (config.getParameter<bool>("doPID"))
-        pid_ = std::make_unique<TracksterInferenceRunner<PIDAdapter>>(
-            inferenceModelPath(config, "pidModel"),
-            batchSize,
-            config.getParameter<bool>("convertToFP16"),
-            config.getParameter<int>("warmupIterations"));
+        pid_ = std::make_unique<TracksterInferenceRunner<PIDAdapter>>(inferenceModelPath(config, "pidModel"),
+                                                                      batchSize,
+                                                                      config.getParameter<bool>("convertToFP16"),
+                                                                      config.getParameter<int>("warmupIterations"));
       if (config.getParameter<bool>("doRegression"))
-        regression_ = std::make_unique<TracksterInferenceRunner<RegressionAdapter>>(
-            inferenceModelPath(config, "regressionModel"),
-            batchSize,
-            config.getParameter<bool>("convertToFP16"),
-            config.getParameter<int>("warmupIterations"));
+        regression_ =
+            std::make_unique<TracksterInferenceRunner<RegressionAdapter>>(inferenceModelPath(config, "regressionModel"),
+                                                                          batchSize,
+                                                                          config.getParameter<bool>("convertToFP16"),
+                                                                          config.getParameter<int>("warmupIterations"));
     }
 
     static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -81,10 +80,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         auto total = detail::checkedSoASize(features.const_view().metadata().size(), "inference samples");
         PIDAdapter::validateSampleCount(tracksters, total);
         if constexpr (PIDAdapter::channelsLast)
-          resetTracksterPredictions(queue,
-                                    std::get<0>(features.const_view().records().selectedTracksterIndex()).data(),
-                                    output,
-                                    total);
+          resetTracksterPredictions(
+              queue, std::get<0>(features.const_view().records().selectedTracksterIndex()).data(), output, total);
         if (regression_)
           regression_->runInto(queue, features, output, minEnergy_);
         if (pid_)
@@ -105,7 +102,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using TracksterCNNInferenceProducer = TracksterMultiTaskInferenceProducerT<CNNPIDAdapter, DNNEnergyAdapter>;
   using TracksterDNNInferenceProducer = TracksterMultiTaskInferenceProducerT<DNNPIDAdapter, DNNEnergyAdapter>;
   using TracksterPFNInferenceProducer = TracksterMultiTaskInferenceProducerT<PFNPIDAdapter, PFNEnergyAdapter>;
-}
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/MakerMacros.h"
 DEFINE_FWK_ALPAKA_MODULE(TracksterCNNInferenceProducer);

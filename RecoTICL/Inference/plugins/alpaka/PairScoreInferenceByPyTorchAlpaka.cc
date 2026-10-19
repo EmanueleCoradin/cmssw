@@ -15,17 +15,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     using ScalarDevice = ticl::TracksterInferenceEnergyDevice;
     struct Workspace {
       Workspace(Queue& queue, unsigned int rows, unsigned int features)
-          : rows(rows), features(features), inputHost(queue, rows * features), inputDevice(queue, rows * features),
-            outputHost(queue, rows), outputDevice(queue, rows) {}
+          : rows(rows),
+            features(features),
+            inputHost(queue, rows * features),
+            inputDevice(queue, rows * features),
+            outputHost(queue, rows),
+            outputDevice(queue, rows) {}
       unsigned int rows, features;
       ScalarHost inputHost;
       ScalarDevice inputDevice;
       ScalarHost outputHost;
       ScalarDevice outputDevice;
     };
+
   public:
     explicit PairScoreInferenceByPyTorchAlpaka(edm::ParameterSet const& config)
-        : queue_(inferenceDevice(config)), batchSize_(inferenceBatchSize(config)),
+        : queue_(inferenceDevice(config)),
+          batchSize_(inferenceBatchSize(config)),
           runner_(inferenceModelPath(config, "modelPath"), config.getParameter<bool>("convertToFP16")),
           warmupIterations_(config.getParameter<int>("warmupIterations")) {}
 
@@ -38,11 +44,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       if (input.size() != values || values > static_cast<std::size_t>(std::numeric_limits<int32_t>::max()) ||
           batchSize_ > static_cast<unsigned int>(std::numeric_limits<int32_t>::max()) / features)
         throw cms::Exception("InvalidTensor") << "Invalid superclustering input dimensions or minibatch size";
-      if (rows == 0) return {};
+      if (rows == 0)
+        return {};
       if (!workspace_ || workspace_->rows != rows || workspace_->features != features)
         workspace_ = std::make_unique<Workspace>(queue_, rows, features);
       auto& ws = *workspace_;
-      for (std::size_t i = 0; i < values; ++i) ws.inputHost.view()[i].energy() = input[i];
+      for (std::size_t i = 0; i < values; ++i)
+        ws.inputHost.view()[i].energy() = input[i];
       alpaka::memcpy(queue_, ws.inputDevice.buffer(), ws.inputHost.buffer());
       InferenceTensors inputs, outputs;
       // Mutable private scratch avoids the const-input COW copy. No other
@@ -62,9 +70,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         throw;
       }
       std::vector<float> scores(rows);
-      for (unsigned int i = 0; i < rows; ++i) scores[i] = ws.outputHost.const_view()[i].energy();
+      for (unsigned int i = 0; i < rows; ++i)
+        scores[i] = ws.outputHost.const_view()[i].energy();
       return scores;
     }
+
   private:
     Queue queue_;
     unsigned int const batchSize_;
@@ -72,10 +82,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     int warmupIterations_;
     std::unique_ptr<Workspace> workspace_;
   };
-}
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 #define TICL_STRINGIFY_IMPL(x) #x
 #define TICL_STRINGIFY(x) TICL_STRINGIFY_IMPL(x)
-DEFINE_EDM_PLUGIN(PairScoreInferenceFactory, ALPAKA_ACCELERATOR_NAMESPACE::PairScoreInferenceByPyTorchAlpaka,
+DEFINE_EDM_PLUGIN(PairScoreInferenceFactory,
+                  ALPAKA_ACCELERATOR_NAMESPACE::PairScoreInferenceByPyTorchAlpaka,
                   TICL_STRINGIFY(ALPAKA_ACCELERATOR_NAMESPACE::PairScoreInferenceByPyTorchAlpaka));
 #undef TICL_STRINGIFY
 #undef TICL_STRINGIFY_IMPL
