@@ -35,7 +35,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       cms::torch::alpakatools::TensorCollection<Queue> input, output;
       inputs.materializeBatch(batch, input);
       outputs.materializeBatch(batch, output);
-      input.copy(queue);
+      // input.copy(queue); TODO: to be changed
       auto arguments = cms::torch::alpakatools::detail::convertInput(input, model_.device(), dtype);
       adaptInferenceInputs(arguments, transform, featuresPerRow);
       auto result = model_.forward(arguments);
@@ -51,7 +51,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             << "Unexpected TorchScript output shape: " << prediction.sizes() << "; expected " << destination.sizes();
       if (prediction.device() != destination.device() || !prediction.is_floating_point())
         throw cms::Exception("TracksterInference") << "Model output must be floating point on the Alpaka device";
-      destination.copy_(prediction);
+      // destination.copy_(prediction); TODO: to be changed
     }
   }
 

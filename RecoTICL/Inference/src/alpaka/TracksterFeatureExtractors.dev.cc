@@ -1,29 +1,27 @@
-#include <algorithm>
+
 #include <cmath>
 #include <cstdint>
 #include <tuple>
 
-#include <Eigen/Core>
 #include <alpaka/alpaka.hpp>
 #include <xtd/math.h>
 
-#include "RecoTICL/Inference/interface/alpaka/TracksterFeatureExtractors.h"
-#include "RecoTICL/Inference/interface/TracksterInferenceSoA.h"
-#include "RecoTICL/Inference/interface/TracksterClusterOrder.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/prefixScan.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
+#include "RecoTICL/Inference/interface/TracksterInferenceSoA.h"
+#include "RecoTICL/Inference/interface/alpaka/TracksterFeatureExtractors.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   namespace {
 
     ALPAKA_FN_HOST_ACC float absoluteEta(float x, float y, float z) {
-      auto rho = xtd::sqrt(x * x + y * y);
-      auto absZ = xtd::abs(z);
-      // ROOT::Math::Impl::Eta_FromRhoZ uses |z| + etaMax at rho == 0.
-      return rho > 0.f ? xtd::asinh(absZ / rho) : (absZ == 0.f ? 0.f : absZ + 22756.f);
+      const auto rho = xtd::sqrt(x * x + y * y);
+      const auto absZ = xtd::abs(z);
+
+      return xtd::asinh(absZ / rho);
     }
 
     // Same seed-ID predicate as ticlgeom::Tools::isBarrel().
@@ -31,6 +29,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       return (id.det() == DetId::Ecal && id.subdetId() == 1) ||
              (id.det() == DetId::Hcal && (id.subdetId() == 1 || id.subdetId() == 3));
     }
+
+    // ---------------------------------------------------------------------------
+    // Trackster selection
+    // ---------------------------------------------------------------------------
 
     template <TracksterModelFamily Family>
     struct SelectTrackstersKernel {
@@ -46,39 +48,57 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         for (auto tracksterIndex : cms::alpakatools::uniform_elements(acc, nTracksters)) {
           const auto vertices = associations[tracksterIndex];
+          bool selected = false;
 
-          float clusterEnergy = 0.f;
-          bool selected = Family == TracksterModelFamily::PFN;
-          for (auto k = 0u; k < vertices.size(); ++k) {
-            if constexpr (Family != TracksterModelFamily::CNN) {
-              if (isBarrel(clusterIndexes[vertices[k]].seedID())) {
-                if constexpr (Family == TracksterModelFamily::PFN) {
-                  selected = false;
-                  break;
-                }
-                continue;
-              }
-            }
-            if constexpr (Family != TracksterModelFamily::PFN) {
+          // CNN: select Tracksters above the energy threshold, including barrel clusters.
+          if constexpr (Family == TracksterModelFamily::CNN) {
+            auto clusterEnergy = 0.f;
+
+            for (auto k = 0u; k < vertices.size(); ++k) {
               clusterEnergy += clusterEnergies[vertices[k]].energy();
+
               if (clusterEnergy >= minClusterEnergy) {
                 selected = true;
                 break;
               }
             }
+
+            // DNN: apply the energy threshold using only non-barrel clusters.
+          } else if constexpr (Family == TracksterModelFamily::DNN) {
+            auto clusterEnergy = 0.f;
+
+            for (auto k = 0u; k < vertices.size(); ++k) {
+              if (isBarrel(clusterIndexes[vertices[k]].seedID()))
+                continue;
+
+              clusterEnergy += clusterEnergies[vertices[k]].energy();
+
+              if (clusterEnergy >= minClusterEnergy) {
+                selected = true;
+                break;
+              }
+            }
+
+            // PFN: reject Tracksters containing any barrel cluster.
+          } else if constexpr (Family == TracksterModelFamily::PFN) {
+            selected = true;
+
+            for (auto k = 0u; k < vertices.size(); ++k) {
+              if (isBarrel(clusterIndexes[vertices[k]].seedID())) {
+                selected = false;
+                break;
+              }
+            }
           }
+
           selectionMask[tracksterIndex] = selected ? 1u : 0u;
         }
       }
     };
 
-    struct ClusterBefore {
-      LayerClusterEnergyMultiView energies;
-      uint32_t const* vertices;
-      ALPAKA_FN_HOST_ACC bool operator()(uint32_t a, uint32_t b) const {
-        return energies[vertices[a]].energy() > energies[vertices[b]].energy();
-      }
-    };
+    // ---------------------------------------------------------------------------
+    // Feature extraction
+    // ---------------------------------------------------------------------------
 
     template <TracksterModelFamily Family, typename FeatureView>
     struct FillInputFeaturesKernel {
@@ -93,7 +113,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                     uint32_t const* selectionOffsets,
                                     uint32_t* selectedTracksters,
                                     FeatureView features,
-                                    uint32_t* vertexOrder,
                                     uint32_t nTracksters) const {
         const auto verticesAssociations = inputTracksters.vertices();
         const auto multiplicityAssociations = inputTracksters.multiplicity();
@@ -103,24 +122,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         // One thread processes one Trackster.
         for (auto tracksterIndex : cms::alpakatools::uniform_elements(acc, nTracksters)) {
-          // Discard low energetic tracksters
-          if (selectionMask[tracksterIndex] == 0u) {
+          if (selectionMask[tracksterIndex] == 0u)
             continue;
-          }
 
           const auto vertices = verticesAssociations[tracksterIndex];
           const auto multiplicities = multiplicityAssociations[tracksterIndex];
 
+          // Map the original Trackster index to its compact output row.
           const auto row = selectionOffsets[tracksterIndex] - 1u;
           selectedTracksters[row] = tracksterIndex;
-          // Allocate features
           auto feature = features[row];
 
+          // PFN additionally uses global Trackster properties.
           if constexpr (Family == TracksterModelFamily::PFN) {
-            auto ts = inputTracksters.tracksters()[tracksterIndex];
-            auto x = ts.barycenterX();
-            auto y = ts.barycenterY();
-            auto z = xtd::abs(ts.barycenterZ());
+            const auto ts = inputTracksters.tracksters()[tracksterIndex];
+
+            const auto x = ts.barycenterX();
+            const auto y = ts.barycenterY();
+            const auto z = xtd::abs(ts.barycenterZ());
+
             feature.rawEnergy() = ts.raw_energy();
             feature.rawEmEnergy() = ts.raw_em_energy();
             feature.barycenterX() = x;
@@ -130,45 +150,74 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             feature.barycenterPhi() = xtd::atan2(y, x);
           }
 
-          // Sort the complete vertex list, matching the CPU energy-only std::sort
-          // including equal energies; top-k alone does not preserve that order.
-          auto* order = vertexOrder + verticesAssociations.offsets()[tracksterIndex].keys_offsets();
-          for (uint32_t k = 0; k < vertices.size(); ++k)
-            order[k] = k;
-          ::ticl::detail::TracksterClusterOrder<ClusterBefore>{ClusterBefore{clusterEnergies, vertices.data()}}(
-              order, static_cast<int>(vertices.size()));
-          uint8_t seenClusters[nLayers] = {};
-          for (uint32_t index = 0; index < vertices.size(); ++index) {
-            auto k = order[index];
+          // Keep at most maxClusters vertices per layer, sorted by decreasing
+          // LayerCluster energy. Equal-energy ordering is not required.
+          uint32_t selected[nLayers][maxClusters];
+          uint8_t counts[nLayers] = {};
+
+          for (auto k = 0u; k < vertices.size(); ++k) {
             const auto vertexIndex = vertices[k];
-            const auto multiplicity = multiplicities[k];
+
             if constexpr (Family == TracksterModelFamily::DNN) {
               if (isBarrel(clusterIndexes[vertexIndex].seedID()))
                 continue;
             }
+
             const auto position = clusterPositions[vertexIndex];
+
             if (position.layer() < 0)
               continue;
+
             const auto layer = static_cast<uint32_t>(position.layer()) % layersPerEndcap;
-            if (layer >= nLayers || seenClusters[layer] >= maxClusters)
+            if (layer >= nLayers)
               continue;
-            const auto slot = seenClusters[layer]++;
-            feature.energy()(layer, slot) = clusterEnergies[vertexIndex].energy();
 
-            const auto x = position.x();
-            const auto y = position.y();
-            const auto z = position.z();
+            const auto energy = clusterEnergies[vertexIndex].energy();
+            auto& count = counts[layer];
 
-            const auto absZ = xtd::abs(z);
+            // Find the position of this vertex among the retained top-K.
+            auto slot = 0;
+            while (slot < count && clusterEnergies[vertices[selected[layer][slot]]].energy() >= energy)
+              ++slot;
 
-            feature.energy()(layer, slot) /= multiplicity;
-            feature.absEta()(layer, slot) = absoluteEta(x, y, z);
-            feature.phi()(layer, slot) = xtd::atan2(y, x);
-            if constexpr (Family == TracksterModelFamily::PFN) {
-              feature.x()(layer, slot) = x;
-              feature.y()(layer, slot) = y;
-              feature.absZ()(layer, slot) = absZ;
-              feature.cells()(layer, slot) = static_cast<float>(position.cells());
+            if (slot >= maxClusters)
+              continue;
+
+            // Insert the vertex, discarding the lowest-energy one if full.
+            const auto end = count < maxClusters ? count : maxClusters - 1;
+            for (auto j = end; j > slot; --j)
+              selected[layer][j] = selected[layer][j - 1];
+
+            selected[layer][slot] = k;
+
+            if (count < maxClusters)
+              ++count;
+          }
+
+          // Fill the model input features from the retained LayerClusters.
+          for (auto layer = 0u; layer < nLayers; ++layer) {
+            for (auto slot = 0u; slot < counts[layer]; ++slot) {
+              const auto k = selected[layer][slot];
+              const auto vertexIndex = vertices[k];
+              const auto multiplicity = multiplicities[k];
+
+              const auto position = clusterPositions[vertexIndex];
+              const auto x = position.x();
+              const auto y = position.y();
+              const auto z = position.z();
+
+              // Sort by original LayerCluster energy, but store the energy
+              // corrected for the Trackster vertex multiplicity.
+              feature.energy()(layer, slot) = clusterEnergies[vertexIndex].energy() / multiplicity;
+              feature.absEta()(layer, slot) = absoluteEta(x, y, z);
+              feature.phi()(layer, slot) = xtd::atan2(y, x);
+
+              if constexpr (Family == TracksterModelFamily::PFN) {
+                feature.x()(layer, slot) = x;
+                feature.y()(layer, slot) = y;
+                feature.absZ()(layer, slot) = xtd::abs(z);
+                feature.cells()(layer, slot) = static_cast<float>(position.cells());
+              }
             }
           }
         }
@@ -176,6 +225,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     };
 
   }  // namespace
+
+  // ---------------------------------------------------------------------------
+  // Trackster feature extractor
+  // ---------------------------------------------------------------------------
 
   template <TracksterModelFamily Family>
   TracksterFeatureExtractor<Family>::TracksterFeatureExtractor(edm::ParameterSet const& config)
@@ -197,9 +250,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                  uint32_t* selectionMask,
                                                  uint32_t* selectionOffsets,
                                                  uint32_t nTracksters) const {
-    if (nTracksters == 0) {
+    if (nTracksters == 0u)
       return;
-    }
 
     constexpr auto threadsPerBlock = 256u;
     const auto blocks = cms::alpakatools::divide_up_by(nTracksters, threadsPerBlock);
@@ -235,9 +287,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   typename TracksterFeatureExtractor<Family>::FeaturesDevice TracksterFeatureExtractor<Family>::makeFeatures(
       Queue& queue, uint32_t selectedCount) const {
     FeaturesDevice features(queue, selectedCount);
-    // The CNN features use a partially filled image, so zero-initialization
-    // is required for missing layer clusters.
+
+    // Zero-pad missing LayerCluster positions in the model input.
     features.zeroInitialise(queue);
+
     return features;
   }
 
@@ -252,15 +305,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                uint32_t const* selectionOffsets,
                                                FeaturesDevice& features,
                                                uint32_t nTracksters) const {
-    if (nTracksters == 0) {
+    if (nTracksters == 0u)
       return;
-    }
+
     auto featureRecords = features.view().records();
-    auto vertexOrder = cms::alpakatools::make_device_buffer<uint32_t[]>(
-        queue, std::max<int32_t>(1, inputTracksters.vertices().content().metadata().size()));
+
     constexpr auto elementsPerBlock = 256u;
-    const auto blocks = (nTracksters + elementsPerBlock - 1) / elementsPerBlock;
+    const auto blocks = cms::alpakatools::divide_up_by(nTracksters, elementsPerBlock);
     const auto workDiv = cms::alpakatools::make_workdiv<Acc1D>(blocks, elementsPerBlock);
+
     alpaka::exec<Acc1D>(queue,
                         workDiv,
                         FillInputFeaturesKernel<Family, typename FeaturesDevice::View>{},
@@ -273,7 +326,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         selectionOffsets,
                         std::get<0>(featureRecords.selectedTracksterIndex()).data(),
                         features.view(),
-                        vertexOrder.data(),
                         nTracksters);
   }
 
