@@ -77,8 +77,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto output = PIDAdapter::makePublishedOutput(queue, tracksters);
       if (pid_ || regression_) {
         auto const& features = event.get(featuresToken_);
-        auto total = detail::checkedSoASize(features.const_view().metadata().size(), "inference samples");
-        PIDAdapter::validateSampleCount(tracksters, total);
+        auto total = static_cast<int32_t>(features.const_view().metadata().size());
+
         if constexpr (PIDAdapter::channelsLast)
           resetTracksterPredictions(
               queue, std::get<0>(features.const_view().records().selectedTracksterIndex()).data(), output, total);

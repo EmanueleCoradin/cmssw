@@ -240,14 +240,12 @@ namespace cms::torch::alpakatools {
       return *registry_.at(order_[index]);
     }
 
-    // Materialize const inputs before custom tensor-view adaptation and model execution.
-    // Keep this collection alive until queued use of the handles is complete.
+  private:
     void copy(TQueue& queue) {
       for (const auto& name : order_)
         registry_.at(name)->copy(queue);
     }
 
-  private:
     // propagate pointer (Tptr) and type to distinguish between T* and const T* and trigger internal copy.
     template <typename Tptr>
     void emplace_tensor(const std::string& name,

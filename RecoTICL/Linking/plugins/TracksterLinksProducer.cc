@@ -129,9 +129,7 @@ TracksterLinksProducer::TracksterLinksProducer(const edm::ParameterSet &ps, cons
   auto const linkingPSet = ps.getParameter<edm::ParameterSet>("linkingPSet");
   cms::Ort::ONNXRuntime const *linkingSession = nullptr;
 
-  if (linkingPSet.existsAs<std::string>("onnxModelPath", true) &&
-      (!linkingPSet.existsAs<std::string>("inferenceBackend") ||
-       linkingPSet.getParameter<std::string>("inferenceBackend") != "PyTorchAlpaka")) {
+  if (linkingPSet.existsAs<std::string>("onnxModelPath", true)) {
     auto const model = linkingPSet.getParameter<std::string>("onnxModelPath");
     linkingSession = cache ? cache->getByModelPathString(model) : nullptr;
   }

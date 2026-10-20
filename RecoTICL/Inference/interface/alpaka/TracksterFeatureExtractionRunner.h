@@ -10,12 +10,6 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-  // Owns the per-framework-stream GPU selection buffers and selected count.
-  // There is no EDM Event/ES dependency here; the producer supplies the
-  // collections and geometry parameters explicitly.
-  //
-  // Lifecycle: prepare() in SynchronizingEDProducer::acquire(), wait for
-  // acquire() to complete via the framework, then run() in produce().
   template <typename Extractor>
   class TracksterFeatureExtractionRunner {
   public:
@@ -23,24 +17,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     explicit TracksterFeatureExtractionRunner(edm::ParameterSet const& config);
 
-    // Enqueues selection, inclusive prefix sum and the final device-to-host
-    // count transfer. clusterEnergies may be empty for an empty collection.
+    // Enqueues selection, and the final device-to-host count transfer
     void prepare(Queue& queue,
                  ::ticl::TracksterSoA::ConstView tracksters,
                  LayerClusterEnergyMultiView clusterEnergies,
                  LayerClusterIndexMultiView clusterIndexes = {});
 
-    // Only call after the framework has synchronized the prepare() work.
-    [[nodiscard]] uint32_t selectedCount() const;
+    // Only call after the framework has synchronized the prepare() work
+    uint32_t selectedCount() const;
 
-    // Enqueues feature construction and releases the temporary selection
-    // buffers, as in the original feature producer.
-    [[nodiscard]] FeaturesDevice run(Queue& queue,
-                                     ::ticl::TracksterSoA::ConstView tracksters,
-                                     LayerClusterEnergyMultiView clusterEnergies,
-                                     LayerClusterPositionMultiView clusterPositions,
-                                     uint32_t layersPerEndcap,
-                                     LayerClusterIndexMultiView clusterIndexes = {});
+    // Enqueues feature construction
+    FeaturesDevice run(Queue& queue,
+                       ::ticl::TracksterSoA::ConstView tracksters,
+                       LayerClusterEnergyMultiView clusterEnergies,
+                       LayerClusterPositionMultiView clusterPositions,
+                       uint32_t layersPerEndcap,
+                       LayerClusterIndexMultiView clusterIndexes = {});
 
   private:
     Extractor extractor_;

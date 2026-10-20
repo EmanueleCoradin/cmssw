@@ -6,10 +6,11 @@
 
 namespace ticl {
 
-  using TracksterInferenceHost = PortableHostCollection<TracksterInferenceSoA>;
-  using TracksterInferencePIDScoresHost = PortableHostCollection<TracksterInferencePIDScoresSoA>;
-
+  using TracksterCNNFeaturesHost = PortableHostCollection<::ticl::TracksterCNNFeaturesSoA>;
+  using TracksterDNNFeaturesHost = PortableHostCollection<::ticl::TracksterDNNFeaturesSoA>;
   using TracksterPFNFeaturesHost = PortableHostCollection<::ticl::TracksterPFNFeaturesSoA>;
+
+  using TracksterInferencePIDScoresHost = PortableHostCollection<::ticl::TracksterInferencePIDScoresSoA>;
   using TracksterInferenceEnergyHost = PortableHostCollection<::ticl::TracksterInferenceEnergySoA>;
 
 }  // namespace ticl

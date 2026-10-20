@@ -48,9 +48,7 @@ namespace ticl {
       // Load only if present and non-empty.
       if (modulePSet.existsAs<edm::ParameterSet>("linkingPSet", /*trackPar=*/true)) {
         const auto linkingPSet = modulePSet.getParameter<edm::ParameterSet>("linkingPSet");
-        if (!linkingPSet.existsAs<std::string>("inferenceBackend") ||
-            linkingPSet.getParameter<std::string>("inferenceBackend") != "PyTorchAlpaka")
-          cache->tryLoadSessionFromKey(linkingPSet, "onnxModelPath", sess_opts);
+        cache->tryLoadSessionFromKey(linkingPSet, "onnxModelPath", sess_opts);
       }
 
       // 2) Inference models (TrackstersProducer / TracksterLinksProducer when regressionAndPid)

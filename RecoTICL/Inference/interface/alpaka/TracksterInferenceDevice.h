@@ -7,10 +7,11 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::ticl {
 
-  using TracksterInferenceDevice = PortableCollection<::ticl::TracksterInferenceSoA>;
-  using TracksterInferencePIDScoresDevice = PortableCollection<::ticl::TracksterInferencePIDScoresSoA>;
-
+  using TracksterCNNFeaturesDevice = PortableCollection<::ticl::TracksterCNNFeaturesSoA>;
+  using TracksterDNNFeaturesDevice = PortableCollection<::ticl::TracksterDNNFeaturesSoA>;
   using TracksterPFNFeaturesDevice = PortableCollection<::ticl::TracksterPFNFeaturesSoA>;
+
+  using TracksterInferencePIDScoresDevice = PortableCollection<::ticl::TracksterInferencePIDScoresSoA>;
   using TracksterInferenceEnergyDevice = PortableCollection<::ticl::TracksterInferenceEnergySoA>;
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::ticl

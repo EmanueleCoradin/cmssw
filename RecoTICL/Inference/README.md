@@ -47,7 +47,7 @@ feature product is not retrieved. CNN regression is rejected in Python and C++.
 The three standalone inference plugins share one producer template and the existing
 runners and tensor adapters. `CLUE3DHighStep_cff` uses this factory with CNN PID
 only, preserving its module labels, input tags, model path and execution settings.
-The CNN feature plugin retains its name `TracksterInferenceFeaturesProducer@alpaka`.
+The CNN feature plugin retains its name `TracksterFeaturesProducer@alpaka`.
 The superseded `TracksterInferenceProducer@alpaka` plugin and hand-written
 `Configuration.tracksterInferenceFeaturesProducer_cfi` are removed; custom
 configurations should use the factory (`pidModel` replaces `model`). The output

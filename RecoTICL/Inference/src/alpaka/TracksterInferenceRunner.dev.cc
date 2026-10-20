@@ -46,10 +46,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                   InputDevice const& features,
                                                   PublishedOutputDevice& output,
                                                   float minEnergy) {
-    const int total = detail::checkedSoASize(features.const_view().metadata().size(), "inference samples");
-    Adapter::validateSampleCount(output, total);
-    if (total == 0)
-      return;
+    const auto total = static_cast<int32_t>(features.const_view().metadata().size());
+
     auto predictions = Adapter::makeModelOutput(queue, total);
     auto featureRecords = features.const_view().records();
     auto predictionRecords = predictions.view().records();

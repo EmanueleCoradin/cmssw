@@ -11,14 +11,7 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   // These synchronous bridges are owned by CPU stream modules, not global caches.
-  inline Device inferenceDevice(edm::ParameterSet const& config) {
-    auto const& devices = cms::alpakatools::devices<Platform>();
-    auto index = config.getParameter<unsigned int>("deviceIndex");
-    if (index >= devices.size())
-      throw cms::Exception("Configuration")
-          << "TICL inference deviceIndex=" << index << " is unavailable for the selected Alpaka backend";
-    return devices[index];
-  }
+
   inline unsigned int inferenceBatchSize(edm::ParameterSet const& config) {
     auto size = config.getParameter<unsigned int>("batchSize");
     if (size == 0 || size > static_cast<unsigned int>(std::numeric_limits<int32_t>::max()) ||

@@ -81,9 +81,9 @@ ticlTrackstersToSoAProducer = _trackstersToSoAProducer.clone(
 
 # Retain the public module labels and the existing CNN PID-only defaults.
 _clue3DHighInference = makeTracksterInference(model="CNN", doPID=True, doRegression=False)
-ticlTracksterInferenceFeaturesProducer = _clue3DHighInference.features
+ticlTracksterFeaturesProducer = _clue3DHighInference.features
 ticlTracksterInferenceProducer = _clue3DHighInference.producer.clone(
-    features=cms.InputTag("ticlTracksterInferenceFeaturesProducer", "features")
+    features=cms.InputTag("ticlTracksterFeaturesProducer", "features")
 )
 
 ticlCLUE3DHighStepTask = cms.Task(
@@ -91,7 +91,7 @@ ticlCLUE3DHighStepTask = cms.Task(
     filteredLayerClustersCLUE3DHigh,
     ticlTrackstersCLUE3DHigh,
     ticlTrackstersToSoAProducer,
-    ticlTracksterInferenceFeaturesProducer,
+    ticlTracksterFeaturesProducer,
     ticlTracksterInferenceProducer,
 )
 
@@ -119,7 +119,7 @@ ticl_dev.toReplaceWith(
         ticlTrackstersCLUEsteringAssignment,
         ticlTrackstersCLUE3DHigh,
         ticlTrackstersToSoAProducer,
-        ticlTracksterInferenceFeaturesProducer,
+        ticlTracksterFeaturesProducer,
         ticlTracksterInferenceProducer,
     )
 )

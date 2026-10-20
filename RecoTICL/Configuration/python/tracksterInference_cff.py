@@ -73,7 +73,7 @@ def makeTracksterInference(*, model="CNN", doPID=True, doRegression=False, batch
         raise ValueError("An enabled PID task requires a nonempty pidModel path")
     if doRegression and not regressionModel:
         raise ValueError("An enabled regression task requires a nonempty regressionModel path")
-    feature_plugin = "TracksterInferenceFeaturesProducer" if model == "CNN" else "Trackster" + model + "FeaturesProducer"
+    feature_plugin = "Trackster" + model + "FeaturesProducer"
     features = cms.EDProducer(
         feature_plugin + "@alpaka", detector=cms.string("HGCAL"),
         tracksters=cms.InputTag(tracksters) if isinstance(tracksters, str) else tracksters,

@@ -7,7 +7,7 @@
 #include <limits>
 #include <optional>
 #include <tuple>
-#include <string_view>
+#include <string>
 
 #include <alpaka/alpaka.hpp>
 
@@ -22,38 +22,50 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
+  // ---------------------------------------------------------------------------
+  // Utilities
+  // ---------------------------------------------------------------------------
+
   namespace detail {
 
-    inline int32_t checkedSoASize(std::size_t size, std::string_view name) {
-      if (size > static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
-        throw cms::Exception("TracksterInference") << name << " has " << size << " entries (exceeds int32_t).";
-      }
-      return static_cast<int32_t>(size);
+    template <typename View>
+    std::array<int32_t, ::ticl::TracksterSoA::blocksNumber> tracksterBlockSizes(const View& view) {
+      return {static_cast<int32_t>(view.tracksters().metadata().size()),
+              static_cast<int32_t>(view.vertices().keys()),
+              static_cast<int32_t>(view.vertices().content().metadata().size()),
+              static_cast<int32_t>(view.multiplicity().keys()),
+              static_cast<int32_t>(view.multiplicity().content().metadata().size()),
+              static_cast<int32_t>(view.edges().keys()),
+              static_cast<int32_t>(view.edges().content().metadata().size()),
+              static_cast<int32_t>(view.tracks().keys()),
+              static_cast<int32_t>(view.tracks().content().metadata().size()),
+              static_cast<int32_t>(view.tracksterGsfTrack().keys()),
+              static_cast<int32_t>(view.tracksterGsfTrack().content().metadata().size()),
+              static_cast<int32_t>(view.globalSeedingTracks().keys()),
+              static_cast<int32_t>(view.globalSeedingTracks().content().metadata().size())};
     }
 
-    template <typename View>
-    std::array<int32_t, ::ticl::TracksterSoA::blocksNumber> tracksterBlockSizes(View const& view) {
-      return {checkedSoASize(view.tracksters().metadata().size(), "tracksters"),
-              checkedSoASize(view.vertices().keys(), "vertex offsets"),
-              checkedSoASize(view.vertices().content().metadata().size(), "vertices"),
-              checkedSoASize(view.multiplicity().keys(), "multiplicity offsets"),
-              checkedSoASize(view.multiplicity().content().metadata().size(), "multiplicities"),
-              checkedSoASize(view.edges().keys(), "edge offsets"),
-              checkedSoASize(view.edges().content().metadata().size(), "edges"),
-              checkedSoASize(view.tracks().keys(), "track offsets"),
-              checkedSoASize(view.tracks().content().metadata().size(), "tracks"),
-              checkedSoASize(view.tracksterGsfTrack().keys(), "GSF offsets"),
-              checkedSoASize(view.tracksterGsfTrack().content().metadata().size(), "GSF tracks"),
-              checkedSoASize(view.globalSeedingTracks().keys(), "global-seeding offsets"),
-              checkedSoASize(view.globalSeedingTracks().content().metadata().size(), "global-seeding tracks")};
+    template <typename SoA, typename... Columns>
+    void addTensor(InferenceTensors& tensors,
+                   const std::string& name,
+                   std::optional<uint32_t> batchSize,
+                   const Columns&... columns) {
+      if (batchSize)
+        tensors.addBatched<SoA>(name, *batchSize, columns...);
+      else
+        tensors.add<SoA>(name, columns...);
     }
   }  // namespace detail
 
-  // Existing TorchScript CNN consumes [B, 3, 50, 10].
-  struct CNNInputAdapter {
-    static constexpr bool channelsLast = false;
-    using InputDevice = ticl::TracksterInferenceDevice;
-    using InputSoA = ::ticl::TracksterInferenceSoA;
+  // ---------------------------------------------------------------------------
+  // Input adapters
+  // ---------------------------------------------------------------------------
+
+  // Base class for the Input Adapters
+  template <typename Device, typename SoA>
+  struct InputAdapterBase {
+    using InputDevice = Device;
+    using InputSoA = SoA;
 
     static InputDevice makeWarmupInput(Queue& queue, uint32_t batchSize) {
       InputDevice input(queue, batchSize);
@@ -62,86 +74,69 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
 
     template <typename Records>
-    static uint32_t const* selectedIndices(Records const& records) {
+    static uint32_t const* selectedIndices(const Records& records) {
       return std::get<0>(records.selectedTracksterIndex()).data();
     }
+  };
+
+  // CNN and DNN use the same feature columns but different tensor layouts.
+  // Parameterize the common adapter to keep their model-specific types explicit.
+  template <typename FeaturesDevice, typename FeaturesSoA, bool ChannelsLast>
+  struct ImageInputAdapter : InputAdapterBase<FeaturesDevice, FeaturesSoA> {
+    static constexpr bool channelsLast = ChannelsLast;
 
     template <typename Records>
     static void registerTensors(InferenceTensors& inputs, Records const& records, std::optional<uint32_t> batchSize) {
-      if (batchSize)
-        inputs.addBatched<InputSoA>("input", *batchSize, records.energy(), records.absEta(), records.phi());
-      else
-        inputs.add<InputSoA>("input", records.energy(), records.absEta(), records.phi());
+      detail::addTensor<FeaturesSoA>(inputs, "input", batchSize, records.energy(), records.absEta(), records.phi());
     }
   };
 
-  struct DNNInputAdapter : CNNInputAdapter {
+  // CNN input: [batch, features, layers, clusters]
+  using CNNInputAdapter = ImageInputAdapter<ticl::TracksterCNNFeaturesDevice, ::ticl::TracksterCNNFeaturesSoA, false>;
+  // DNN input: [batch, layers, clusters, features]
+  using DNNInputAdapter = ImageInputAdapter<ticl::TracksterDNNFeaturesDevice, ::ticl::TracksterDNNFeaturesSoA, true>;
+
+  // PFN inputs:
+  //   "input":            [batch, layers, clusters, features]
+  //   "input_trackster_features": [batch, trackster_features]
+  struct PFNInputAdapter : InputAdapterBase<ticl::TracksterPFNFeaturesDevice, ::ticl::TracksterPFNFeaturesSoA> {
     static constexpr bool channelsLast = true;
-  };
-
-  struct PFNInputAdapter {
-    static constexpr bool channelsLast = true;
-    using InputDevice = ticl::TracksterPFNFeaturesDevice;
-    using InputSoA = ::ticl::TracksterPFNFeaturesSoA;
-
-    static InputDevice makeWarmupInput(Queue& queue, uint32_t batchSize) {
-      InputDevice input(queue, batchSize);
-      input.zeroInitialise(queue);
-      return input;
-    }
-
-    template <typename Records>
-    static uint32_t const* selectedIndices(Records const& records) {
-      return std::get<0>(records.selectedTracksterIndex()).data();
-    }
+    using FeaturesSoA = ::ticl::TracksterPFNFeaturesSoA;
 
     template <typename Records>
     static void registerTensors(InferenceTensors& inputs, Records const& records, std::optional<uint32_t> batchSize) {
-      if (batchSize) {
-        inputs.addBatched<InputSoA>("input",
-                                    *batchSize,
-                                    records.energy(),
-                                    records.absEta(),
-                                    records.phi(),
-                                    records.x(),
-                                    records.y(),
-                                    records.absZ(),
-                                    records.cells());
-        inputs.addBatched<InputSoA>("input_tr_features",
-                                    *batchSize,
-                                    records.rawEnergy(),
-                                    records.rawEmEnergy(),
-                                    records.barycenterX(),
-                                    records.barycenterY(),
-                                    records.barycenterAbsZ(),
-                                    records.barycenterAbsEta(),
-                                    records.barycenterPhi());
-      } else {
-        inputs.add<InputSoA>("input",
-                             records.energy(),
-                             records.absEta(),
-                             records.phi(),
-                             records.x(),
-                             records.y(),
-                             records.absZ(),
-                             records.cells());
-        inputs.add<InputSoA>("input_tr_features",
-                             records.rawEnergy(),
-                             records.rawEmEnergy(),
-                             records.barycenterX(),
-                             records.barycenterY(),
-                             records.barycenterAbsZ(),
-                             records.barycenterAbsEta(),
-                             records.barycenterPhi());
-      }
+      detail::addTensor<FeaturesSoA>(inputs,
+                                     "input",
+                                     batchSize,
+                                     records.energy(),
+                                     records.absEta(),
+                                     records.phi(),
+                                     records.x(),
+                                     records.y(),
+                                     records.absZ(),
+                                     records.cells());
+
+      detail::addTensor<FeaturesSoA>(inputs,
+                                     "input_tr_features",
+                                     batchSize,
+                                     records.rawEnergy(),
+                                     records.rawEmEnergy(),
+                                     records.barycenterX(),
+                                     records.barycenterY(),
+                                     records.barycenterAbsZ(),
+                                     records.barycenterAbsEta(),
+                                     records.barycenterPhi());
     }
   };
 
-  // Model output: PID tensor [B, 8].
-  // Published output: a copy of the original TracksterDevice with updated PID scores.
-  struct PIDOutputAdapter {
-    using ModelOutputDevice = ticl::TracksterInferencePIDScoresDevice;
-    using ModelOutputSoA = ::ticl::TracksterInferencePIDScoresSoA;
+  // ---------------------------------------------------------------------------
+  // Output adapters
+  // ---------------------------------------------------------------------------
+
+  template <typename Device, typename SoA>
+  struct OutputAdapterBase {
+    using ModelOutputDevice = Device;
+    using ModelOutputSoA = SoA;
     using PublishedSourceDevice = ticl::TracksterDevice;
     using PublishedOutputDevice = ticl::TracksterDevice;
 
@@ -151,86 +146,76 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       return output;
     }
 
-    static void validateSampleCount(PublishedSourceDevice const& original, int total) {
-      auto nTracksters = detail::checkedSoASize(original.const_view().tracksters().metadata().size(), "tracksters");
-      if (total > nTracksters) {
-        throw cms::Exception("TracksterInference")
-            << "Selected " << total << " tracksters, but the source has only " << nTracksters << ".";
-      }
-    }
-
-    static PublishedOutputDevice makePublishedOutput(Queue& queue, PublishedSourceDevice const& original) {
+    static PublishedOutputDevice makePublishedOutput(Queue& queue, const PublishedSourceDevice& original) {
       PublishedOutputDevice output(queue, detail::tracksterBlockSizes(original.const_view()));
       alpaka::memcpy(queue, output.buffer(), original.buffer());
       return output;
     }
+  };
+
+  // Model output: PID tensor [B, 8].
+  // Published output: a copy of the original TracksterDevice with updated PID scores.
+  // PID predictions: [batch, n_classes].
+  struct PIDOutputAdapter
+      : OutputAdapterBase<ticl::TracksterInferencePIDScoresDevice, ::ticl::TracksterInferencePIDScoresSoA> {
+    using Base = OutputAdapterBase<ticl::TracksterInferencePIDScoresDevice, ::ticl::TracksterInferencePIDScoresSoA>;
 
     template <typename Records>
-    static void registerTensors(InferenceTensors& outputs, Records const& records, std::optional<uint32_t> batchSize) {
-      if (batchSize)
-        outputs.addBatched<ModelOutputSoA>("pid_output",
-                                           *batchSize,
-                                           records.id_probabilities0(),
-                                           records.id_probabilities1(),
-                                           records.id_probabilities2(),
-                                           records.id_probabilities3(),
-                                           records.id_probabilities4(),
-                                           records.id_probabilities5(),
-                                           records.id_probabilities6(),
-                                           records.id_probabilities7());
-      else
-        outputs.add<ModelOutputSoA>("pid_output",
-                                    records.id_probabilities0(),
-                                    records.id_probabilities1(),
-                                    records.id_probabilities2(),
-                                    records.id_probabilities3(),
-                                    records.id_probabilities4(),
-                                    records.id_probabilities5(),
-                                    records.id_probabilities6(),
-                                    records.id_probabilities7());
+    static void registerTensors(InferenceTensors& outputs, const Records& records, std::optional<uint32_t> batchSize) {
+      detail::addTensor<typename Base::ModelOutputSoA>(outputs,
+                                                       "pid_output",
+                                                       batchSize,
+                                                       records.id_probabilities0(),
+                                                       records.id_probabilities1(),
+                                                       records.id_probabilities2(),
+                                                       records.id_probabilities3(),
+                                                       records.id_probabilities4(),
+                                                       records.id_probabilities5(),
+                                                       records.id_probabilities6(),
+                                                       records.id_probabilities7());
     }
 
     static void applyResults(Queue& queue,
-                             uint32_t const* selectedTracksters,
-                             ModelOutputDevice const& predictions,
+                             const uint32_t* selectedTracksters,
+                             const ModelOutputDevice& predictions,
                              PublishedOutputDevice& published,
                              uint32_t total,
                              float minEnergy = 1.f);
   };
 
-  // Independent regression tensor [B, 1]; reuse publication and count checks.
+  // Energy regression predictions: [batch, 1].
+  // The template parameter selects the PFN-specific low-energy fallback.
   template <bool PFN>
-  struct EnergyOutputAdapter : PIDOutputAdapter {
-    using ModelOutputDevice = ticl::TracksterInferenceEnergyDevice;
-    using ModelOutputSoA = ::ticl::TracksterInferenceEnergySoA;
-
-    static ModelOutputDevice makeModelOutput(Queue& queue, int total) {
-      ModelOutputDevice output(queue, total);
-      output.zeroInitialise(queue);
-      return output;
-    }
+  struct EnergyOutputAdapter
+      : OutputAdapterBase<ticl::TracksterInferenceEnergyDevice, ::ticl::TracksterInferenceEnergySoA> {
+    using Base = OutputAdapterBase<ticl::TracksterInferenceEnergyDevice, ::ticl::TracksterInferenceEnergySoA>;
 
     template <typename Records>
-    static void registerTensors(InferenceTensors& outputs, Records const& records, std::optional<uint32_t> batchSize) {
-      if (batchSize)
-        outputs.addBatched<ModelOutputSoA>("enreg_output", *batchSize, records.energy());
-      else
-        outputs.add<ModelOutputSoA>("enreg_output", records.energy());
+    static void registerTensors(InferenceTensors& outputs, const Records& records, std::optional<uint32_t> batchSize) {
+      detail::addTensor<typename Base::ModelOutputSoA>(outputs, "enreg_output", batchSize, records.energy());
     }
 
     static void applyResults(Queue& queue,
-                             uint32_t const* selectedTracksters,
-                             ModelOutputDevice const& predictions,
+                             const uint32_t* selectedTracksters,
+                             const ModelOutputDevice& predictions,
                              PublishedOutputDevice& published,
                              uint32_t total,
                              float minEnergy);
   };
+
+  // ---------------------------------------------------------------------------
+  // Prediction initialization
+  // ---------------------------------------------------------------------------
 
   // CPU DNN/PFN reset both outputs for selected Tracksters before enabled tasks.
   void resetTracksterPredictions(Queue& queue,
                                  uint32_t const* selectedTracksters,
                                  ticl::TracksterDevice& published,
                                  uint32_t total);
+
+  // ---------------------------------------------------------------------------
+  // Combined inference adapter
+  // ---------------------------------------------------------------------------
 
   // The inference producer deals only with this interface, independent of
   // which concrete SoA columns the adapters register.
@@ -250,10 +235,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     static ModelOutputDevice makeModelOutput(Queue& queue, int total) {
       return OutputAdapter::makeModelOutput(queue, total);
-    }
-
-    static void validateSampleCount(PublishedSourceDevice const& original, int total) {
-      OutputAdapter::validateSampleCount(original, total);
     }
 
     static PublishedOutputDevice makePublishedOutput(Queue& queue, PublishedSourceDevice const& original) {
@@ -282,11 +263,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Model-specific adapters
+  // ---------------------------------------------------------------------------
+
+  using CNNPIDAdapter = TracksterInferenceTensorAdapter<CNNInputAdapter, PIDOutputAdapter>;
   using DNNPIDAdapter = TracksterInferenceTensorAdapter<DNNInputAdapter, PIDOutputAdapter>;
   using PFNPIDAdapter = TracksterInferenceTensorAdapter<PFNInputAdapter, PIDOutputAdapter>;
+
   using DNNEnergyAdapter = TracksterInferenceTensorAdapter<DNNInputAdapter, EnergyOutputAdapter<false>>;
   using PFNEnergyAdapter = TracksterInferenceTensorAdapter<PFNInputAdapter, EnergyOutputAdapter<true>>;
-  using CNNPIDAdapter = TracksterInferenceTensorAdapter<CNNInputAdapter, PIDOutputAdapter>;
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 

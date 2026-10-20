@@ -13,11 +13,10 @@
 #include "RecoTICL/Inference/interface/alpaka/TracksterInferenceDevice.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
+  enum class TracksterModelFamily { CNN, DNN, PFN };
 
   using LayerClusterEnergyMultiView = SoAConstMultiView<::reco::CaloClusterSoAEnergy<>::ConstView, 3>;
   using LayerClusterPositionMultiView = SoAConstMultiView<::reco::CaloClusterSoAPosition<>::ConstView, 3>;
-
-  enum class TracksterModelFamily { CNN, DNN, PFN };
   using LayerClusterIndexMultiView = SoAConstMultiView<::reco::CaloClusterSoAIndexes<>::ConstView, 3>;
 
   // Extractor policy for the legacy Trackster CNN features.
@@ -27,9 +26,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   // and feature-filling implementation without changing the producer.
   template <TracksterModelFamily Family>
   struct TracksterFeatureExtractor {
-    using FeaturesDevice = std::conditional_t<Family == TracksterModelFamily::PFN,
-                                              ticl::TracksterPFNFeaturesDevice,
-                                              ticl::TracksterInferenceDevice>;
+    // clang-format off
+    using FeaturesDevice =
+      std::conditional_t<Family == TracksterModelFamily::CNN, ticl::TracksterCNNFeaturesDevice,
+      std::conditional_t<Family == TracksterModelFamily::DNN, ticl::TracksterDNNFeaturesDevice,
+      std::conditional_t<Family == TracksterModelFamily::PFN, ticl::TracksterPFNFeaturesDevice,
+      void>>>;
+    // clang-format on
+    static_assert(!std::is_void_v<FeaturesDevice>, "Unsupported Trackster model family");
 
     explicit TracksterFeatureExtractor(edm::ParameterSet const& config);
 

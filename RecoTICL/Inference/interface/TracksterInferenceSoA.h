@@ -10,12 +10,12 @@ namespace ticl {
   inline constexpr int kTracksterCNNLayers = 50;
   inline constexpr int kTracksterCNNClusters = 10;
 
-  using TracksterCNNImage = Eigen::Matrix<float, kTracksterCNNLayers, kTracksterCNNClusters, Eigen::ColMajor>;
+  using TracksterFeaturesImage = Eigen::Matrix<float, kTracksterCNNLayers, kTracksterCNNClusters, Eigen::ColMajor>;
 
   GENERATE_SOA_LAYOUT(TracksterInferenceFeaturesLayout,
-                      SOA_EIGEN_COLUMN(TracksterCNNImage, energy),
-                      SOA_EIGEN_COLUMN(TracksterCNNImage, absEta),
-                      SOA_EIGEN_COLUMN(TracksterCNNImage, phi),
+                      SOA_EIGEN_COLUMN(TracksterFeaturesImage, energy),
+                      SOA_EIGEN_COLUMN(TracksterFeaturesImage, absEta),
+                      SOA_EIGEN_COLUMN(TracksterFeaturesImage, phi),
                       SOA_COLUMN(uint32_t, selectedTracksterIndex))
 
   GENERATE_SOA_LAYOUT(TracksterInferencePIDScoresLayout,
@@ -29,13 +29,13 @@ namespace ticl {
                       SOA_COLUMN(float, id_probabilities7))
 
   GENERATE_SOA_LAYOUT(TracksterPFNFeaturesLayout,
-                      SOA_EIGEN_COLUMN(TracksterCNNImage, energy),
-                      SOA_EIGEN_COLUMN(TracksterCNNImage, absEta),
-                      SOA_EIGEN_COLUMN(TracksterCNNImage, phi),
-                      SOA_EIGEN_COLUMN(TracksterCNNImage, x),
-                      SOA_EIGEN_COLUMN(TracksterCNNImage, y),
-                      SOA_EIGEN_COLUMN(TracksterCNNImage, absZ),
-                      SOA_EIGEN_COLUMN(TracksterCNNImage, cells),
+                      SOA_EIGEN_COLUMN(TracksterFeaturesImage, energy),
+                      SOA_EIGEN_COLUMN(TracksterFeaturesImage, absEta),
+                      SOA_EIGEN_COLUMN(TracksterFeaturesImage, phi),
+                      SOA_EIGEN_COLUMN(TracksterFeaturesImage, x),
+                      SOA_EIGEN_COLUMN(TracksterFeaturesImage, y),
+                      SOA_EIGEN_COLUMN(TracksterFeaturesImage, absZ),
+                      SOA_EIGEN_COLUMN(TracksterFeaturesImage, cells),
                       SOA_COLUMN(float, rawEnergy),
                       SOA_COLUMN(float, rawEmEnergy),
                       SOA_COLUMN(float, barycenterX),
@@ -46,12 +46,14 @@ namespace ticl {
                       SOA_COLUMN(uint32_t, selectedTracksterIndex))
 
   GENERATE_SOA_LAYOUT(TracksterInferenceEnergyLayout, SOA_COLUMN(float, energy))
-  using TracksterPFNFeaturesSoA = TracksterPFNFeaturesLayout<>;
-  using TracksterInferenceEnergySoA = TracksterInferenceEnergyLayout<>;
-
   using TracksterInferenceSoA = TracksterInferenceFeaturesLayout<>;
-  using TracksterInferencePIDScoresSoA = TracksterInferencePIDScoresLayout<>;
 
+  using TracksterCNNFeaturesSoA = TracksterInferenceSoA;
+  using TracksterDNNFeaturesSoA = TracksterInferenceSoA;
+  using TracksterPFNFeaturesSoA = TracksterPFNFeaturesLayout<>;
+
+  using TracksterInferencePIDScoresSoA = TracksterInferencePIDScoresLayout<>;
+  using TracksterInferenceEnergySoA = TracksterInferenceEnergyLayout<>;
 }  // namespace ticl
 
 #endif
