@@ -242,7 +242,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ort {
     ::Ort::MemoryInfo memory_info_{nullptr};
     std::unique_ptr<::Ort::Session> session_;
     std::optional<std::string> fallback_model_data_;
-    bool used_cuda_fallback_ = true;
+    bool used_cuda_fallback_ = false;
     ::Ort::RunOptions run_options_;
 
     std::vector<std::string> input_names_;
