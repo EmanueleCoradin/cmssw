@@ -37,10 +37,11 @@ namespace cms::Ort::alpakatools {
 #ifdef ALPAKA_ACC_GPU_HIP_ENABLED
     if constexpr (std::is_same_v<alpaka::Dev<TQueue>, alpaka::DevHipRt>) {
       // Run the session on the device of the queue, and in the stream underlying it, like for the CUDA backend.
-      return onnx->sessionOptions(cms::Ort::Backend::rocm, alpaka::getDev(queue).getNativeHandle(), queue.getNativeHandle());
+      return onnx->sessionOptions(
+          cms::Ort::Backend::rocm, alpaka::getDev(queue).getNativeHandle(), queue.getNativeHandle());
     }
 #endif
-    
+
     // The serial_sync backend runs the session on the CPU.
     return onnx->sessionOptions(cms::Ort::Backend::cpu);
   }

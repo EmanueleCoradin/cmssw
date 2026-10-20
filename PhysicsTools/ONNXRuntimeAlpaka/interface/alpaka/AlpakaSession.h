@@ -2,6 +2,7 @@
 #define PhysicsTools_ONNXRuntimeAlpaka_interface_alpaka_AlpakaSession_h
 
 #include <cstddef>
+#include <exception>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -13,11 +14,13 @@
 #include <onnxruntime/onnxruntime_cxx_api.h>
 #include <onnxruntime/onnxruntime_run_options_config_keys.h>
 
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "PhysicsTools/ONNXRuntime/interface/ONNXInterface.h"
+#include "PhysicsTools/ONNXRuntimeAlpaka/interface/EmbeddedFallbackModel.h"
 #include "PhysicsTools/ONNXRuntimeAlpaka/interface/GetMemoryInfo.h"
 #include "PhysicsTools/ONNXRuntimeAlpaka/interface/SessionOptions.h"
 #include "PhysicsTools/ONNXRuntimeAlpaka/interface/TensorCollection.h"
@@ -37,7 +40,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ort {
   // stream module.
   class AlpakaSession {
   public:
-    explicit AlpakaSession(std::string model_path, std::optional<cms::Ort::Backend> backend = std::nullopt) : model_path_(std::move(model_path)), backend_(backend) {}
+    explicit AlpakaSession(std::string model_path, std::optional<cms::Ort::Backend> backend = std::nullopt)
+        : model_path_(std::move(model_path)), backend_(backend) {}
 
     AlpakaSession(AlpakaSession const&) = delete;
     AlpakaSession& operator=(AlpakaSession const&) = delete;
@@ -55,9 +59,37 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ort {
       done_.emplace(alpaka::getDev(queue));
       memory_info_ = cms::Ort::alpakatools::getMemoryInfo(alpaka::getDev(queue));
 
-      auto options = cms::Ort::alpakatools::sessionOptions(queue, backend_);
-      session_ = std::make_unique<::Ort::Session>(
-          edm::Service<cms::Ort::ONNXInterface>()->environment(), model_path_.c_str(), options);
+      auto& environment = edm::Service<cms::Ort::ONNXInterface>()->environment();
+      if (backend_ == cms::Ort::Backend::tensorRT) {
+        try {
+          auto options = cms::Ort::alpakatools::sessionOptions(queue, cms::Ort::Backend::tensorRT);
+          session_ = std::make_unique<::Ort::Session>(environment, model_path_.c_str(), options);
+        } catch (const std::exception& trt_error) {
+          const std::string reason = trt_error.what();
+          // EPContext graphs do not contain the ordinary ONNX operators. The fallback
+          // graph is stored as ModelProto metadata in the same .onnx artifact.
+          try {
+            fallback_model_data_ = cms::Ort::alpakatools::readEmbeddedFallbackModel(model_path_);
+            if (not fallback_model_data_) {
+              throw cms::Exception("UnavailableAccelerator")
+                  << "Model has no embedded CUDA fallback. Repackage it with package_epcontext.py.";
+            }
+            auto options = cms::Ort::alpakatools::sessionOptions(queue, cms::Ort::Backend::cuda);
+            session_ = std::make_unique<::Ort::Session>(
+                environment, fallback_model_data_->data(), fallback_model_data_->size(), options);
+            used_cuda_fallback_ = true;
+            edm::LogWarning("ONNXRuntimeAlpaka") << "TensorRT initialization failed for " << model_path_ << ": "
+                                                 << reason << "; using the original graph with CUDA EP.";
+          } catch (const std::exception& fallback_error) {
+            throw cms::Exception("UnavailableAccelerator")
+                << "TensorRT initialization failed for " << model_path_ << ": " << reason
+                << "; CUDA fallback also failed: " << fallback_error.what();
+          }
+        }
+      } else {
+        auto options = cms::Ort::alpakatools::sessionOptions(queue, backend_);
+        session_ = std::make_unique<::Ort::Session>(environment, model_path_.c_str(), options);
+      }
 
       // do not synchronise the device at the end of each inference
       run_options_.AddConfigEntry(kOrtRunOptionsConfigDisableSynchronizeExecutionProviders, "1");
@@ -78,6 +110,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ort {
     }
 
     bool bound() const { return static_cast<bool>(session_); }
+    bool usedCudaFallback() const { return used_cuda_fallback_; }
 
     // Forward pass (inference) of the model with SoA metadata input/output.
     // The inputs and outputs are matched to the model inputs and outputs by position; all the model outputs must be
@@ -208,6 +241,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ort {
     std::optional<alpaka::Event<Queue>> done_;
     ::Ort::MemoryInfo memory_info_{nullptr};
     std::unique_ptr<::Ort::Session> session_;
+    std::optional<std::string> fallback_model_data_;
+    bool used_cuda_fallback_ = true;
     ::Ort::RunOptions run_options_;
 
     std::vector<std::string> input_names_;
