@@ -8,6 +8,7 @@
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/BxLookupDevice.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/ClustersDeviceCollection.h"
 #include "DataFormats/L1ScoutingSoA/interface/alpaka/PFCandidateDeviceCollection.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
@@ -36,8 +37,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         return Substep::Reshaping;
       if (value == "tagging")
         return Substep::Tagging;
-      throw cms::Exception("Configuration") << "Invalid substep '" << value
-                                            << "'. Allowed values: sorting, reshaping, tagging.";
+      throw cms::Exception("Configuration")
+          << "Invalid substep '" << value << "'. Allowed values: sorting, reshaping, tagging.";
     }
   }  // namespace
 
@@ -76,11 +77,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       descriptions.addWithDefaultLabel(desc);
     }
 
-    void beginStream(edm::StreamID, Queue queue) override {
+    void beginStream(edm::StreamID id, Queue queue) override {
       // Create the ONNX Runtime session on this producer's fixed Alpaka queue.
       // The selected execution provider is TensorRT (see constructor).
       if (substep_ == Substep::Tagging) {
         model_.bind(queue);
+
+        edm::LogInfo("SoftTauIdONNX")
+          << "Stream " << id.value()
+          << ": using "
+          << (model_.usedCudaFallback() ? "CUDA fallback" : "TensorRT")
+          << " execution provider";
+
       }
     }
 
@@ -98,7 +106,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         SoftTauInputDeviceTensor input_tensor = kernels::transform(event.queue(), pf, cluster_cands_map_sorted);
 
         if (substep_ >= Substep::Tagging) {
-          CMS_PERFETTO_SCOPE("Run Batched STT ONNX TensorRT Inference");
+          CMS_PERFETTO_SCOPE("Run Batched STT ONNX Inference");
 
           // Number of clusters; input and output tensors are allocated for this collection.
           const auto job_size = cluster_cands_map.const_view().offset().metadata().size() - 1;
@@ -110,12 +118,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
           // Each ONNX tensor corresponds to the same registered group as the PyTorch producer.
           // The ONNX graph must expose the input/output tensors in this exact order and dtype.
-          for (std::size_t offset = 0; offset < static_cast<std::size_t>(job_size); offset += static_cast<std::size_t>(batch_size_)) {
+          for (std::size_t offset = 0; offset < static_cast<std::size_t>(job_size);
+               offset += static_cast<std::size_t>(batch_size_)) {
             const auto batch_id = static_cast<int>(offset / batch_size_);
             cms::Ort::alpakatools::TensorCollection<Queue> inputs(static_cast<int>(batch_size_),
-                                                                    static_cast<int>(job_size));
+                                                                  static_cast<int>(job_size));
             cms::Ort::alpakatools::TensorCollection<Queue> outputs(static_cast<int>(batch_size_),
-                                                                     static_cast<int>(job_size));
+                                                                   static_cast<int>(job_size));
 
             inputs.add<SoftTauInputTensorSoA>("features", batch_id, input_records.features());
             inputs.add<SoftTauInputTensorSoA>("padding_masks", batch_id, input_records.dummy_mask());

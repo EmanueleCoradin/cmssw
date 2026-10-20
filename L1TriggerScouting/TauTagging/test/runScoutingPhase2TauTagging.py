@@ -45,10 +45,7 @@ setupPhase2Scouting(process, options)
 process.PyTorchService = cms.Service("PyTorchService")
 
 # Initialize ONNX Runtime service
-process.ONNXService = cms.Service(
-    "ONNXService",
-    tensorRTLibrary = cms.untracked.string("/shared/INFN_scholarship/tensor-rt/build/el9_amd64_gcc14/external/onnxruntime-ep-tensorrt/1.0.0-d26531cb1a7a5e9068be7f82863f2386/lib/libonnxruntime_ep_tensorrt.so")
-)
+process.ONNXService = cms.Service("ONNXService")
 
 # timing
 process.load( "HLTrigger.Timer.FastTimerService_cfi" )
@@ -119,10 +116,9 @@ process.softTaus = cms.EDProducer("l1sc::SoftTauIdONNX@alpaka",
     srcBxClustersMap = cms.InputTag("L1TScPhase2CLUEJetsProducer", "bxClustersMap"),
     srcClustersCandsMap = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clustersCandsMap"),
     srcClusters = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clusters"),
-    model = cms.FileInPath("epcontext/STT_tensorrt.onnx"),
+    model = cms.FileInPath("onnx_trt_fallback/STT_ampere_fp16_fallback.onnx"),
     substep = cms.string(options.pipelineStep),
-    batchSize = cms.uint32(1024)
-    #backend = cms.string("tensorRT")
+    batchSize = cms.uint32(2048)
 )
 
 if step_mapper[options.pipelineStep] >= step_mapper["clustering"]:
