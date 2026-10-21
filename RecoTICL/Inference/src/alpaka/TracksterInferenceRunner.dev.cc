@@ -42,7 +42,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       InferenceTensors inputs, outputs;
       Adapter::registerInputs(inputs, inputRecords, batchSize_);
       Adapter::registerOutputs(outputs, outputRecords, batchSize_);
-      forward(queue, inputs, outputs);
+      model_.forward(queue, inputs, outputs, dtype_);
     }
   }
 
@@ -59,14 +59,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     InferenceTensors inputs, outputs;
     Adapter::registerInputs(inputs, featureRecords, batchSize_);
     Adapter::registerOutputs(outputs, predictionRecords, batchSize_);
-    forward(queue, inputs, outputs);
-    Adapter::applyResults(queue, featureRecords, predictions, output, static_cast<uint32_t>(total), minEnergy);
-  }
-
-  template <typename Adapter>
-  void TracksterInferenceRunner<Adapter>::forward(Queue& queue, InferenceTensors& inputs, InferenceTensors& outputs) {
-    ::torch::NoGradGuard noGrad;
     model_.forward(queue, inputs, outputs, dtype_);
+    Adapter::applyResults(queue, featureRecords, predictions, output, static_cast<uint32_t>(total), minEnergy);
   }
 
   template class TracksterInferenceRunner<CNNPIDAdapter>;
