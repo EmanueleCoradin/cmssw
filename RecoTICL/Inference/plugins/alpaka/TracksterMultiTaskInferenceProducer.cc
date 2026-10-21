@@ -1,5 +1,7 @@
 #include <cmath>
 #include <cstdint>
+#include <exception>
+#include <limits>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -9,14 +11,28 @@
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/Utilities/interface/Exception.h"
+#include "FWCore/Utilities/interface/FileInPath.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/Event.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/FixedQueueEDProducer.h"
-#include "RecoTICL/Inference/interface/alpaka/InferenceBridgeUtilities.h"
 #include "RecoTICL/Inference/interface/alpaka/TracksterInferenceRunner.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
+  namespace {
+    std::string inferenceModelPath(edm::ParameterSet const& config, std::string const& parameter) {
+      auto path = config.getParameter<std::string>(parameter);
+      if (path.empty())
+        throw cms::Exception("Configuration") << "Enabled TICL inference task requires " << parameter;
+      try {
+        return edm::FileInPath(path).fullPath();
+      } catch (std::exception const& error) {
+        throw cms::Exception("Configuration") << "Supply the production TorchScript model " << parameter << "='" << path
+                                              << "', or disable this task. " << error.what();
+      }
+    }
+  }  // namespace
 
   template <typename PIDAdapter, typename RegressionAdapter>
   class TracksterMultiTaskInferenceProducerT : public stream::FixedQueueEDProducer<> {
@@ -30,7 +46,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           outputToken_{produces()} {
       if (!std::isfinite(minEnergy_))
         throw cms::Exception("Configuration") << "minClusterEnergy must be finite";
-      auto const batchSize = inferenceBatchSize(config);
+      auto const batchSize = config.getParameter<unsigned int>("batchSize");
+      if (batchSize == 0 || batchSize > static_cast<unsigned int>(std::numeric_limits<int32_t>::max()) ||
+          config.getParameter<int>("warmupIterations") < 0)
+        throw cms::Exception("Configuration") << "Require 0 < batchSize <= INT32_MAX and warmupIterations >= 0";
       if constexpr (!PIDAdapter::supportsRegression) {
         if (config.getParameter<bool>("doRegression"))
           throw cms::Exception("Configuration") << "CNN supports PID only";
