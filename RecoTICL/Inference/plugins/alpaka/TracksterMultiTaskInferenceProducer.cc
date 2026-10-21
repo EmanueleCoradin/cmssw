@@ -1,6 +1,5 @@
 #include <cmath>
 #include <cstdint>
-#include <exception>
 #include <limits>
 #include <memory>
 #include <string>
@@ -20,19 +19,6 @@
 #include "RecoTICL/Inference/interface/alpaka/TracksterInferenceRunner.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
-  namespace {
-    std::string inferenceModelPath(edm::ParameterSet const& config, std::string const& parameter) {
-      auto path = config.getParameter<std::string>(parameter);
-      if (path.empty())
-        throw cms::Exception("Configuration") << "Enabled TICL inference task requires " << parameter;
-      try {
-        return edm::FileInPath(path).fullPath();
-      } catch (std::exception const& error) {
-        throw cms::Exception("Configuration") << "Supply the production TorchScript model " << parameter << "='" << path
-                                              << "', or disable this task. " << error.what();
-      }
-    }
-  }  // namespace
 
   template <typename PIDAdapter, typename RegressionAdapter>
   class TracksterMultiTaskInferenceProducerT : public stream::FixedQueueEDProducer<> {
@@ -55,16 +41,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           throw cms::Exception("Configuration") << "CNN supports PID only";
       }
       if (config.getParameter<bool>("doPID"))
-        pid_ = std::make_unique<TracksterInferenceRunner<PIDAdapter>>(inferenceModelPath(config, "pidModel"),
-                                                                      batchSize,
-                                                                      config.getParameter<bool>("convertToFP16"),
-                                                                      config.getParameter<int>("warmupIterations"));
+        pid_ = std::make_unique<TracksterInferenceRunner<PIDAdapter>>(
+            edm::FileInPath(config.getParameter<std::string>("pidModel")).fullPath(),
+            batchSize,
+            config.getParameter<bool>("convertToFP16"),
+            config.getParameter<int>("warmupIterations"));
       if (config.getParameter<bool>("doRegression"))
-        regression_ =
-            std::make_unique<TracksterInferenceRunner<RegressionAdapter>>(inferenceModelPath(config, "regressionModel"),
-                                                                          batchSize,
-                                                                          config.getParameter<bool>("convertToFP16"),
-                                                                          config.getParameter<int>("warmupIterations"));
+        regression_ = std::make_unique<TracksterInferenceRunner<RegressionAdapter>>(
+            edm::FileInPath(config.getParameter<std::string>("regressionModel")).fullPath(),
+            batchSize,
+            config.getParameter<bool>("convertToFP16"),
+            config.getParameter<int>("warmupIterations"));
     }
 
     static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
