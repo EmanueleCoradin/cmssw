@@ -113,15 +113,11 @@ candidate-stage models are distinct from first-stage models.
 
 ## Shared execution
 
-The standalone Trackster runner continues to use `BatchedInferenceRunner` for
-model execution, with identity or image-channel permutation input transforms.
-The feature extractors, tensor adapters, PID/regression output layouts and model
-weights are unchanged by the superclustering removal.
-
-The development branch currently contains TODOs for input copying and copying
-predictions into registered output storage in `BatchedInferenceRunner`. This
-cleanup leaves those unrelated execution changes untouched. Runtime correctness
-must be checked after those TODOs are resolved.
+The standalone Trackster runner owns `AlpakaModel` directly and delegates batching
+and output handling to its existing `forward()` overload. TICL performs no input
+permutation or regression-output normalization. See the current standalone tensor
+contracts in [README.md](README.md); the earlier candidate contracts above are
+historical and would need updating when its bridge is reintroduced.
 
 ## Validation
 

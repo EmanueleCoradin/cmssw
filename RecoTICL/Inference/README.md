@@ -79,8 +79,8 @@ Tensor on the input device, with no dictionary or tuple wrapper.
 | Family | First argument, registration `input` | Second argument | PID result | Regression result |
 |---|---|---|---|---|
 | CNN | `[B, 3, 50, 10]` | none | `[B, 8]` | unsupported |
-| DNN | `[B, 50, 10, 3]` | none | `[B, 8]` | `[B, 1]` or `[B]` |
-| PFN | `[B, 50, 10, 7]` | `input_tr_features`: `[B, 7]` | `[B, 8]` | `[B, 1]` or `[B]` |
+| DNN | `[B, 3, 50, 10]` | none | `[B, 8]` | `[B, 1]` |
+| PFN | `[B, 7, 50, 10]` | `input_tr_features`: `[B, 7]` | `[B, 8]` | `[B, 1]` |
 
 PID and regression output labels are `pid_output` and `enreg_output`.
 Input and stored output features use float32 by default. The optional existing
@@ -96,8 +96,13 @@ Warmup uses zero features and the configured full batch size; set
 `trackster_pid_cnn.pt` contains a Conv2d model with three input channels, taking
 NCHW directly. Its `[B, 3, 50, 10]` contract is preserved. The semantic image is
 still 50 layers, 10 clusters and 3 features. SoA registration exposes
-`[B, F, L, C]`; the new DNN/PFN adapters permute its view to `[B, L, C, F]`
-without rearranging feature values. PFN's second tensor needs no permutation.
+`[B, F, L, C]` for all families. DNN/PFN exports whose internal network expects
+`[B, L, C, F]` must perform `image.permute(0, 2, 3, 1)` inside the model.
+PFN's second tensor needs no permutation. Existing channels-last-only exports
+are incompatible until wrapped/re-exported; no model files are modified here.
+`TensorCollection::change_order()` orders model arguments, not tensor axes.
+Regression uses the standard PyTorchAlpaka output handling with registered
+`[B,1]` storage; TICL does not reshape or unsqueeze the model result.
 
 Default model paths, relative to the CMSSW search path:
 
@@ -182,12 +187,14 @@ ROOT convention sources:
 - `TracksterMultiTaskInferenceProducerT` owns independent optional runners for
   PID and regression, extracts no features itself and copies Tracksters once.
   Each framework stream owns separate TorchScript instances on its fixed queue.
-- The only code change outside Inference/Configuration makes
-  `TensorCollection::copy(Queue&)` public, so the runner can materialize inputs
-  before the DNN/PFN view permutation. Its implementation is unchanged.
-- Model execution uses the Alpaka queue guard, disables autograd, checks output
-  shape/device/type and copies into registered output memory explicitly. No
-  production explicit queue wait or extra host feature transfer is added.
+- `TracksterInferenceRunner` owns `AlpakaModel` directly and calls its batched
+  `forward(queue, inputs, outputs, dtype)` overload for both warmup and events.
+  PyTorchAlpaka handles batch consistency, materialization, input copying,
+  device placement, queue guarding and output conversion. TICL retains a
+  `NoGradGuard` because this overload invokes the underlying script module.
+- No TICL batching loop, input transform, output-shape normalization or custom
+  output checks remain. Model contracts must match the registered tensors.
+  No PhysicsTools changes are needed for this simplification.
 
 PID and regression share extracted device features, but each model still has
 its own tensor registration/materialization. This does not promise zero

@@ -13,13 +13,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                               uint32_t batchSize,
                                                               bool convertToFP16,
                                                               int warmupIterations)
-      : runner_{modelPath, convertToFP16}, batchSize_{batchSize}, warmupIterations_{warmupIterations} {
+      : model_{modelPath},
+        dtype_{convertToFP16 ? ::torch::kHalf : ::torch::kFloat},
+        batchSize_{batchSize},
+        warmupIterations_{warmupIterations} {
     if (batchSize_ == 0u || batchSize_ > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
       throw cms::Exception("TracksterInferenceRunner") << "batchSize must be positive and fit the SoA int32_t size";
     }
     if (warmupIterations_ < 0) {
       throw cms::Exception("TracksterInferenceRunner") << "warmupIterations must be non-negative";
     }
+    // Set precision on CPU as well; AlpakaModel moves to the queue device at forward().
+    model_.to(dtype_);
   }
 
   template <typename Adapter>
@@ -60,8 +65,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   template <typename Adapter>
   void TracksterInferenceRunner<Adapter>::forward(Queue& queue, InferenceTensors& inputs, InferenceTensors& outputs) {
-    runner_.run(
-        queue, inputs, outputs, Adapter::channelsLast ? InputTransform::ImageChannelsLast : InputTransform::Identity);
+    ::torch::NoGradGuard noGrad;
+    model_.forward(queue, inputs, outputs, dtype_);
   }
 
   template class TracksterInferenceRunner<CNNPIDAdapter>;

@@ -16,11 +16,13 @@
 #include "FWCore/Utilities/interface/Exception.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
-#include "RecoTICL/Inference/interface/alpaka/BatchedInferenceRunner.h"
+#include "PhysicsTools/PyTorchAlpaka/interface/BatchedTensorCollection.h"
 #include "RecoTICL/Inference/interface/TracksterInferenceSoA.h"
 #include "RecoTICL/Inference/interface/alpaka/TracksterInferenceDevice.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
+
+  using InferenceTensors = cms::torch::alpakatools::BatchedTensorCollection<Queue>;
 
   // ---------------------------------------------------------------------------
   // Utilities
@@ -79,11 +81,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
-  // CNN and DNN use the same feature columns but different tensor layouts.
+  // CNN and DNN expose the same channels-first tensor layout.
   // Parameterize the common adapter to keep their model-specific types explicit.
-  template <typename FeaturesDevice, typename FeaturesSoA, bool ChannelsLast>
+  template <typename FeaturesDevice, typename FeaturesSoA, bool SupportsRegression>
   struct ImageInputAdapter : InputAdapterBase<FeaturesDevice, FeaturesSoA> {
-    static constexpr bool channelsLast = ChannelsLast;
+    static constexpr bool supportsRegression = SupportsRegression;
+    static constexpr bool resetSelectedPredictions = SupportsRegression;
 
     template <typename Records>
     static void registerTensors(InferenceTensors& inputs, Records const& records, std::optional<uint32_t> batchSize) {
@@ -93,14 +96,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   // CNN input: [batch, features, layers, clusters]
   using CNNInputAdapter = ImageInputAdapter<ticl::TracksterCNNFeaturesDevice, ::ticl::TracksterCNNFeaturesSoA, false>;
-  // DNN input: [batch, layers, clusters, features]
+  // DNN input: [batch, features, layers, clusters]; any permutation belongs in the model.
   using DNNInputAdapter = ImageInputAdapter<ticl::TracksterDNNFeaturesDevice, ::ticl::TracksterDNNFeaturesSoA, true>;
 
   // PFN inputs:
-  //   "input":            [batch, layers, clusters, features]
+  //   "input":            [batch, features, layers, clusters]
   //   "input_trackster_features": [batch, trackster_features]
   struct PFNInputAdapter : InputAdapterBase<ticl::TracksterPFNFeaturesDevice, ::ticl::TracksterPFNFeaturesSoA> {
-    static constexpr bool channelsLast = true;
+    static constexpr bool supportsRegression = true;
+    static constexpr bool resetSelectedPredictions = true;
     using FeaturesSoA = ::ticl::TracksterPFNFeaturesSoA;
 
     template <typename Records>
@@ -221,7 +225,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   // which concrete SoA columns the adapters register.
   template <typename InputAdapter, typename OutputAdapter>
   struct TracksterInferenceTensorAdapter {
-    static constexpr bool channelsLast = InputAdapter::channelsLast;
+    static constexpr bool supportsRegression = InputAdapter::supportsRegression;
+    static constexpr bool resetSelectedPredictions = InputAdapter::resetSelectedPredictions;
     using InputDevice = typename InputAdapter::InputDevice;
     using InputSoA = typename InputAdapter::InputSoA;
     using ModelOutputDevice = typename OutputAdapter::ModelOutputDevice;

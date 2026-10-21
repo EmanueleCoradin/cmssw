@@ -31,7 +31,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       if (!std::isfinite(minEnergy_))
         throw cms::Exception("Configuration") << "minClusterEnergy must be finite";
       auto const batchSize = inferenceBatchSize(config);
-      if constexpr (!PIDAdapter::channelsLast) {
+      if constexpr (!PIDAdapter::supportsRegression) {
         if (config.getParameter<bool>("doRegression"))
           throw cms::Exception("Configuration") << "CNN supports PID only";
       }
@@ -56,7 +56,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       description.add<std::string>("pidModel", "");
       description.add<std::string>("regressionModel", "");
       description.add<bool>("doPID", true);
-      description.add<bool>("doRegression", PIDAdapter::channelsLast);
+      description.add<bool>("doRegression", PIDAdapter::supportsRegression);
       description.add<uint32_t>("batchSize", 64);
       description.add<bool>("convertToFP16", false);
       description.add<int>("warmupIterations", 3);
@@ -79,7 +79,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         auto const& features = event.get(featuresToken_);
         auto total = static_cast<int32_t>(features.const_view().metadata().size());
 
-        if constexpr (PIDAdapter::channelsLast)
+        if constexpr (PIDAdapter::resetSelectedPredictions)
           resetTracksterPredictions(
               queue, std::get<0>(features.const_view().records().selectedTracksterIndex()).data(), output, total);
         if (regression_)
