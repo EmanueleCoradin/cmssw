@@ -1,4 +1,4 @@
-"""Opt-in inference inside the existing candidate and superclustering producers.
+"""Opt-in inference inside the existing candidate producer.
 
 No additional EDM products/tasks are installed. Backend selection is explicit:
 serial_sync, cuda_async or rocm_async; an unavailable backend is an error.
@@ -57,42 +57,3 @@ def withCandidateInference(producer, **options):
     """Clone a TICLCandidateProducer with inference before Trackster publication."""
     return producer.clone(inferenceAlgo=cms.string("PyTorchAlpaka"), regressionAndPid=cms.bool(True),
                           pluginInferenceAlgoPyTorchAlpaka=makeCandidateInference(**options))
-
-
-def withSuperclusteringInference(producer, *, engine="PyTorchAlpaka", modelPath=None,
-                                 version=None, backend="serial_sync", deviceIndex=0,
-                                 batchSize=64, convertToFP16=False, warmupIterations=0):
-    """Clone the DNN linking producer, retaining every selection threshold.
-
-    batchSize counts PAIRS. The legacy inferenceBatchSize counts FLOATS; this
-    helper sets both consistently. engine='ONNX' restores the saved ONNX path.
-    """
-    if producer.linkingPSet.type.value() != "SuperClusteringDNN":
-        raise ValueError("Expected the SuperClusteringDNN linking plugin")
-    if engine not in ("ONNX", "PyTorchAlpaka"):
-        raise ValueError("engine must be ONNX or PyTorchAlpaka")
-    linking = producer.linkingPSet.clone()
-    if version is None:
-        version = linking.dnnInputsVersion.value() if hasattr(linking, "dnnInputsVersion") else "v3"
-    if version not in ("v1", "v2", "v3"):
-        raise ValueError("version must be v1, v2 or v3")
-    features = {"v1": 9, "v2": 17, "v3": 18}[version]
-    config = _execution(backend=backend, deviceIndex=deviceIndex, batchSize=batchSize,
-                        convertToFP16=convertToFP16, warmupIterations=warmupIterations)
-    if batchSize > 2147483647 // features:
-        raise ValueError("batchSize * featureCount must fit the SoA size type")
-    linking.inferenceBackend = cms.string(engine)
-    linking.dnnInputsVersion = cms.string(version)
-    linking.inferenceBatchSize = cms.uint32(batchSize * features)
-    if engine == "PyTorchAlpaka":
-        if modelPath is None:
-            modelPath = "RecoTICL/Inference/data/superclustering_" + version + ".pt"
-        if not modelPath:
-            raise ValueError("PyTorchAlpaka requires a nonempty modelPath")
-        config.modelPath = cms.string(modelPath)
-        linking.pytorchInference = config
-    elif modelPath is not None:
-        if not modelPath:
-            raise ValueError("ONNX requires a nonempty modelPath")
-        linking.onnxModelPath = cms.string(modelPath)
-    return producer.clone(linkingPSet=linking)

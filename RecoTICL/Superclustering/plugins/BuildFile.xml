@@ -10,7 +10,6 @@
 <use name="PhysicsTools/ONNXRuntime"/>
 <use name="RecoEcal/EgammaCoreTools"/>
 <use name="RecoTICL/Linking"/>
-<use name="RecoTICL/Inference"/>
 <use name="RecoTICL/Superclustering"/>
 <library file="*.cc" name="RecoTICLSuperclusteringPlugins">
   <flags EDM_PLUGIN="1"/>

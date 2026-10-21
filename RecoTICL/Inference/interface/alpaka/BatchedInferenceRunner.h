@@ -9,12 +9,11 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using InferenceTensors = cms::torch::alpakatools::BatchedTensorCollection<Queue>;
-  enum class InputTransform { Identity, ImageChannelsLast, FlatRows };
+  enum class InputTransform { Identity, ImageChannelsLast };
 
   // Exposed independently so tensor contracts can be tested without a model.
   void adaptInferenceInputs(std::vector<::torch::IValue>& arguments,
-                            InputTransform transform,
-                            unsigned int featuresPerRow = 1);
+                            InputTransform transform);
 
   // One instance per EDM stream. Tensor storage and result application belong to
   // the caller; no Trackster collection or reconstruction policy is assumed here.
@@ -24,8 +23,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void run(Queue& queue,
              InferenceTensors& inputs,
              InferenceTensors& outputs,
-             InputTransform transform = InputTransform::Identity,
-             unsigned int featuresPerRow = 1);
+             InputTransform transform = InputTransform::Identity);
 
   private:
     torch::AlpakaModel model_;

@@ -1,6 +1,5 @@
-For the incremental candidate-reconstruction and superclustering backends, model
-contracts, configuration examples and validation status, see [StageInference.md](StageInference.md).
-The standalone device-producer behavior described below remains unchanged.
+For historical candidate-stage model contracts and the current integration status,
+see [StageInference.md](StageInference.md). Superclustering uses CPU ONNX.
 
 # Portable Trackster inference
 

@@ -3,16 +3,9 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   void adaptInferenceInputs(std::vector<::torch::IValue>& arguments,
-                            InputTransform transform,
-                            unsigned int featuresPerRow) {
+                            InputTransform transform) {
     if (transform == InputTransform::ImageChannelsLast)
       arguments[0] = arguments[0].toTensor().permute({0, 2, 3, 1});
-    if (transform == InputTransform::FlatRows) {
-      auto flat = arguments.at(0).toTensor();
-      if (featuresPerRow == 0 || flat.dim() != 2 || flat.size(1) != 1 || flat.numel() % featuresPerRow != 0)
-        throw cms::Exception("TracksterInference") << "FlatRows requires scalar storage and complete feature rows";
-      arguments[0] = flat.reshape({-1, static_cast<int64_t>(featuresPerRow)});
-    }
   }
 
   BatchedInferenceRunner::BatchedInferenceRunner(std::string const& modelPath, bool convertToFP16)
@@ -23,8 +16,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   void BatchedInferenceRunner::run(Queue& queue,
                                    InferenceTensors& inputs,
                                    InferenceTensors& outputs,
-                                   InputTransform transform,
-                                   unsigned int featuresPerRow) {
+                                   InputTransform transform) {
     if (inputs.batchCount() != outputs.batchCount())
       throw cms::Exception("TracksterInference") << "Input/output batch counts differ";
     torch::QueueGuard guard(queue);
@@ -37,7 +29,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       outputs.materializeBatch(batch, output);
       // input.copy(queue); TODO: to be changed
       auto arguments = cms::torch::alpakatools::detail::convertInput(input, model_.device(), dtype);
-      adaptInferenceInputs(arguments, transform, featuresPerRow);
+      adaptInferenceInputs(arguments, transform);
       auto result = model_.forward(arguments);
       if (!result.isTensor())
         throw cms::Exception("TracksterInference") << "TorchScript forward must return one Tensor";
