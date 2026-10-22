@@ -29,7 +29,7 @@ ticlTrackstersCLUE3DHigh = _trackstersProducer.clone(
         doPidCut = True,
         cutHadProb = 999
     ),
-    inferenceAlgo = cms.string('TracksterInferenceByCNN'),
+    inferenceAlgo = cms.string('TracksterInferenceByPFN'),
     pluginInferenceAlgoTracksterInferenceByCNN = cms.PSet(
         algo_verbosity = cms.int32(0),
         type = cms.string("TracksterInferenceByCNN"),
@@ -60,7 +60,7 @@ ticlTrackstersCLUE3DHigh = _trackstersProducer.clone(
     pluginInferenceAlgoTracksterInferenceByPFN = cms.PSet(
         algo_verbosity = cms.int32(0),
         onnxPIDModelPath = cms.string('RecoHGCal/TICL/data/ticlv5/onnx_models/PFN/patternrecognition/id_v0.onnx'),
-        onnxEnergyModelPath = cms.string(''),
+        onnxEnergyModelPath=cms.string("RecoHGCal/TICL/data/ticlv5/onnx_models/PFN/patternrecognition/energy_v0.onnx"),
         inputNames  = cms.vstring('input','input_tr_features'),
         output_en   = cms.vstring('enreg_output'),
         output_id   = cms.vstring('pid_output'),
@@ -80,7 +80,14 @@ ticlTrackstersToSoAProducer = _trackstersToSoAProducer.clone(
 )
 
 # Retain the public module labels and the existing CNN PID-only defaults.
-_clue3DHighInference = makeTracksterInference(model="CNN", doPID=True, doRegression=False)
+_clue3DHighInference = makeTracksterInference(
+    model="PFN", 
+    doPID=True, 
+    doRegression=True,
+    pidModel="RecoTICL/Inference/data/trackster_pid_pfn.pt",
+    regressionModel="RecoTICL/Inference/data/trackster_energy_pfn.pt",
+    minClusterEnergy=1.0
+)
 ticlTracksterFeaturesProducer = _clue3DHighInference.features
 ticlTracksterInferenceProducer = _clue3DHighInference.producer.clone(
     features=cms.InputTag("ticlTracksterFeaturesProducer", "features")
