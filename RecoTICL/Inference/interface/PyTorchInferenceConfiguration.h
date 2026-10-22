@@ -18,7 +18,7 @@ namespace ticl {
     desc.add<unsigned int>("deviceIndex", 0);
     desc.add<unsigned int>("batchSize", 64);
     desc.add<bool>("convertToFP16", false);
-    desc.add<int>("warmupIterations", 0);
+    desc.add<unsigned int>("warmupIterations", 0);
     desc.add<int>("algo_verbosity", 0);
     desc.add<std::string>("modelFamily", "PFN");
     desc.add<bool>("doPID", true);

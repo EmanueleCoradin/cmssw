@@ -12,16 +12,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   TracksterInferenceRunner<Adapter>::TracksterInferenceRunner(std::string const& modelPath,
                                                               uint32_t batchSize,
                                                               bool convertToFP16,
-                                                              int warmupIterations)
+                                                              uint32_t warmupIterations)
       : model_{modelPath},
         dtype_{convertToFP16 ? ::torch::kHalf : ::torch::kFloat},
         batchSize_{batchSize},
         warmupIterations_{warmupIterations} {
     if (batchSize_ == 0u || batchSize_ > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
       throw cms::Exception("TracksterInferenceRunner") << "batchSize must be positive and fit the SoA int32_t size";
-    }
-    if (warmupIterations_ < 0) {
-      throw cms::Exception("TracksterInferenceRunner") << "warmupIterations must be non-negative";
     }
     // Set precision on CPU as well; AlpakaModel moves to the queue device at forward().
     model_.to(dtype_);
@@ -38,7 +35,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto inputRecords = warmupInput.view().records();
     auto outputRecords = warmupOutput.view().records();
 
-    for (int iteration = 0; iteration < warmupIterations_; ++iteration) {
+    for (uint32_t iteration = 0; iteration < warmupIterations_; ++iteration) {
       InferenceTensors inputs, outputs;
       Adapter::registerInputs(inputs, inputRecords, batchSize_);
       Adapter::registerOutputs(outputs, outputRecords, batchSize_);

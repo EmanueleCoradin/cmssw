@@ -33,9 +33,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       if (!std::isfinite(minEnergy_))
         throw cms::Exception("Configuration") << "minClusterEnergy must be finite";
       auto const batchSize = config.getParameter<unsigned int>("batchSize");
-      if (batchSize == 0 || batchSize > static_cast<unsigned int>(std::numeric_limits<int32_t>::max()) ||
-          config.getParameter<int>("warmupIterations") < 0)
-        throw cms::Exception("Configuration") << "Require 0 < batchSize <= INT32_MAX and warmupIterations >= 0";
+      if (batchSize == 0 || batchSize > static_cast<unsigned int>(std::numeric_limits<int32_t>::max()))
+        throw cms::Exception("Configuration") << "Require 0 < batchSize <= INT32_MAX";
       if constexpr (!PIDAdapter::supportsRegression) {
         if (config.getParameter<bool>("doRegression"))
           throw cms::Exception("Configuration") << "CNN supports PID only";
@@ -45,13 +44,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             edm::FileInPath(config.getParameter<std::string>("pidModel")).fullPath(),
             batchSize,
             config.getParameter<bool>("convertToFP16"),
-            config.getParameter<int>("warmupIterations"));
+            config.getParameter<uint32_t>("warmupIterations"));
       if (config.getParameter<bool>("doRegression"))
         regression_ = std::make_unique<TracksterInferenceRunner<RegressionAdapter>>(
             edm::FileInPath(config.getParameter<std::string>("regressionModel")).fullPath(),
             batchSize,
             config.getParameter<bool>("convertToFP16"),
-            config.getParameter<int>("warmupIterations"));
+            config.getParameter<uint32_t>("warmupIterations"));
     }
 
     static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -65,7 +64,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       description.add<bool>("doRegression", PIDAdapter::supportsRegression);
       description.add<uint32_t>("batchSize", 64);
       description.add<bool>("convertToFP16", false);
-      description.add<int>("warmupIterations", 3);
+      description.add<uint32_t>("warmupIterations", 3);
       description.add<double>("minClusterEnergy", 1.0);
       descriptions.addWithDefaultLabel(description);
     }

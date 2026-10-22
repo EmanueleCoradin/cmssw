@@ -20,7 +20,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     using ModelOutputDevice = typename Adapter::ModelOutputDevice;
     using PublishedOutputDevice = typename Adapter::PublishedOutputDevice;
 
-    TracksterInferenceRunner(std::string const& modelPath, uint32_t batchSize, bool convertToFP16, int warmupIterations);
+    TracksterInferenceRunner(std::string const& modelPath, uint32_t batchSize, bool convertToFP16, uint32_t warmupIterations);
 
     void warmup(Queue& queue);
 
@@ -33,7 +33,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     torch::AlpakaModel model_;
     ::torch::Dtype const dtype_;
     uint32_t const batchSize_;
-    int const warmupIterations_;
+    uint32_t const warmupIterations_;
   };
 
   // Explicitly instantiated in RecoTICL/Inference/src/alpaka for each backend.
