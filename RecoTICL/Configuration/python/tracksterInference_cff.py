@@ -8,6 +8,8 @@
 Call the factory again for another pipeline; it creates independent modules.
 Only install() assigns labels and wires the feature InputTag.
 """
+import math
+
 import FWCore.ParameterSet.Config as cms
 
 
@@ -15,25 +17,25 @@ class TracksterInferenceConfiguration:
     def __init__(self, features, producer):
         self.features = features
         self.producer = producer
-        self.task = cms.Task(features, producer)
+        self.task = None
         self._prefix = None
 
     def install(self, process, prefix="ticlTracksterInference"):
         if self._prefix is not None:
             raise ValueError("This inference configuration is already installed; call the factory for another pipeline")
-        if not isinstance(prefix, str) or not prefix.isidentifier() or prefix.startswith("_"):
-            raise ValueError("prefix must be a public Python identifier")
+        if not isinstance(prefix, str) or not prefix.isidentifier():
+            raise ValueError("prefix must be a Python identifier")
         names = (prefix, prefix + "Features", prefix + "Task")
         if any(hasattr(process, name) for name in names):
             raise ValueError("Inference module/task label already exists: " + prefix)
+        features = self.features.clone()
         producer = self.producer.clone(features=cms.InputTag(prefix + "Features", "features"))
-        setattr(process, prefix + "Features", self.features.clone())
+        setattr(process, prefix + "Features", features)
         setattr(process, prefix, producer)
-        # Rebuild with the process-owned objects.
         self.features = getattr(process, prefix + "Features")
         self.producer = getattr(process, prefix)
-        setattr(process, prefix + "Task", cms.Task(self.features, self.producer))
-        self.task = getattr(process, prefix + "Task")
+        self.task = cms.Task(self.features, self.producer)
+        setattr(process, prefix + "Task", self.task)
         self._prefix = prefix
         return self
 
@@ -56,9 +58,8 @@ def makeTracksterInference(*, model="CNN", doPID=True, doRegression=False, batch
         raise ValueError("CNN supports PID only; energy regression requires DNN or PFN")
     if type(batchSize) is not int or not 0 < batchSize <= 2147483647:
         raise ValueError("batchSize must be a positive int fitting the SoA size type")
-    if type(warmupIterations) is not int or warmupIterations < 0:
-        raise ValueError("warmupIterations must be a non-negative int")
-    import math
+    if type(warmupIterations) is not int or not 0 <= warmupIterations <= 0xFFFFFFFF:
+        raise ValueError("warmupIterations must fit uint32")
     if not math.isfinite(minClusterEnergy):
         raise ValueError("minClusterEnergy must be finite")
     if layerClusters is None:
@@ -75,9 +76,11 @@ def makeTracksterInference(*, model="CNN", doPID=True, doRegression=False, batch
         raise ValueError("An enabled regression task requires a nonempty regressionModel path")
     feature_plugin = "Trackster" + model + "FeaturesProducer"
     features = cms.EDProducer(
-        feature_plugin + "@alpaka", detector=cms.string("HGCAL"),
+        feature_plugin + "@alpaka",
+        detector=cms.string("HGCAL"),
         tracksters=cms.InputTag(tracksters) if isinstance(tracksters, str) else tracksters,
-        layerClusters=cms.VInputTag(*layerClusters), minClusterEnergy=cms.double(minClusterEnergy),
+        layerClusters=cms.VInputTag(*layerClusters),
+        minClusterEnergy=cms.double(minClusterEnergy),
     )
     producer = cms.EDProducer(
         "Trackster" + model + "InferenceProducer@alpaka",
@@ -85,6 +88,6 @@ def makeTracksterInference(*, model="CNN", doPID=True, doRegression=False, batch
         pidModel=cms.string(pidModel), regressionModel=cms.string(regressionModel),
         doPID=cms.bool(doPID), doRegression=cms.bool(doRegression),
         batchSize=cms.uint32(batchSize), convertToFP16=cms.bool(convertToFP16),
-        warmupIterations=cms.int32(warmupIterations), minClusterEnergy=cms.double(minClusterEnergy),
+        warmupIterations=cms.uint32(warmupIterations), minClusterEnergy=cms.double(minClusterEnergy),
     )
     return TracksterInferenceConfiguration(features, producer)
