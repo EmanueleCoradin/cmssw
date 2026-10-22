@@ -33,8 +33,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       return;
     }
 
-    auto warmupInput = Adapter::makeWarmupInput(queue, batchSize_);
-    auto warmupOutput = Adapter::makeModelOutput(queue, batchSize_);
+    InputDevice warmupInput(queue, batchSize_);
+    ModelOutputDevice warmupOutput(queue, batchSize_);
     auto inputRecords = warmupInput.view().records();
     auto outputRecords = warmupOutput.view().records();
 
@@ -53,7 +53,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                   float minEnergy) {
     const auto total = static_cast<int32_t>(features.const_view().metadata().size());
 
-    auto predictions = Adapter::makeModelOutput(queue, total);
+    ModelOutputDevice predictions(queue, total);
+    predictions.zeroInitialise(queue);
     auto featureRecords = features.const_view().records();
     auto predictionRecords = predictions.view().records();
     InferenceTensors inputs, outputs;

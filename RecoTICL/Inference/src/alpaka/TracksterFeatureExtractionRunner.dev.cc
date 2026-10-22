@@ -10,15 +10,6 @@
 #include "RecoTICL/Inference/interface/alpaka/TracksterFeatureExtractionRunner.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
-  namespace {
-    uint32_t checkedSize(std::size_t size) {
-      if (size > static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
-        throw cms::Exception("TracksterFeatureExtractionRunner")
-            << "Trackster collection contains " << size << " entries (exceeds int32_t).";
-      }
-      return static_cast<uint32_t>(size);
-    }
-  }  // namespace
 
   template <typename Extractor>
   TracksterFeatureExtractionRunner<Extractor>::TracksterFeatureExtractionRunner(edm::ParameterSet const& config)
@@ -29,14 +20,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                             ::ticl::TracksterSoA::ConstView tracksters,
                                                             LayerClusterEnergyMultiView clusterEnergies,
                                                             LayerClusterIndexMultiView clusterIndexes) {
-    auto const nTracksters = checkedSize(tracksters.tracksters().metadata().size());
+    const auto nTracksters = tracksters.tracksters().metadata().size();
 
     selectedCountHost_.emplace(cms::alpakatools::make_host_buffer<uint32_t>(queue));
     *alpaka::getPtrNative(*selectedCountHost_) = 0u;
     selectionMaskDevice_.reset();
     selectionOffsetsDevice_.reset();
 
-    if (nTracksters == 0u) {
+    if (nTracksters == 0) {
       return;
     }
 
@@ -60,9 +51,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   template <typename Extractor>
   uint32_t TracksterFeatureExtractionRunner<Extractor>::selectedCount() const {
-    if (!selectedCountHost_) {
-      throw cms::Exception("TracksterFeatureExtractionRunner") << "prepare() must be called before selectedCount().";
-    }
     return *alpaka::getPtrNative(*selectedCountHost_);
   }
 
@@ -74,24 +62,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       LayerClusterPositionMultiView clusterPositions,
       uint32_t layersPerEndcap,
       LayerClusterIndexMultiView clusterIndexes) {
-    auto const nTracksters = checkedSize(tracksters.tracksters().metadata().size());
-    auto const total = selectedCount();
-    if (layersPerEndcap == 0u)
-      throw cms::Exception("TracksterFeatureExtractionRunner") << "layersPerEndcap must be positive";
-    if (total > nTracksters) {
-      throw cms::Exception("TracksterFeatureExtractionRunner")
-          << "Selected " << total << " Tracksters out of " << nTracksters << ".";
-    }
+    const auto nTracksters = tracksters.tracksters().metadata().size();
+    const auto total = selectedCount();
 
-    auto features = extractor_.makeFeatures(queue, total);
+    FeaturesDevice features(queue, total);
+    // Zero-pad missing LayerCluster positions in the model input.
+    features.zeroInitialise(queue);
     if (total == 0u) {
       selectionMaskDevice_.reset();
       selectionOffsetsDevice_.reset();
       return features;
-    }
-
-    if (!selectionMaskDevice_ || !selectionOffsetsDevice_) {
-      throw cms::Exception("TracksterFeatureExtractionRunner") << "Selection buffers are missing.";
     }
 
     extractor_.fill(queue,

@@ -17,6 +17,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   class TracksterInferenceRunner {
   public:
     using InputDevice = typename Adapter::InputDevice;
+    using ModelOutputDevice = typename Adapter::ModelOutputDevice;
     using PublishedOutputDevice = typename Adapter::PublishedOutputDevice;
 
     TracksterInferenceRunner(std::string const& modelPath, uint32_t batchSize, bool convertToFP16, int warmupIterations);

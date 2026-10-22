@@ -31,16 +31,6 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-  namespace {
-    int32_t checkedSize(std::size_t size, std::string_view name) {
-      if (size > static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
-        throw cms::Exception("TracksterFeaturesProducer")
-            << name << " contains " << size << " entries, which does not fit in an int32_t.";
-      }
-      return static_cast<int32_t>(size);
-    }
-  }  // namespace
-
   /*
    Interface for GPU Trackster feature extraction.
   
@@ -102,7 +92,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       rhtools_.setGeometry(
           setup.getData(ticlGeomToken_), setup.getData(ticlGeomLookupToken_), setup.getData(ticlGeomLayersToken_));
 
-      layersPerEndcap_ = checkedSize(rhtools_.lastLayer(false), "layers per HGCAL endcap");
+      layersPerEndcap_ = rhtools_.lastLayer(false);
       if (layersPerEndcap_ <= 0)
         throw cms::Exception("TracksterFeaturesProducer") << "Invalid number of layers per endcap";
     }
@@ -123,9 +113,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       const auto& ee = event.get(layerClustersTokens_[0]);
       const auto& hsi = event.get(layerClustersTokens_[1]);
       const auto& hsci = event.get(layerClustersTokens_[2]);
-      const auto nEE = checkedSize(ee.const_view().metadata().size()[0], "EE LayerClusters");
-      const auto nHSi = checkedSize(hsi.const_view().metadata().size()[0], "HSi LayerClusters");
-      const auto nHSci = checkedSize(hsci.const_view().metadata().size()[0], "HSci LayerClusters");
+      const auto nEE = ee.const_view().metadata().size()[0];
+      const auto nHSi = hsi.const_view().metadata().size()[0];
+      const auto nHSci = hsci.const_view().metadata().size()[0];
 
       // Combine the EE, HSi and HSci LayerCluster columns into multiviews,
       // preserving the collection ordering expected by the Trackster indices.
@@ -163,9 +153,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       const auto& ee = event.get(layerClustersTokens_[0]);
       const auto& hsi = event.get(layerClustersTokens_[1]);
       const auto& hsci = event.get(layerClustersTokens_[2]);
-      const auto nEE = checkedSize(ee.const_view().metadata().size()[0], "EE LayerClusters");
-      const auto nHSi = checkedSize(hsi.const_view().metadata().size()[0], "HSi LayerClusters");
-      const auto nHSci = checkedSize(hsci.const_view().metadata().size()[0], "HSci LayerClusters");
+      const auto nEE = ee.const_view().metadata().size()[0];
+      const auto nHSi = hsi.const_view().metadata().size()[0];
+      const auto nHSci = hsci.const_view().metadata().size()[0];
 
       // Provide the extractor with the LayerCluster indices, energies and positions needed to construct the model-specific input features.
       LayerClusterIndexMultiView indexes;

@@ -69,12 +69,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     using InputDevice = Device;
     using InputSoA = SoA;
 
-    static InputDevice makeWarmupInput(Queue& queue, uint32_t batchSize) {
-      InputDevice input(queue, batchSize);
-      input.zeroInitialise(queue);
-      return input;
-    }
-
     template <typename Records>
     static uint32_t const* selectedIndices(const Records& records) {
       return std::get<0>(records.selectedTracksterIndex()).data();
@@ -143,12 +137,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     using ModelOutputSoA = SoA;
     using PublishedSourceDevice = ticl::TracksterDevice;
     using PublishedOutputDevice = ticl::TracksterDevice;
-
-    static ModelOutputDevice makeModelOutput(Queue& queue, int total) {
-      ModelOutputDevice output(queue, total);
-      output.zeroInitialise(queue);
-      return output;
-    }
 
     static PublishedOutputDevice makePublishedOutput(Queue& queue, const PublishedSourceDevice& original) {
       PublishedOutputDevice output(queue, detail::tracksterBlockSizes(original.const_view()));
@@ -233,14 +221,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     using ModelOutputSoA = typename OutputAdapter::ModelOutputSoA;
     using PublishedSourceDevice = typename OutputAdapter::PublishedSourceDevice;
     using PublishedOutputDevice = typename OutputAdapter::PublishedOutputDevice;
-
-    static InputDevice makeWarmupInput(Queue& queue, uint32_t batchSize) {
-      return InputAdapter::makeWarmupInput(queue, batchSize);
-    }
-
-    static ModelOutputDevice makeModelOutput(Queue& queue, int total) {
-      return OutputAdapter::makeModelOutput(queue, total);
-    }
 
     static PublishedOutputDevice makePublishedOutput(Queue& queue, PublishedSourceDevice const& original) {
       return OutputAdapter::makePublishedOutput(queue, original);

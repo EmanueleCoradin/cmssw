@@ -49,8 +49,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                 uint32_t* selectionOffsets,
                 uint32_t nTracksters) const;
 
-    FeaturesDevice makeFeatures(Queue& queue, uint32_t selectedCount) const;
-
     // Fills the model-specific SoA and its selectedTracksterIndex mapping.
     void fill(Queue& queue,
               ::ticl::TracksterSoA::ConstView tracksters,

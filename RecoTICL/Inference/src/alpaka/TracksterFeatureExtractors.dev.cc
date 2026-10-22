@@ -117,8 +117,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         const auto verticesAssociations = inputTracksters.vertices();
         const auto multiplicityAssociations = inputTracksters.multiplicity();
 
-        constexpr auto maxClusters = ::ticl::kTracksterCNNClusters;
-        constexpr auto nLayers = ::ticl::kTracksterCNNLayers;
+        constexpr auto maxClusters = ::ticl::kMaxClusters;
+        constexpr auto nLayers = ::ticl::kMaxLayers;
 
         // One thread processes one Trackster.
         for (auto tracksterIndex : cms::alpakatools::uniform_elements(acc, nTracksters)) {
@@ -164,11 +164,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             }
 
             const auto position = clusterPositions[vertexIndex];
-
-            if (position.layer() < 0)
-              continue;
-
             const auto layer = static_cast<uint32_t>(position.layer()) % layersPerEndcap;
+
             if (layer >= nLayers)
               continue;
 
@@ -281,17 +278,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         static_cast<int32_t>(blocks),
                         blockCounter.data(),
                         alpaka::getPreferredWarpSize(alpaka::getDev(queue)));
-  }
-
-  template <TracksterModelFamily Family>
-  typename TracksterFeatureExtractor<Family>::FeaturesDevice TracksterFeatureExtractor<Family>::makeFeatures(
-      Queue& queue, uint32_t selectedCount) const {
-    FeaturesDevice features(queue, selectedCount);
-
-    // Zero-pad missing LayerCluster positions in the model input.
-    features.zeroInitialise(queue);
-
-    return features;
   }
 
   template <TracksterModelFamily Family>

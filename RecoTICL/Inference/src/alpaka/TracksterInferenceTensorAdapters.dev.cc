@@ -18,7 +18,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                     ::ticl::TracksterSoA::View outputTracksters,
                                     uint32_t total) const {
         for (auto row : cms::alpakatools::uniform_elements(acc, total)) {
-          auto const source = scores[row];
+          const auto source = scores[row];
           auto destination = outputTracksters.tracksters()[selectedTracksters[row]];
 
           destination.id_probabilities0() = source.id_probabilities0();
@@ -76,10 +76,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       return;
     }
 
-    constexpr uint32_t elementsPerBlock = 256u;
-
+    constexpr auto elementsPerBlock = 256u;
     const auto blocks = cms::alpakatools::divide_up_by(total, elementsPerBlock);
-
     const auto workDiv = cms::alpakatools::make_workdiv<Acc1D>(blocks, elementsPerBlock);
 
     alpaka::exec<Acc1D>(queue,
