@@ -53,6 +53,17 @@ ticlValidSuperclusteringCandidatePID = _ticlTracksterPIDValidation.clone(
     pidCut = cms.double(0.2),
 )
 
+# ticl_dev: the superclustering uses the tracksters of the pattern recognition on the device with CLUEstering
+from Configuration.ProcessModifiers.ticl_dev import ticl_dev
+_trackstersCLUEstering = "ticlTrackstersCLUEstering"
+for _mask in (ticlValidSuperclusteringSeedMask, tracksterSuperclusteringValidCandidateMaskProducer):
+    ticl_dev.toModify(_mask,
+        tracksters = _trackstersCLUEstering,
+        associatorRecoToSim = f"allTrackstersToSimTrackstersAssociationsByLCs:{_trackstersCLUEstering}To{simTrackstersCollection}",
+        associatorSimToReco = f"allTrackstersToSimTrackstersAssociationsByLCs:{simTrackstersCollection}To{_trackstersCLUEstering}")
+for _pid in (ticlValidSuperclusteringSeedPID, ticlValidSuperclusteringCandidatePID):
+    ticl_dev.toModify(_pid, tracksters = _trackstersCLUEstering)
+
 ticlSuperclusterPIDValidation = cms.Sequence(
     ticlValidSuperclusteringSeedMask + tracksterSuperclusteringValidCandidateMaskProducer +
     ticlValidSuperclusteringSeedPID + ticlValidSuperclusteringCandidatePID

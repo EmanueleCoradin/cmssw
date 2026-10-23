@@ -24,6 +24,12 @@ ticlTracksterLinksSuperclusteringMustache = _tracksterLinksProducer.clone(
     tracksters_collections = [cms.InputTag("ticlTrackstersCLUE3DHigh")], # to be changed to ticlTrackstersCLUE3DEM once separate CLUE3D iterations are introduced
 )
 
+# ticl_dev: the superclustering uses the tracksters of CLUEstering
+from Configuration.ProcessModifiers.ticl_dev import ticl_dev
+ticl_dev.toModify(ticlTracksterLinksSuperclusteringDNN, tracksters_collections = ['ticlTrackstersCLUEstering'])
+ticl_dev.toModify(ticlTracksterLinksSuperclusteringMustache, tracksters_collections = ['ticlTrackstersCLUEstering'])
+ticl_dev.toModify(ticlEGammaSuperClusterProducer, ticlTrackstersEM = 'ticlTrackstersCLUEstering')
+
 ### Superclustering : 3 options : DNN, Mustache-TICL (from tracksters)
 ticlSuperclusteringTask = cms.Task(ticlTracksterLinksSuperclusteringDNN, ticlEGammaSuperClusterProducer)
 

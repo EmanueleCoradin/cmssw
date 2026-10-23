@@ -67,6 +67,9 @@ TICL_RECO = cms.PSet(
     outputCommands = cms.untracked.vstring(_recoTICL + _hfnose + _simAssoc)
 )
 TICL_RECO.outputCommands.extend(TICL_AOD.outputCommands)
+# ticl_dev: the tracksters of the pattern recognition on the device, converted to ticl::Trackster
+from Configuration.ProcessModifiers.ticl_dev import ticl_dev
+ticl_dev.toModify(TICL_RECO, outputCommands = TICL_RECO.outputCommands + ['keep *_ticlTrackstersCLUEstering_*_*'])
 
 # FEVT content - full debug info
 TICL_FEVT = cms.PSet(

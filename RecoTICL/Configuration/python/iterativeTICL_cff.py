@@ -2,6 +2,7 @@ import FWCore.ParameterSet.Config as cms
 
 from RecoTICL.Configuration.FastJetStep_cff import *
 from RecoTICL.Configuration.CLUE3DHighStep_cff import *
+from RecoTICL.Configuration.CLUEsteringStep_cff import *
 from RecoTICL.Configuration.MIPStep_cff import *
 from RecoTICL.Configuration.TrkEMStep_cff import *
 from RecoTICL.Configuration.TrkStep_cff import *
@@ -25,6 +26,7 @@ from Configuration.ProcessModifiers.ticlv5_TrackLinkingGNN_cff import ticlv5_Tra
 from Configuration.ProcessModifiers.ticl_superclustering_mustache_pf_cff import ticl_superclustering_mustache_pf
 from Configuration.ProcessModifiers.ticl_superclustering_mustache_ticl_cff import ticl_superclustering_mustache_ticl
 from Configuration.ProcessModifiers.ticl_barrel_cff import ticl_barrel
+from Configuration.ProcessModifiers.ticl_dev import ticl_dev
 
 ticlLayerTileTask = cms.Task(ticlLayerTileProducer)
 
@@ -118,6 +120,9 @@ ticlv5_TrackLinkingGNN.toModify(ticlCandidate,
             type = cms.string('GNNLink')
         )
     )
+# ticl_dev: the linking uses the tracksters of CLUEstering
+ticl_dev.toModify(ticlTracksterLinks, tracksters_collections = ['ticlTrackstersCLUEstering', 'ticlTrackstersRecovery'])
+
 mtdSoA = _mtdSoAProducer.clone()
 
 # pfTICL uses ticlCandidate by default in v5
@@ -135,6 +140,11 @@ ticlIterationsTask = cms.Task(
     ticlCLUE3DHighStepTask,
     ticlRecoveryStepTask
 )
+# ticl_dev: the first iteration is the pattern recognition on the device with CLUEstering
+ticl_dev.toReplaceWith(ticlIterationsTask, cms.Task(
+    ticlCLUEsteringStepTask,
+    ticlRecoveryStepTask
+))
 
 ticlIterLabelsPSet = cms.PSet(
     labels=cms.vstring(
@@ -153,6 +163,12 @@ ticl_superclustering_mustache_ticl.toModify(
         "ticlCandidate",
         "ticlTracksterLinksSuperclusteringMustache"
     )
+)
+
+# ticl_dev: the tracksters of CLUEstering take the place of the CLUE3DHigh ones in the validation
+ticl_dev.toModify(
+    ticlIterLabelsPSet,
+    labels = ['ticlTrackstersCLUEstering' if label == 'ticlTrackstersCLUE3DHigh' else label for label in ticlIterLabelsPSet.labels]
 )
 
 associatorsInstances = []

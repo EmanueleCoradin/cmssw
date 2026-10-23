@@ -46,6 +46,11 @@ ticlTrackstersRecovery = _trackstersProducer.clone(
 )
 
 
+# ticl_dev: the Recovery runs on the layer clusters not used by the tracksters of CLUEstering
+from Configuration.ProcessModifiers.ticl_dev import ticl_dev
+ticl_dev.toModify(filteredLayerClustersRecovery, LayerClustersInputMask = 'ticlTrackstersCLUEstering')
+ticl_dev.toModify(ticlTrackstersRecovery, original_mask = 'ticlTrackstersCLUEstering')
+
 ticlRecoveryStepTask = cms.Task(ticlSeedingGlobal
     ,filteredLayerClustersRecovery
     ,ticlTrackstersRecovery)

@@ -20,6 +20,16 @@ hgcalValidator = _hgcalValidator.clone(
     mergeRecoToSimAssociator = cms.InputTag("allTrackstersToSimTrackstersAssociationsByLCs:ticlCandidateToticlSimTrackstersfromCPs"),
 )
 
+# ticl_dev: the first iteration is the pattern recognition on the device with CLUEstering
+from Configuration.ProcessModifiers.ticl_dev import ticl_dev
+ticl_dev.toModify(hgcalValidator,
+    LayerClustersInputMask = cms.VInputTag(
+        cms.InputTag("ticlTrackstersCLUEstering"),
+        cms.InputTag("ticlSimTracksters", "fromCPs"),
+        cms.InputTag("ticlSimTracksters")
+    ),
+)
+
 from Configuration.ProcessModifiers.premix_stage2_cff import premix_stage2
 premix_stage2.toModify(hgcalValidator,
     label_cp_fake = "mixData:MergedCaloTruth",

@@ -123,6 +123,10 @@ branchTracksterRecoValidator = DQMEDAnalyzer(
     mergeThreshold=cms.double(0.3),
 )
 
+# ticl_dev: the first iteration is the pattern recognition on the device with CLUEstering
+from Configuration.ProcessModifiers.ticl_dev import ticl_dev
+ticl_dev.toModify(branchTracksterRecoValidator, recoCollection = "ticlTrackstersCLUEstering")
+
 # Producers (truth graph + hit index + association maps) followed by the DQM
 # analyzers that reproduce the legacy truth objects (CaloParticle/SimCluster via
 # branchHGCalValidator, TrackingParticle via branchTrackingValidator - both verified
