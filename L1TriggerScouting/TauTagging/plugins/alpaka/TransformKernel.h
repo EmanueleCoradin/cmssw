@@ -5,7 +5,7 @@
 
 #include <cstdio>
 #include <limits>
-#include <fmt/core.h> 
+#include <fmt/core.h>
 
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
 #include "DataFormats/Portable/interface/PortableHostObject.h"
@@ -44,14 +44,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   using namespace ::l1sc;
 
   AssociationMapDevice sortClustersCandsMap(Queue& queue,
-                            const PFCandidateDeviceCollection& pf,
-                            const BxLookupDevice& bxClustersMap,
-                            const AssociationMapDevice& clusterCandsMap, 
-                            const ClustersDeviceCollection& clusters);
+                                            const PFCandidateDeviceCollection& pf,
+                                            const BxLookupDevice& bxClustersMap,
+                                            const AssociationMapDevice& clusterCandsMap,
+                                            const ClustersDeviceCollection& clusters);
 
-  SoftTauInputDeviceTensor transform(Queue& queue, 
-                 const PFCandidateDeviceCollection& pf, 
-                 const AssociationMapDevice& clusterCandsMap);
+  SoftTauInputDeviceTensor transform(Queue& queue,
+                                     const PFCandidateDeviceCollection& pf,
+                                     const AssociationMapDevice& clusterCandsMap);
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels
 
 #endif  // L1TriggerScouting_TauTagging_plugins_alpaka_TransformKernel_h

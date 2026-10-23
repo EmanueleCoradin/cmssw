@@ -50,11 +50,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   // Fill the bx column and the leading offset cell of both bx lookup tables.
   // The offsets themselves (cells 1..nbx) are written beforehand by cms::alpakatools::iterativePrefixScan.
-  void fill_lookups(Queue& queue,
-                    const uint32_t* bx_arr,
-                    uint32_t nbx,
-                    BxLookupDevice& tkem_lookup,
-                    BxLookupDevice& tkele_lookup);
+  void fill_lookups(
+      Queue& queue, const uint32_t* bx_arr, uint32_t nbx, BxLookupDevice& tkem_lookup, BxLookupDevice& tkele_lookup);
 
   // Decode all tkEm and tkEle payload slices in a single kernel launch, reading directly
   // the packed 64-bit payload words and scattering objects into the two device collections.

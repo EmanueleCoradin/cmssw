@@ -31,10 +31,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
   void decode_candidates(Queue& queue, data_t* p_data, PuppiDeviceCollection& puppi);
   void decode_headers(Queue& queue, data_t* h_data, BxLookupDevice& bx_lookup, BxLookupDevice& bx_sizes);
   void fillBxLookupPadded(Queue& queue, BxLookupDevice& bx_lookup_padded, unsigned int nele);
-  void fillCandsPadded(Queue& queue, BxLookupDevice& bx_lookup, 
-                      PuppiDeviceCollection& puppi_padded, 
-                      PuppiDeviceCollection& puppi, 
-                      unsigned int nele);
+  void fillCandsPadded(Queue& queue,
+                       BxLookupDevice& bx_lookup,
+                       PuppiDeviceCollection& puppi_padded,
+                       PuppiDeviceCollection& puppi,
+                       unsigned int nele);
 
   // ---------------- V2 additions (see L1TScPhase2PuppiRawToDigiV2.cc) ---------------------
   // RawSlice and prefix_scan_u32 are shared with the TkEm unpacker (declared in

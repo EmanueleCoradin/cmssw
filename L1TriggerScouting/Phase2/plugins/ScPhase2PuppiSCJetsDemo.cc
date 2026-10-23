@@ -79,14 +79,14 @@ void ScPhase2PuppiSCJetsDemo::produce(edm::Event &iEvent, const edm::EventSetup 
     unsigned int i0 = std::distance(&*src->begin(), &*span.begin());  // global index
 
     work.clear();
-#ifdef SC_JETS_DEBUG    
+#ifdef SC_JETS_DEBUG
     if (bx <= 2)
       printf("Clustering BX %u with %lu particles\n", bx, span.size());
 #endif
     for (unsigned int i = 0, n = span.size(); i < n; ++i) {
       auto p = span[i];
       work.emplace_back(p.pt(), p.eta(), p.phi(), i);
-#ifdef SC_JETS_DEBUG    
+#ifdef SC_JETS_DEBUG
       if (bx <= 2)
         printf("  %4u: pt %7.2f eta %+6.3f phi %+6.3f\n", i, p.pt(), p.eta(), p.phi());
 #endif
@@ -103,7 +103,7 @@ void ScPhase2PuppiSCJetsDemo::produce(edm::Event &iEvent, const edm::EventSetup 
       cluster[i0 + seed.i] = njets;
       is_seed[i0 + seed.i] = true;
       float sumpt = seed.pt, sumeta = 0, sumphi = 0;
-#ifdef SC_JETS_DEBUG    
+#ifdef SC_JETS_DEBUG
       if (bx <= 2)
         printf("selected %u (pt %7.2f eta %+6.3f phi %+6.3f) as seed for iteration %u (%lu/%lu particles left)\n",
                seed.i,
@@ -124,7 +124,7 @@ void ScPhase2PuppiSCJetsDemo::produce(edm::Event &iEvent, const edm::EventSetup 
           sumeta += it->pt * deta;
           sumphi += it->pt * dphi;
           cluster[i0 + it->i] = njets;
-#ifdef SC_JETS_DEBUG    
+#ifdef SC_JETS_DEBUG
           if (bx <= 2)
             printf("  %4u: pt %7.2f eta %+6.3f phi %+6.3f <<= selected (dr %7.4f)\n",
                    it->i,
@@ -142,7 +142,7 @@ void ScPhase2PuppiSCJetsDemo::produce(edm::Event &iEvent, const edm::EventSetup 
       eta.push_back(seed.eta + sumeta / sumpt);
       phi.push_back(reco::reducePhiRange(seed.phi + sumphi / sumpt));
       std::swap(work2, work);
-#ifdef SC_JETS_DEBUG    
+#ifdef SC_JETS_DEBUG
       if (bx <= 2)
         printf("Jet pt %7.2f eta %+6.3f phi %+6.3f, seed %u\n\n", pt.back(), eta.back(), phi.back(), seed.i);
 #endif

@@ -90,10 +90,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     const uint32_t splitFactor_;
 
     // per-event bookkeeping, reused across events
-    std::array<int32_t, kMaxNBX> slot_of_bx_;   // bx number -> slot of the event (-1 if absent)
-    std::array<uint32_t, kMaxNBX> fill_slot_;   // objects kept so far per slot (== total at the end)
-    std::array<uint32_t, kMaxNBX> slices_slot_; // number of slices merged so far per slot
-    std::array<uint32_t, kMaxNBX> row_of_slot_; // slot -> bx lookup row
+    std::array<int32_t, kMaxNBX> slot_of_bx_;    // bx number -> slot of the event (-1 if absent)
+    std::array<uint32_t, kMaxNBX> fill_slot_;    // objects kept so far per slot (== total at the end)
+    std::array<uint32_t, kMaxNBX> slices_slot_;  // number of slices merged so far per slot
+    std::array<uint32_t, kMaxNBX> row_of_slot_;  // slot -> bx lookup row
 
     uint32_t nslots_, nbx_, ngoodbx_, nslices_;
     count_t tot_muons_;
@@ -222,9 +222,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       // ---- host-to-device transfers -------------------------------------------------------
       auto d_words = cms::alpakatools::make_device_buffer<data_t[]>(queue, static_cast<Idx>(words_used_));
       auto d_meta = cms::alpakatools::make_device_buffer<uint32_t[]>(queue, rows_offset + 2 * nbx_);
-      alpaka::memcpy(queue,
-                     alpaka::createView(alpaka::getDev(queue), d_words.data(), Vec1D{static_cast<Idx>(words_used_)}),
-                     alpaka::createView(cms::alpakatools::host(), h_words.data(), Vec1D{static_cast<Idx>(words_used_)}));
+      alpaka::memcpy(
+          queue,
+          alpaka::createView(alpaka::getDev(queue), d_words.data(), Vec1D{static_cast<Idx>(words_used_)}),
+          alpaka::createView(cms::alpakatools::host(), h_words.data(), Vec1D{static_cast<Idx>(words_used_)}));
       const uint32_t slices_u32 = kSliceU32 * nslices_;
       alpaka::memcpy(queue,
                      alpaka::createView(alpaka::getDev(queue), d_meta.data(), Vec1D{slices_u32}),

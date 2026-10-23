@@ -108,7 +108,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     const uint32_t threads_per_block = 512;
     const auto grid = cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nslices, threads_per_block),
                                                             threads_per_block);
-    alpaka::exec<Acc1D>(queue, grid, DecodeTrackerMuonKernel{}, words, slices, nslices, muons.view(), lookup.const_view());
+    alpaka::exec<Acc1D>(
+        queue, grid, DecodeTrackerMuonKernel{}, words, slices, nslices, muons.view(), lookup.const_view());
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels

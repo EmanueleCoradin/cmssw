@@ -228,29 +228,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     //  Launch first kernel to look which tracks need to be filtered out
     //  based on quality criteria from the CA
     {
-    CMS_PERFETTO_SCOPE("CA-Preselection");
-    launchCAPreselection(queue,
-                         maxNumberOfTracks_,
-                         minNumberOfHits_,
-                         minimumTrackQuality_,
-                         tracks.tracks(),
-                         alpaka::getPtrNative(d_preselectedTrackIndices),
-                         alpaka::getPtrNative(d_preselectionOffsets),
-                         alpaka::getPtrNative(d_nPreselectedTracks));
+      CMS_PERFETTO_SCOPE("CA-Preselection");
+      launchCAPreselection(queue,
+                           maxNumberOfTracks_,
+                           minNumberOfHits_,
+                           minimumTrackQuality_,
+                           tracks.tracks(),
+                           alpaka::getPtrNative(d_preselectedTrackIndices),
+                           alpaka::getPtrNative(d_preselectionOffsets),
+                           alpaka::getPtrNative(d_nPreselectedTracks));
     }
 #ifdef PIXEL_TRACK_HP_DEBUG
     nPreselectedTracks = fetchNumPreselectedTracks();
     std::cout << "PixelTrackTorchHighPuritySelector::Prefiltered tracks=" << nPreselectedTracks << "\n";
 #endif
     {
-    CMS_PERFETTO_SCOPE("FeaturesExtractor");
-    launchFeaturesExtractor(queue,
-                            maxPreselectedTracks_,
-                            tracks.tracks(),
-                            alpaka::getPtrNative(d_preselectedTrackIndices),
-                            alpaka::getPtrNative(d_nPreselectedTracks),
-                            trackFeatures.view(),
-                            alpaka::getPtrNative(d_trackHitCounts));
+      CMS_PERFETTO_SCOPE("FeaturesExtractor");
+      launchFeaturesExtractor(queue,
+                              maxPreselectedTracks_,
+                              tracks.tracks(),
+                              alpaka::getPtrNative(d_preselectedTrackIndices),
+                              alpaka::getPtrNative(d_nPreselectedTracks),
+                              trackFeatures.view(),
+                              alpaka::getPtrNative(d_trackHitCounts));
     }
     // 3. DNN inference
     //  Prepare TensorCollection inputs and outputs for the model
@@ -300,7 +300,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     nSelectedTracks = fetchNumSelectedTracks();
     std::cout << "PixelTrackTorchHighPuritySelector::Filtered tracks=" << nSelectedTracks << "\n";
 #endif
-    
+
     auto tracks_out = launchProduceOutputTracks(queue,
                                                 maxPreselectedTracks_,
                                                 avgHitsPerTrack_,
@@ -309,7 +309,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                 alpaka::getPtrNative(d_selectedTrackIndices),
                                                 alpaka::getPtrNative(d_nSelectedTracks),
                                                 alpaka::getPtrNative(d_selectedTrackHitOffsets));
-    
+
     iEvent.emplace(tokenTrackOut_, std::move(tracks_out));
   }
 

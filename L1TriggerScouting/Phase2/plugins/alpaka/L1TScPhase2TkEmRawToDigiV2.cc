@@ -179,9 +179,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       if (nbx_ > 0) {
         // ---- one fused H2D transfer for the payload words ------------------------------
         auto d_words = cms::alpakatools::make_device_buffer<data_t[]>(queue, static_cast<Idx>(words_used_));
-        alpaka::memcpy(queue,
-                       d_words,
-                       alpaka::createView(cms::alpakatools::host(), h_words.data(), Vec1D{static_cast<Idx>(words_used_)}));
+        alpaka::memcpy(
+            queue,
+            d_words,
+            alpaka::createView(cms::alpakatools::host(), h_words.data(), Vec1D{static_cast<Idx>(words_used_)}));
 
         // ---- H2D of the slice and bx-row metadata --------------------------------------
         const uint32_t slices_u32 = kSliceU32 * (nslices_tkem_ + nslices_tkele_);
@@ -257,11 +258,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
     const unsigned int splitFactor_;  // number of streams per BX
 
     // per-event bookkeeping, reused across events
-    std::array<int32_t, kMaxNBX> slot_of_bx_;     // bx number -> slot of the event (-1 if absent)
-    std::array<uint32_t, kMaxNBX> fill_tkem_slot_;   // objects placed so far (and total at the end) per slot
+    std::array<int32_t, kMaxNBX> slot_of_bx_;       // bx number -> slot of the event (-1 if absent)
+    std::array<uint32_t, kMaxNBX> fill_tkem_slot_;  // objects placed so far (and total at the end) per slot
     std::array<uint32_t, kMaxNBX> fill_tkele_slot_;
-    std::array<uint32_t, kMaxNBX> slices_slot_;   // number of slices merged so far per slot
-    std::array<uint32_t, kMaxNBX> row_of_slot_;   // slot -> bx lookup row
+    std::array<uint32_t, kMaxNBX> slices_slot_;  // number of slices merged so far per slot
+    std::array<uint32_t, kMaxNBX> row_of_slot_;  // slot -> bx lookup row
 
     uint32_t nslots_, nbx_, ngoodbx_;
     uint32_t nslices_tkem_, nslices_tkele_;

@@ -29,11 +29,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   template <typename TAcc, typename T>
   ALPAKA_FN_ACC T energy(const TAcc& acc, T px, T py, T pz, T mass = 0.13957f) {
-    return alpaka::math::sqrt(acc, 
-        alpaka::math::pow(acc, px, 2) + 
-        alpaka::math::pow(acc, py, 2) + 
-        alpaka::math::pow(acc, pz, 2) + 
-        alpaka::math::pow(acc, mass, 2));
+    return alpaka::math::sqrt(acc,
+                              alpaka::math::pow(acc, px, 2) + alpaka::math::pow(acc, py, 2) +
+                                  alpaka::math::pow(acc, pz, 2) + alpaka::math::pow(acc, mass, 2));
   }
 
   template <typename TAcc, typename T>
@@ -43,7 +41,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
 
   template <typename TAcc, typename T>
   ALPAKA_FN_ACC T jet_eta(const TAcc& acc, T Pt, T Pz) {
-    return alpaka::math::asinh(acc, Pz / Pt); 
+    return alpaka::math::asinh(acc, Pz / Pt);
   }
 
   template <typename TAcc, typename T>
@@ -55,182 +53,167 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     auto kPi = alpaka::math::constants::pi;
     // return alpaka::math::remainder(acc, phi - Phi + kPi, 2.0 * kPi) - kPi;
     auto delta = phi - Phi;
-    auto dphi = (delta > kPi) ? 
-                  (
-                    delta - 2 * kPi
-                  ) : 
-                  (
-                    (delta < -kPi) ?
-                      (
-                        delta + 2 * kPi
-                      ) : 
-                      delta                    
-                  );
+    auto dphi = (delta > kPi) ? (delta - 2 * kPi) : ((delta < -kPi) ? (delta + 2 * kPi) : delta);
     return dphi;
   }
 
   template <typename TAcc>
   ALPAKA_FN_ACC float charge(const TAcc& acc, int pdgid) {
-    auto charge = (alpaka::math::abs(acc, pdgid) == 22 || alpaka::math::abs(acc, pdgid) == 130) ?
-                    0 : 
-                    (
-                      (alpaka::math::abs(acc, pdgid) == 211) ?
-                        (
-                          (pdgid > 0) ? +1 : -1
-                        ) :
-                        (
-                          (pdgid > 0) ? -1 : +1
-                        )
-                    );
+    auto charge = (alpaka::math::abs(acc, pdgid) == 22 || alpaka::math::abs(acc, pdgid) == 130)
+                      ? 0
+                      : ((alpaka::math::abs(acc, pdgid) == 211) ? ((pdgid > 0) ? +1 : -1) : ((pdgid > 0) ? -1 : +1));
     return charge;
   }
 
   struct BuildBxWiseRadixSortKeysOffsets {
-      template <typename TAcc>
-      ALPAKA_FN_ACC void operator() (
-          TAcc const &acc,
-          BxLookupDevice::ConstView bx_clusters,
-          AssociationMapDevice::ConstView clusters_cands,
-          PFCandidateDeviceCollection::ConstView cands, // collection of candidates with features
-          ClustersDeviceCollection::ConstView clusters, // cluster index assigned to each candidate (-1 if outlier)
-          uint32_t* bx_clustered_cands_offset,
-          uint32_t* keys
-      ) const {
-          const auto gridDim = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0]; // this should correspond to the number of bx = 3564
-          assert(gridDim == static_cast<uint32_t>(bx_clusters.bx().metadata().size()) && "[BuildKeysBxWiseKernel] gridDim is not equal to the number of bxs");
+    template <typename TAcc>
+    ALPAKA_FN_ACC void operator()(
+        TAcc const& acc,
+        BxLookupDevice::ConstView bx_clusters,
+        AssociationMapDevice::ConstView clusters_cands,
+        PFCandidateDeviceCollection::ConstView cands,  // collection of candidates with features
+        ClustersDeviceCollection::ConstView clusters,  // cluster index assigned to each candidate (-1 if outlier)
+        uint32_t* bx_clustered_cands_offset,
+        uint32_t* keys) const {
+      const auto gridDim = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(
+          acc)[0];  // this should correspond to the number of bx = 3564
+      assert(gridDim == static_cast<uint32_t>(bx_clusters.bx().metadata().size()) &&
+             "[BuildKeysBxWiseKernel] gridDim is not equal to the number of bxs");
 
-          if (cms::alpakatools::once_per_grid(acc)) {
-              bx_clustered_cands_offset[0] = 0;
-          }
-
-          for (auto bx_index : cms::alpakatools::independent_groups(acc, gridDim)) {
-              const auto cluster_range_start = bx_clusters.offset()[bx_index].offset();
-              const auto cluster_range_end = bx_clusters.offset()[bx_index + 1].offset();
-
-              // here is the trick: identify the block of rows in the index column of clusters->cands that will be sorted
-              const auto clusters_cands_row_start = clusters_cands.offset()[cluster_range_start].offset();
-              const auto clusters_cands_row_end = clusters_cands.offset()[cluster_range_end].offset();
-              bx_clustered_cands_offset[bx_index + 1] = clusters_cands_row_end;
-              const auto rows_range_size = clusters_cands_row_end - clusters_cands_row_start;
-
-              for (auto tid : cms::alpakatools::independent_group_elements(acc, rows_range_size)) {
-                  const auto cand_local_idx = clusters_cands_row_start + tid;
-                  const auto cand_idx = clusters_cands.index()[cand_local_idx].index(); // retrieve the global candidate index
-                  const auto gcl = clusters.cluster()[cand_idx]; // get the global cluster ID of the current candidate
-                  
-                  assert(gcl >= 0 && "[BuildKeysBxWiseKernel] Found a -1 global cluster index inside the clustered candidates");
-                  assert(gcl >= static_cast<int32_t>(cluster_range_start) && "[BuildKeysBxWiseKernel] Global cluster index should be greater or equal than the base cluster index for the current bx");
-                  assert(gcl < static_cast<int32_t>(cluster_range_end) && "[BuildKeysBxWiseKernel] Global cluster index should be smaller than the base cluster index for the following bx");
-                  const auto lcl = gcl - cluster_range_start;
-                  const auto pt_cand = cands.pt()[cand_idx];
-                  const uint16_t pt_code = static_cast<uint16_t>(alpaka::math::max(acc, 65535.f - pt_cand * 32.f, 0.f));
-                  keys[cand_local_idx] = (static_cast<uint32_t>(lcl) << 16) | pt_code;
-              }
-          }
+      if (cms::alpakatools::once_per_grid(acc)) {
+        bx_clustered_cands_offset[0] = 0;
       }
-  }; // struct BuildBxWiseRadixSortKeysOffsets
-  
+
+      for (auto bx_index : cms::alpakatools::independent_groups(acc, gridDim)) {
+        const auto cluster_range_start = bx_clusters.offset()[bx_index].offset();
+        const auto cluster_range_end = bx_clusters.offset()[bx_index + 1].offset();
+
+        // here is the trick: identify the block of rows in the index column of clusters->cands that will be sorted
+        const auto clusters_cands_row_start = clusters_cands.offset()[cluster_range_start].offset();
+        const auto clusters_cands_row_end = clusters_cands.offset()[cluster_range_end].offset();
+        bx_clustered_cands_offset[bx_index + 1] = clusters_cands_row_end;
+        const auto rows_range_size = clusters_cands_row_end - clusters_cands_row_start;
+
+        for (auto tid : cms::alpakatools::independent_group_elements(acc, rows_range_size)) {
+          const auto cand_local_idx = clusters_cands_row_start + tid;
+          const auto cand_idx = clusters_cands.index()[cand_local_idx].index();  // retrieve the global candidate index
+          const auto gcl = clusters.cluster()[cand_idx];  // get the global cluster ID of the current candidate
+
+          assert(gcl >= 0 && "[BuildKeysBxWiseKernel] Found a -1 global cluster index inside the clustered candidates");
+          assert(gcl >= static_cast<int32_t>(cluster_range_start) &&
+                 "[BuildKeysBxWiseKernel] Global cluster index should be greater or equal than the base cluster index "
+                 "for the current bx");
+          assert(gcl < static_cast<int32_t>(cluster_range_end) &&
+                 "[BuildKeysBxWiseKernel] Global cluster index should be smaller than the base cluster index for the "
+                 "following bx");
+          const auto lcl = gcl - cluster_range_start;
+          const auto pt_cand = cands.pt()[cand_idx];
+          const uint16_t pt_code = static_cast<uint16_t>(alpaka::math::max(acc, 65535.f - pt_cand * 32.f, 0.f));
+          keys[cand_local_idx] = (static_cast<uint32_t>(lcl) << 16) | pt_code;
+        }
+      }
+    }
+  };  // struct BuildBxWiseRadixSortKeysOffsets
+
   struct ApplyBxWisePermutationKernel {
-      template <typename TAcc>
-      ALPAKA_FN_ACC void operator() (
-          TAcc const &acc,
-          AssociationMapDevice::ConstView clusters_cands, 
-          uint32_t* bx_clustered_cands_offset, 
-          uint16_t* perm, 
-          uint32_t* sorted_clusters_cands_indexes
-      ) const {
-          const auto gridDim = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0];
+    template <typename TAcc>
+    ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                  AssociationMapDevice::ConstView clusters_cands,
+                                  uint32_t* bx_clustered_cands_offset,
+                                  uint16_t* perm,
+                                  uint32_t* sorted_clusters_cands_indexes) const {
+      const auto gridDim = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0];
 
-          for (auto bx_index : cms::alpakatools::independent_groups(acc, gridDim)) {
-              const auto clusters_cands_row_start = bx_clustered_cands_offset[bx_index];
-              const auto clusters_cands_row_end = bx_clustered_cands_offset[bx_index + 1];
-              const auto rows_range_size = clusters_cands_row_end - clusters_cands_row_start;
+      for (auto bx_index : cms::alpakatools::independent_groups(acc, gridDim)) {
+        const auto clusters_cands_row_start = bx_clustered_cands_offset[bx_index];
+        const auto clusters_cands_row_end = bx_clustered_cands_offset[bx_index + 1];
+        const auto rows_range_size = clusters_cands_row_end - clusters_cands_row_start;
 
-              for (auto tid : cms::alpakatools::independent_group_elements(acc, rows_range_size)) {
-                  sorted_clusters_cands_indexes[clusters_cands_row_start + tid] = clusters_cands.index()[clusters_cands_row_start + perm[clusters_cands_row_start + tid]].index();
-              }
-          }
+        for (auto tid : cms::alpakatools::independent_group_elements(acc, rows_range_size)) {
+          sorted_clusters_cands_indexes[clusters_cands_row_start + tid] =
+              clusters_cands.index()[clusters_cands_row_start + perm[clusters_cands_row_start + tid]].index();
+        }
       }
-  }; // struct ApplyBxWisePermutationKernel
+    }
+  };  // struct ApplyBxWisePermutationKernel
 
   class ComputeClueTauFeaturesKernel {
   public:
-    ALPAKA_FN_ACC void operator()(
-      Acc1D const& acc,
-      PFCandidateDeviceCollection::ConstView pf,
-      AssociationMapDevice::ConstView clusters_cands,
-      SoftTauInputDeviceTensor::View input_tensors) const {
-        for (auto block_idx: independent_groups(acc, clusters_cands.offset().metadata().size() - 1)) {
-          auto begin = clusters_cands.offset()[block_idx].offset();
-          auto end = clusters_cands.offset()[block_idx + 1].offset();
-          auto block_size = end - begin;
-          if (block_size == 0)
-            continue;
-        
-          auto& shPx  = alpaka::declareSharedVar<float, __COUNTER__>(acc);
-          auto& shPy  = alpaka::declareSharedVar<float, __COUNTER__>(acc);
-          auto& shPz  = alpaka::declareSharedVar<float, __COUNTER__>(acc);
-          auto& shPt  = alpaka::declareSharedVar<float, __COUNTER__>(acc);
-          auto& shEta = alpaka::declareSharedVar<float, __COUNTER__>(acc);
-          auto& shPhi = alpaka::declareSharedVar<float, __COUNTER__>(acc);
-          
-          // build jet axis
-          if (once_per_block(acc)) {
-            shPx = 0.0f;
-            shPy = 0.0f;
-            shPz = 0.0f;
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
+                                  PFCandidateDeviceCollection::ConstView pf,
+                                  AssociationMapDevice::ConstView clusters_cands,
+                                  SoftTauInputDeviceTensor::View input_tensors) const {
+      for (auto block_idx : independent_groups(acc, clusters_cands.offset().metadata().size() - 1)) {
+        auto begin = clusters_cands.offset()[block_idx].offset();
+        auto end = clusters_cands.offset()[block_idx + 1].offset();
+        auto block_size = end - begin;
+        if (block_size == 0)
+          continue;
 
-            for (auto ii = 0u; ii < block_size; ii++) {
-              auto p = clusters_cands.index()[ii + begin].index();
-              auto px_v = px(acc, pf.pt()[p], pf.phi()[p]);
-              auto py_v = py(acc, pf.pt()[p], pf.phi()[p]);
-              auto pz_v = pz(acc, pf.pt()[p], pf.eta()[p]);
-              shPx += px_v;
-              shPy += py_v;
-              shPz += pz_v;
-            }
-            
-            shPt = jet_pt(acc, shPx, shPy);
-            shEta = jet_eta(acc, shPt, shPz);
-            shPhi = jet_phi(acc, shPx, shPy);
+        auto& shPx = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+        auto& shPy = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+        auto& shPz = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+        auto& shPt = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+        auto& shEta = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+        auto& shPhi = alpaka::declareSharedVar<float, __COUNTER__>(acc);
+
+        // build jet axis
+        if (once_per_block(acc)) {
+          shPx = 0.0f;
+          shPy = 0.0f;
+          shPz = 0.0f;
+
+          for (auto ii = 0u; ii < block_size; ii++) {
+            auto p = clusters_cands.index()[ii + begin].index();
+            auto px_v = px(acc, pf.pt()[p], pf.phi()[p]);
+            auto py_v = py(acc, pf.pt()[p], pf.phi()[p]);
+            auto pz_v = pz(acc, pf.pt()[p], pf.eta()[p]);
+            shPx += px_v;
+            shPy += py_v;
+            shPz += pz_v;
           }
 
-          // synch threads across block so that they access the correct values of shEta and shPhi
-          alpaka::syncBlockThreads(acc);
+          shPt = jet_pt(acc, shPx, shPy);
+          shEta = jet_eta(acc, shPt, shPz);
+          shPhi = jet_phi(acc, shPx, shPy);
+        }
 
-          // fill input tensor corresponding to the current cluster
-          auto input_tensor = input_tensors[block_idx];
-          auto input_size = (block_size > JetFeatures::RowsAtCompileTime) ? JetFeatures::RowsAtCompileTime : block_size;
-          for (auto tid : independent_group_elements(acc, input_size)) {
-            auto p = clusters_cands.index()[begin + tid].index(); // global candidate index
-            auto pdgid_abs = alpaka::math::abs(acc, static_cast<int>(pf.pdgid()[p]));
-            // features
-            input_tensor.features()(tid, 0) = pf.pt()[p];
-            input_tensor.features()(tid, 1) = pf.eta()[p] - shEta;
-            input_tensor.features()(tid, 2) = phi(acc, pf.phi()[p], shPhi);
-            input_tensor.features()(tid, 3) = pf.z0()[p];
-            input_tensor.features()(tid, 4) = charge(acc, pf.pdgid()[p]);
-            // one hot-encoding for pdgid
-            input_tensor.features()(tid, 5) = (pdgid_abs == 211) ? 1.0f : 0.0f;
-            input_tensor.features()(tid, 6) = (pdgid_abs == 130) ? 1.0f : 0.0f;
-            input_tensor.features()(tid, 7) = (pdgid_abs == 11) ? 1.0f : 0.0f;
-            input_tensor.features()(tid, 8) = (pdgid_abs == 13) ? 1.0f : 0.0f;
-            input_tensor.features()(tid, 9) = (pdgid_abs == 22) ? 1.0f : 0.0f;
-            // pad mask
-            input_tensor.pad_mask()(tid) = 0.f;
-          }
+        // synch threads across block so that they access the correct values of shEta and shPhi
+        alpaka::syncBlockThreads(acc);
+
+        // fill input tensor corresponding to the current cluster
+        auto input_tensor = input_tensors[block_idx];
+        auto input_size = (block_size > JetFeatures::RowsAtCompileTime) ? JetFeatures::RowsAtCompileTime : block_size;
+        for (auto tid : independent_group_elements(acc, input_size)) {
+          auto p = clusters_cands.index()[begin + tid].index();  // global candidate index
+          auto pdgid_abs = alpaka::math::abs(acc, static_cast<int>(pf.pdgid()[p]));
+          // features
+          input_tensor.features()(tid, 0) = pf.pt()[p];
+          input_tensor.features()(tid, 1) = pf.eta()[p] - shEta;
+          input_tensor.features()(tid, 2) = phi(acc, pf.phi()[p], shPhi);
+          input_tensor.features()(tid, 3) = pf.z0()[p];
+          input_tensor.features()(tid, 4) = charge(acc, pf.pdgid()[p]);
+          // one hot-encoding for pdgid
+          input_tensor.features()(tid, 5) = (pdgid_abs == 211) ? 1.0f : 0.0f;
+          input_tensor.features()(tid, 6) = (pdgid_abs == 130) ? 1.0f : 0.0f;
+          input_tensor.features()(tid, 7) = (pdgid_abs == 11) ? 1.0f : 0.0f;
+          input_tensor.features()(tid, 8) = (pdgid_abs == 13) ? 1.0f : 0.0f;
+          input_tensor.features()(tid, 9) = (pdgid_abs == 22) ? 1.0f : 0.0f;
+          // pad mask
+          input_tensor.pad_mask()(tid) = 0.f;
         }
       }
+    }
   };
 
-  AssociationMapDevice sortClustersCandsMap(Queue& queue, 
-                        const PFCandidateDeviceCollection& pf, 
-                        const BxLookupDevice& bxClustersMap,
-                        const AssociationMapDevice& clusterCandsMap, 
-                        const ClustersDeviceCollection& clusters) {
+  AssociationMapDevice sortClustersCandsMap(Queue& queue,
+                                            const PFCandidateDeviceCollection& pf,
+                                            const BxLookupDevice& bxClustersMap,
+                                            const AssociationMapDevice& clusterCandsMap,
+                                            const ClustersDeviceCollection& clusters) {
     const auto nbx = bxClustersMap.const_view().bx().metadata().size();
     const auto num_clustered = clusterCandsMap.const_view().index().metadata().size();
-    
+
     // device buffers needed for the radixSort to work
     auto perm = cms::alpakatools::make_device_buffer<uint16_t[]>(queue, num_clustered);
     auto permWork = cms::alpakatools::make_device_buffer<uint16_t[]>(queue, num_clustered);
@@ -245,65 +228,59 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     // define workdiv
     auto threadsPerBlock = 256;
     auto workDiv = make_workdiv<Acc1D>(nbx, threadsPerBlock);
-    
+
     // generate uint32_t keys that are accepted by radixSort
     {
       CMS_PERFETTO_SCOPE("BuildBxWiseRadixSortKeysOffsets");
-      alpaka::exec<Acc1D>(
-        queue, 
-        workDiv, 
-        BuildBxWiseRadixSortKeysOffsets{}, 
-        bxClustersMap.const_view(),
-        clusterCandsMap.const_view(),
-        pf.const_view(),
-        clusters.const_view(),
-        alpaka::getPtrNative(bxClusteredCandsOffsets), 
-        alpaka::getPtrNative(keys) 
-      );
+      alpaka::exec<Acc1D>(queue,
+                          workDiv,
+                          BuildBxWiseRadixSortKeysOffsets{},
+                          bxClustersMap.const_view(),
+                          clusterCandsMap.const_view(),
+                          pf.const_view(),
+                          clusters.const_view(),
+                          alpaka::getPtrNative(bxClusteredCandsOffsets),
+                          alpaka::getPtrNative(keys));
     }
-    
+
     // run radix sort
     {
       CMS_PERFETTO_SCOPE("radixSortMultiWrapper2");
-      alpaka::exec<Acc1D>(
-        queue,
-        workDiv, 
-        radixSortMultiWrapper2<uint32_t, 4>{}, 
-        alpaka::getPtrNative(keys), 
-        alpaka::getPtrNative(perm),
-        alpaka::getPtrNative(bxClusteredCandsOffsets),
-        alpaka::getPtrNative(permWork)
-      );
+      alpaka::exec<Acc1D>(queue,
+                          workDiv,
+                          radixSortMultiWrapper2<uint32_t, 4>{},
+                          alpaka::getPtrNative(keys),
+                          alpaka::getPtrNative(perm),
+                          alpaka::getPtrNative(bxClusteredCandsOffsets),
+                          alpaka::getPtrNative(permWork));
     }
-    
+
     // alpaka::wait(queue);
-    
+
     // instantiate new sorted association map
     AssociationMapDevice clusterCandsMapSorted(queue,
-                                                clusterCandsMap.const_view().index().metadata().size(),
-                                                clusterCandsMap.const_view().offset().metadata().size()); 
-      
-      // apply permutation returned by radix sort
+                                               clusterCandsMap.const_view().index().metadata().size(),
+                                               clusterCandsMap.const_view().offset().metadata().size());
+
+    // apply permutation returned by radix sort
     {
       CMS_PERFETTO_SCOPE("ApplyBxWisePermutationKernel");
-      alpaka::exec<Acc1D>(
-        queue, 
-        workDiv, 
-        ApplyBxWisePermutationKernel{}, 
-        clusterCandsMap.const_view(),
-        alpaka::getPtrNative(bxClusteredCandsOffsets),
-        alpaka::getPtrNative(perm), 
-        clusterCandsMapSorted.view().index().index().data()
-      );
+      alpaka::exec<Acc1D>(queue,
+                          workDiv,
+                          ApplyBxWisePermutationKernel{},
+                          clusterCandsMap.const_view(),
+                          alpaka::getPtrNative(bxClusteredCandsOffsets),
+                          alpaka::getPtrNative(perm),
+                          clusterCandsMapSorted.view().index().index().data());
     }
 
     // copy also the offsets column to the new sorted map
     auto srcOffsets = alpaka::createView(alpaka::getDev(queue),
-                                        clusterCandsMap.const_view().offset().offset().data(), 
-                                        Vec1D{clusterCandsMap.const_view().offset().metadata().size()});
+                                         clusterCandsMap.const_view().offset().offset().data(),
+                                         Vec1D{clusterCandsMap.const_view().offset().metadata().size()});
     auto dstOffsets = alpaka::createView(alpaka::getDev(queue),
-                                        clusterCandsMapSorted.view().offset().offset().data(), 
-                                        Vec1D{clusterCandsMapSorted.view().offset().metadata().size()});
+                                         clusterCandsMapSorted.view().offset().offset().data(),
+                                         Vec1D{clusterCandsMapSorted.view().offset().metadata().size()});
     alpaka::memcpy(queue, dstOffsets, srcOffsets);
     // alpaka::wait(queue);
 
@@ -311,7 +288,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     // std::vector<uint32_t> cc_indexes(static_cast<size_t>(clusterCandsMapSorted.const_view().index().metadata().size()));
     // std::vector<uint32_t> cc_offsets(static_cast<size_t>(clusterCandsMapSorted.const_view().offset().metadata().size()));
     // auto dstIndexes = alpaka::createView(alpaka::getDev(queue),
-    //                                     clusterCandsMapSorted.view().index().index().data(), 
+    //                                     clusterCandsMapSorted.view().index().index().data(),
     //                                     Vec1D{clusterCandsMapSorted.view().index().metadata().size()});
     // alpaka::memcpy(queue, cc_indexes, dstIndexes);
     // alpaka::memcpy(queue, cc_offsets, dstOffsets);
@@ -320,10 +297,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     // auto max_size = std::max({cc_indexes.size(), cc_offsets.size()});
     // cc_indexes.resize(max_size, std::numeric_limits<uint32_t>::max());
     // cc_offsets.resize(max_size, std::numeric_limits<uint32_t>::max());
-    
+
     // std::ofstream cc_map_stream("cc_map_reordered_v2.csv", std::ios::out);
     // cc_map_stream << "cand_idx,offset\n";
-    // for (int i = 0; i < max_size; ++i) 
+    // for (int i = 0; i < max_size; ++i)
     //   cc_map_stream << fmt::format("{},{}\n", cc_indexes[i], cc_offsets[i]);
     // cc_map_stream.close();
     /* END DEBUG */
@@ -331,9 +308,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     return clusterCandsMapSorted;
   }
 
-  SoftTauInputDeviceTensor transform(Queue& queue, 
-                                      const PFCandidateDeviceCollection& pf,
-                                      const AssociationMapDevice& clusterCandsMap) {
+  SoftTauInputDeviceTensor transform(Queue& queue,
+                                     const PFCandidateDeviceCollection& pf,
+                                     const AssociationMapDevice& clusterCandsMap) {
     // initialize input tensor
     const auto num_clusters = clusterCandsMap.const_view().offset().metadata().size() - 1;
     auto input_tensor = SoftTauInputDeviceTensor(queue, num_clusters);
@@ -342,15 +319,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     // work division
     auto threadsPerBlock = 256;
     auto workDiv = make_workdiv<Acc1D>(num_clusters, threadsPerBlock);
-    
+
     {
       CMS_PERFETTO_SCOPE("ComputeClueTauFeaturesKernel");
-      alpaka::exec<Acc1D>(queue, 
-        workDiv, 
-        ComputeClueTauFeaturesKernel{}, 
-        pf.const_view(),
-        clusterCandsMap.const_view(),
-        input_tensor.view());
+      alpaka::exec<Acc1D>(queue,
+                          workDiv,
+                          ComputeClueTauFeaturesKernel{},
+                          pf.const_view(),
+                          clusterCandsMap.const_view(),
+                          input_tensor.view());
     }
 
     /* BEGIN DEBUG */
@@ -378,7 +355,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     //   }
     // }
     /* END DEBUG */
-      
+
     return input_tensor;
   }
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels

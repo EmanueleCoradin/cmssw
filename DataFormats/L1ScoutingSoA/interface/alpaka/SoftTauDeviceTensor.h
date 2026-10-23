@@ -22,9 +22,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
 // heterogeneous ml data checks
-ASSERT_DEVICE_MATCHES_HOST_COLLECTION(l1sc::SoftTauInputDeviceTensor,
-                                      l1sc::SoftTauInputHostTensor);
-ASSERT_DEVICE_MATCHES_HOST_COLLECTION(l1sc::SoftTauOutputDeviceTensor,
-                                      l1sc::SoftTauOutputHostTensor);
+ASSERT_DEVICE_MATCHES_HOST_COLLECTION(l1sc::SoftTauInputDeviceTensor, l1sc::SoftTauInputHostTensor);
+ASSERT_DEVICE_MATCHES_HOST_COLLECTION(l1sc::SoftTauOutputDeviceTensor, l1sc::SoftTauOutputHostTensor);
 
 #endif  // DataFormats_L1ScoutingSoA_interface_alpaka_SoftTauDeviceTensor_h

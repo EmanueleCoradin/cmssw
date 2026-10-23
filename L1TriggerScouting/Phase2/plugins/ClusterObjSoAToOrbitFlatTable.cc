@@ -20,16 +20,15 @@
 #include "DataFormats/L1ScoutingSoA/interface/BxLookupHost.h"
 #include "DataFormats/L1ScoutingSoA/interface/ClustersHostCollection.h"
 
-
 class ClusterObjSoAToOrbitFlatTable : public edm::global::EDProducer<> {
 public:
   // constructor and destructor
-  explicit ClusterObjSoAToOrbitFlatTable(const edm::ParameterSet&);
+  explicit ClusterObjSoAToOrbitFlatTable(const edm::ParameterSet &);
   ~ClusterObjSoAToOrbitFlatTable() override {};
 
-  void produce(edm::StreamID, edm::Event&, edm::EventSetup const&) const override;
+  void produce(edm::StreamID, edm::Event &, edm::EventSetup const &) const override;
 
-  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+  static void fillDescriptions(edm::ConfigurationDescriptions &descriptions);
 
 private:
   // the tokens to access the data
@@ -42,7 +41,7 @@ private:
 
 // -------------------------------- constructor  -------------------------------
 
-ClusterObjSoAToOrbitFlatTable::ClusterObjSoAToOrbitFlatTable(const edm::ParameterSet& iConfig)
+ClusterObjSoAToOrbitFlatTable::ClusterObjSoAToOrbitFlatTable(const edm::ParameterSet &iConfig)
     : srcBx_(consumes<l1sc::BxLookupHost>(iConfig.getParameter<edm::InputTag>("srcBx"))),
       srcClusters_(consumes<l1sc::ClusterObjHostCollection>(iConfig.getParameter<edm::InputTag>("srcClusters"))),
       name_(iConfig.getParameter<std::string>("name")),
@@ -52,14 +51,14 @@ ClusterObjSoAToOrbitFlatTable::ClusterObjSoAToOrbitFlatTable(const edm::Paramete
 // -----------------------------------------------------------------------------
 
 // ----------------------- method called for each orbit  -----------------------
-void ClusterObjSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm::EventSetup const&) const {
+void ClusterObjSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event &iEvent, edm::EventSetup const &) const {
   edm::Handle<l1sc::BxLookupHost> srcBx;
   iEvent.getByToken(srcBx_, srcBx);
   edm::Handle<l1sc::ClusterObjHostCollection> srcClusters;
   iEvent.getByToken(srcClusters_, srcClusters);
 
   const auto *bxs = srcBx->const_view().offset().offset().data();
-  const unsigned int nbx = srcBx->const_view().offset().metadata().size(); // pay attention here
+  const unsigned int nbx = srcBx->const_view().offset().metadata().size();  // pay attention here
 
   const auto *pt = srcClusters->const_view().pt().data();
   const auto *eta = srcClusters->const_view().eta().data();
@@ -71,16 +70,16 @@ void ClusterObjSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, e
   std::vector<int32_t> clusters;
   for (unsigned int bx = 1; bx < nbx; ++bx) {
     for (unsigned int i = bxs[bx - 1]; i < bxs[bx]; ++i) {
-        if (pt[i] > 0) {
-            pts.push_back(pt[i]);
-            etas.push_back(eta[i]);
-            phis.push_back(phi[i]);
-            clusters.push_back(cluster[i]);
-        }
+      if (pt[i] > 0) {
+        pts.push_back(pt[i]);
+        etas.push_back(eta[i]);
+        phis.push_back(phi[i]);
+        clusters.push_back(cluster[i]);
+      }
     }
     bxOffsets.push_back(pts.size());
   }
-  
+
   auto out = std::make_unique<l1ScoutingRun3::OrbitFlatTable>(bxOffsets, name_);
   out->setDoc(doc_);
   out->addColumn<float>("pt", pts, "cluster pt (GeV)");
@@ -90,7 +89,7 @@ void ClusterObjSoAToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, e
   iEvent.put(std::move(out));
 }
 
-void ClusterObjSoAToOrbitFlatTable::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+void ClusterObjSoAToOrbitFlatTable::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("srcBx");
   desc.add<edm::InputTag>("srcClusters");

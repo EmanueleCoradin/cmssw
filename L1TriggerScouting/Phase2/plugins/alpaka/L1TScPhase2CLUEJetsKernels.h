@@ -2,7 +2,7 @@
 #define L1TriggerScouting_Phase2_plugins_alpaka_L1TScPhase2CLUEJetsKernels_h
 
 #include <alpaka/alpaka.hpp>
-#include <fmt/core.h> 
+#include <fmt/core.h>
 
 #include "CLUEstering/CLUEstering.hpp"
 #include "DataFormats/L1ScoutingSoA/interface/BxLookupHost.h"

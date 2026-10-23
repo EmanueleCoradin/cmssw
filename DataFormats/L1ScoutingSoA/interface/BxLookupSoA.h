@@ -5,16 +5,13 @@
 
 namespace l1sc {
 
-    GENERATE_SOA_LAYOUT(BxLookupBxIndexLayout, SOA_COLUMN(uint16_t, bx))
-    GENERATE_SOA_LAYOUT(BxLookupOffsetLayout, SOA_COLUMN(uint32_t, offset))
+  GENERATE_SOA_LAYOUT(BxLookupBxIndexLayout, SOA_COLUMN(uint16_t, bx))
+  GENERATE_SOA_LAYOUT(BxLookupOffsetLayout, SOA_COLUMN(uint32_t, offset))
 
-    GENERATE_SOA_BLOCKS(BxLookupLayout, 
-        SOA_BLOCK(bx, BxLookupBxIndexLayout), 
-        SOA_BLOCK(offset, BxLookupOffsetLayout)
-    )
+  GENERATE_SOA_BLOCKS(BxLookupLayout, SOA_BLOCK(bx, BxLookupBxIndexLayout), SOA_BLOCK(offset, BxLookupOffsetLayout))
 
-    using BxLookupSoA = BxLookupLayout<>;
+  using BxLookupSoA = BxLookupLayout<>;
 
-}
+}  // namespace l1sc
 
-# endif // DataFormats_L1ScoutingSoA_interface_BxLookupSoA_
+#endif  // DataFormats_L1ScoutingSoA_interface_BxLookupSoA_

@@ -7,20 +7,20 @@
 namespace l1sc {
 
   // typedefs
-  typedef          __int128         int128_t;
-  typedef unsigned __int128         uint128_t;
+  typedef __int128 int128_t;
+  typedef unsigned __int128 uint128_t;
 
   // aliases
-  using            bx_t           = uint16_t;
-  using            count_t        = uint32_t;
-  using            data_t         = uint64_t;
-  using            BxVec          = std::vector<bx_t>;
-  using            CountVec       = std::vector<count_t>;
-  using            TkEmPayloadVec = std::vector<uint128_t>;
+  using bx_t = uint16_t;
+  using count_t = uint32_t;
+  using data_t = uint64_t;
+  using BxVec = std::vector<bx_t>;
+  using CountVec = std::vector<count_t>;
+  using TkEmPayloadVec = std::vector<uint128_t>;
 
   // constants
   const size_t numTkEm = 12u;
-  const size_t numTkEmWords = 18u; // (kNumTkEm * 96) / 64 = 18
+  const size_t numTkEmWords = 18u;  // (kNumTkEm * 96) / 64 = 18
 
   enum class Environment : int { kProduction = 0, kDevelopment = 1, kTest = 2, kDebug = 3 };
 

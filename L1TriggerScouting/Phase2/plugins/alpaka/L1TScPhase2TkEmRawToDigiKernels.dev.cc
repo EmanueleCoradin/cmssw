@@ -196,11 +196,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc::kernels {
     cms::alpakatools::iterativePrefixScan<Acc1D>(input, output, size, queue);
   }
 
-  void fill_lookups(Queue& queue,
-                    const uint32_t* bx_arr,
-                    uint32_t nbx,
-                    BxLookupDevice& tkem_lookup,
-                    BxLookupDevice& tkele_lookup) {
+  void fill_lookups(
+      Queue& queue, const uint32_t* bx_arr, uint32_t nbx, BxLookupDevice& tkem_lookup, BxLookupDevice& tkele_lookup) {
     const uint32_t threads_per_block = 512;
     const uint32_t blocks_per_grid = cms::alpakatools::divide_up_by(nbx, threads_per_block);
     const auto grid = cms::alpakatools::make_workdiv<Acc1D>(blocks_per_grid, threads_per_block);

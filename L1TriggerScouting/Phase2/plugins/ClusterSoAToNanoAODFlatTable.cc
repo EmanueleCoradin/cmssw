@@ -63,9 +63,11 @@ void ClusterSoAToNanoAODFlatTable::produce(edm::StreamID, edm::Event& iEvent, ed
   std::vector<int32_t> clusters{cluster, cluster + nclusters};
   std::vector<int32_t> is_seed{seed, seed + nclusters};
 
-  auto out = std::make_unique<nanoaod::FlatTable>(clusters.size(), name_, /* singleton */ false, /* extension */ extension_);
+  auto out =
+      std::make_unique<nanoaod::FlatTable>(clusters.size(), name_, /* singleton */ false, /* extension */ extension_);
   out->setDoc(doc_);
-  out->addColumn<int32_t>("clusterIndex" + clustering_name_, clusters, "associated cluster index for " + clustering_name_);
+  out->addColumn<int32_t>(
+      "clusterIndex" + clustering_name_, clusters, "associated cluster index for " + clustering_name_);
   out->addColumn<int32_t>("isSeed" + clustering_name_, is_seed, "cluster used as seed for " + clustering_name_);
   iEvent.put(std::move(out));
 }

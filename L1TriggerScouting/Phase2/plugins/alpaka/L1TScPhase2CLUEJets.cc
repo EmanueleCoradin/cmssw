@@ -46,13 +46,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       auto points_clusters = ClustersDeviceCollection(event.queue(), n_points);
 
       // run CLUEstering algo
-      auto [bx_clusters_map, cluster_objects, clusters_cands_map] = clustering_.run(event.queue(), pf, bx_sizes, points_clusters);
+      auto [bx_clusters_map, cluster_objects, clusters_cands_map] =
+          clustering_.run(event.queue(), pf, bx_sizes, points_clusters);
 
       // emplace clustering products into the orbit
-      event.emplace(bx_clusters_map_token_, std::move(bx_clusters_map)); // bx -> clusters map
-      event.emplace(clusters_cands_map_token_, std::move(clusters_cands_map)); // clusters -> candidates map
-      event.emplace(cluster_objects_token_, std::move(cluster_objects)); // collection of cluster features (currently only cluster index is filled)
-      event.emplace(clusters_token_, std::move(points_clusters)); // list of the cluster index each candidate belongs to (-1 if it is outlier)
+      event.emplace(bx_clusters_map_token_, std::move(bx_clusters_map));        // bx -> clusters map
+      event.emplace(clusters_cands_map_token_, std::move(clusters_cands_map));  // clusters -> candidates map
+      event.emplace(
+          cluster_objects_token_,
+          std::move(cluster_objects));  // collection of cluster features (currently only cluster index is filled)
+      event.emplace(
+          clusters_token_,
+          std::move(points_clusters));  // list of the cluster index each candidate belongs to (-1 if it is outlier)
     }
 
     static void fillDescriptions(edm::ConfigurationDescriptions &descriptions) {

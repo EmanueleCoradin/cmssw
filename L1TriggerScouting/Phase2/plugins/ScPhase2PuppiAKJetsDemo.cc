@@ -70,7 +70,7 @@ void ScPhase2PuppiAKJetsDemo::produce(edm::Event &iEvent, const edm::EventSetup 
   std::vector<PseudoJet> particles;
   for (unsigned int bx = 1; bx <= OrbitCollection<l1Scouting::Puppi>::NBX; ++bx) {
     auto span = src->bxIterator(bx);
-    unsigned int i0 = std::distance(&*src->begin(), &*span.begin()); // global index
+    unsigned int i0 = std::distance(&*src->begin(), &*span.begin());  // global index
 
     particles.clear();
     for (unsigned i = 0; i < span.size(); i++) {
@@ -88,10 +88,10 @@ void ScPhase2PuppiAKJetsDemo::produce(edm::Event &iEvent, const edm::EventSetup 
       pt.push_back(j.pt());
       eta.push_back(j.eta());
       phi.push_back(reco::reducePhiRange(j.phi()));
-      for (const auto & dau : j.constituents()) {
+      for (const auto &dau : j.constituents()) {
         unsigned int idx = dau.user_index() + i0;
         cluster[idx] = icluster;
-      } 
+      }
       icluster++;
     }
 

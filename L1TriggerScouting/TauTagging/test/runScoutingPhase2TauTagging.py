@@ -95,7 +95,7 @@ process.L1TScPhase2CLUEJetsProducer.candidates = cms.InputTag("unpacker", "candi
 process.L1TScPhase2CLUEJetsProducer.bxSizes = cms.InputTag("unpacker", "bxSizes")
 
 # sorting, reshaping, tagging
-process.softTausTorch = cms.EDProducer("l1sc::SoftTauIdML@alpaka", 
+process.softTaus = cms.EDProducer("l1sc::SoftTauIdML@alpaka", 
     alpaka = cms.untracked.PSet(
         backend = cms.untracked.string(options.backend)
     ),
@@ -105,10 +105,10 @@ process.softTausTorch = cms.EDProducer("l1sc::SoftTauIdML@alpaka",
     srcClusters = cms.InputTag("L1TScPhase2CLUEJetsProducer", "clusters"),
     model = cms.FileInPath(options.model), 
     substep = cms.string(options.pipelineStep), 
-    batchSize = cms.uint32(1024)
+    batchSize = cms.uint32(2048)
 )
 
-process.softTaus = cms.EDProducer("l1sc::SoftTauIdONNX@alpaka",
+process.softTausONNX = cms.EDProducer("l1sc::SoftTauIdONNX@alpaka",
     alpaka = cms.untracked.PSet(
         backend = cms.untracked.string(options.backend)
     ),
@@ -181,7 +181,7 @@ process.schedule = cms.Schedule(
 # tracing with Perfetto
 from PerfTools.Perfetto.customisePerfetto import customisePerfetto
 customisePerfetto(process,
-              fileName="tau_tagging_nomemcpy.pftrace",
+              fileName="tau_tagging_torch.pftrace",
               traceFunctions=True,
               traceGpuKernels=True,
               traceAllocations=True)

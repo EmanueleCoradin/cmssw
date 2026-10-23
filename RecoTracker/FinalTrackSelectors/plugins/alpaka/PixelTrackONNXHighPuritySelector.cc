@@ -87,8 +87,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     if (name == "rocm")
       return cms::Ort::Backend::rocm;
 
-    throw cms::Exception("Configuration")
-        << "Unsupported ONNX Runtime backend: " << name;
+    throw cms::Exception("Configuration") << "Unsupported ONNX Runtime backend: " << name;
   }
 
   /// Input/output tensors associated to a single inference batch.
@@ -102,12 +101,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     using TrackHitSoA = ::reco::TrackHitSoA;
 
   public:
-
     explicit PixelTrackONNXHighPuritySelector(const edm::ParameterSet&);
     static void fillDescriptions(edm::ConfigurationDescriptions&);
 
   private:
-
     void produce(device::Event&, const device::EventSetup&) override;
     void beginStream(edm::StreamID /*sid*/, Queue queue) override;
     const device::EDGetToken<TkSoADevice> pixelTrackToken_;
@@ -120,7 +117,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     ort::AlpakaSession model_;
 
-  const bool featureMajor_;
+    const bool featureMajor_;
     const int batchSize_;
     const device::EDPutToken<TkSoADevice> tokenTrackOut_;
   };
@@ -136,22 +133,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         minimumTrackQuality_(pixelTrack::qualityByName(iConfig.getParameter<std::string>("minimumTrackQuality"))),
         scoreThreshold_(iConfig.getParameter<double>("scoreThreshold")),
         model_(iConfig.getParameter<edm::FileInPath>("model").fullPath(),
-        parseBackend(iConfig.getParameter<std::string>("backend"))),
+               parseBackend(iConfig.getParameter<std::string>("backend"))),
 
-      featureMajor_(iConfig.getParameter<bool>("featureMajor")),
+        featureMajor_(iConfig.getParameter<bool>("featureMajor")),
         batchSize_(iConfig.getParameter<int>("batchSize")),
         tokenTrackOut_(produces()) {
-
     if (minimumTrackQuality_ == pixelTrack::Quality::notQuality) {
-      throw cms::Exception("PixelTrackConfiguration") << iConfig.getParameter<std::string>("minimumTrackQuality") + " is not a pixelTrack::Quality";
+      throw cms::Exception("PixelTrackConfiguration")
+          << iConfig.getParameter<std::string>("minimumTrackQuality") + " is not a pixelTrack::Quality";
     }
 
     if (minimumTrackQuality_ < pixelTrack::Quality::dup) {
-      throw cms::Exception("PixelTrackConfiguration") << iConfig.getParameter<std::string>("minimumTrackQuality") + " not supported";
+      throw cms::Exception("PixelTrackConfiguration")
+          << iConfig.getParameter<std::string>("minimumTrackQuality") + " not supported";
     }
 
     if (batchSize_ <= 0 || maxPreselectedTracks_ <= 0) {
-        throw cms::Exception("PixelTrackConfiguration") << "batchSize and maxPreselectedTracks must be positive";
+      throw cms::Exception("PixelTrackConfiguration") << "batchSize and maxPreselectedTracks must be positive";
     }
 
     if (maxPreselectedTracks_ > maxNumberOfTracks_) {
@@ -164,7 +162,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     model_.bind(queue);
   }
 
-void PixelTrackONNXHighPuritySelector::produce(device::Event& iEvent, const device::EventSetup&) {
+  void PixelTrackONNXHighPuritySelector::produce(device::Event& iEvent, const device::EventSetup&) {
     /* 
     Processing steps:
       1. CA-based preselection of tracks
@@ -228,17 +226,16 @@ void PixelTrackONNXHighPuritySelector::produce(device::Event& iEvent, const devi
     //  Launch first kernel to look which tracks need to be filtered out
     //  based on quality criteria from the CA
     {
-    CMS_PERFETTO_SCOPE("CA-Preselection");
-        
-    
-    launchCAPreselection(queue,
-                         maxNumberOfTracks_,
-                         minNumberOfHits_,
-                         minimumTrackQuality_,
-                         tracks.tracks(),
-                         alpaka::getPtrNative(d_preselectedTrackIndices),
-                         alpaka::getPtrNative(d_preselectionOffsets),
-                         alpaka::getPtrNative(d_nPreselectedTracks));
+      CMS_PERFETTO_SCOPE("CA-Preselection");
+
+      launchCAPreselection(queue,
+                           maxNumberOfTracks_,
+                           minNumberOfHits_,
+                           minimumTrackQuality_,
+                           tracks.tracks(),
+                           alpaka::getPtrNative(d_preselectedTrackIndices),
+                           alpaka::getPtrNative(d_preselectionOffsets),
+                           alpaka::getPtrNative(d_nPreselectedTracks));
     }
 #ifdef PIXEL_TRACK_HP_DEBUG
 
@@ -247,15 +244,15 @@ void PixelTrackONNXHighPuritySelector::produce(device::Event& iEvent, const devi
 
 #endif
     {
-    CMS_PERFETTO_SCOPE("FeaturesExtractor");
+      CMS_PERFETTO_SCOPE("FeaturesExtractor");
 
-    launchFeaturesExtractor(queue,
-                            maxPreselectedTracks_,
-                            tracks.tracks(),
-                            alpaka::getPtrNative(d_preselectedTrackIndices),
-                            alpaka::getPtrNative(d_nPreselectedTracks),
-                            trackFeatures.view(),
-                            alpaka::getPtrNative(d_trackHitCounts));
+      launchFeaturesExtractor(queue,
+                              maxPreselectedTracks_,
+                              tracks.tracks(),
+                              alpaka::getPtrNative(d_preselectedTrackIndices),
+                              alpaka::getPtrNative(d_nPreselectedTracks),
+                              trackFeatures.view(),
+                              alpaka::getPtrNative(d_trackHitCounts));
     }
     // 3. DNN inference
     //  Prepare TensorCollection inputs and outputs for the model
@@ -266,9 +263,10 @@ void PixelTrackONNXHighPuritySelector::produce(device::Event& iEvent, const devi
 
     // - Tensor collections for DNN inference
     for (auto i_batch = 0; i_batch < n_batches; ++i_batch) {
-      batches.emplace_back(
-          BatchIO{cms::Ort::alpakatools::TensorCollection<Queue>(featureMajor_ ? maxPreselectedTracks_ : batchSize_, maxPreselectedTracks_),
-                  cms::Ort::alpakatools::TensorCollection<Queue>(featureMajor_ ? maxPreselectedTracks_ : batchSize_, maxPreselectedTracks_)});
+      batches.emplace_back(BatchIO{cms::Ort::alpakatools::TensorCollection<Queue>(
+                                       featureMajor_ ? maxPreselectedTracks_ : batchSize_, maxPreselectedTracks_),
+                                   cms::Ort::alpakatools::TensorCollection<Queue>(
+                                       featureMajor_ ? maxPreselectedTracks_ : batchSize_, maxPreselectedTracks_)});
 
       auto& batch = batches.back();
       // Order must match the ONNX model input schema
@@ -302,39 +300,39 @@ void PixelTrackONNXHighPuritySelector::produce(device::Event& iEvent, const devi
         batch.outputs.set_layout("track_scores", cms::Ort::alpakatools::Layout::FeatureMajor);
       }
       {
-      CMS_PERFETTO_SCOPE("Forward call");
-      model_.forward(queue, batch.inputs, batch.outputs);
+        CMS_PERFETTO_SCOPE("Forward call");
+        model_.forward(queue, batch.inputs, batch.outputs);
       }
     }
 
-    { 
-    CMS_PERFETTO_SCOPE("Score Filter");
-    launchScoreFilter(queue,
-                      maxPreselectedTracks_,
-                      scoreThreshold_,
-                      trackScoresOnDevice.view(),
-                      alpaka::getPtrNative(d_preselectedTrackIndices),
-                      alpaka::getPtrNative(d_nPreselectedTracks),
-                      alpaka::getPtrNative(d_trackHitCounts),
-                      alpaka::getPtrNative(d_selectedTrackIndices),
-                      alpaka::getPtrNative(d_nSelectedTracks),
-                      alpaka::getPtrNative(d_selectedTrackHitOffsets));
+    {
+      CMS_PERFETTO_SCOPE("Score Filter");
+      launchScoreFilter(queue,
+                        maxPreselectedTracks_,
+                        scoreThreshold_,
+                        trackScoresOnDevice.view(),
+                        alpaka::getPtrNative(d_preselectedTrackIndices),
+                        alpaka::getPtrNative(d_nPreselectedTracks),
+                        alpaka::getPtrNative(d_trackHitCounts),
+                        alpaka::getPtrNative(d_selectedTrackIndices),
+                        alpaka::getPtrNative(d_nSelectedTracks),
+                        alpaka::getPtrNative(d_selectedTrackHitOffsets));
     }
 #ifdef PIXEL_TRACK_HP_DEBUG
     nSelectedTracks = fetchNumSelectedTracks();
     std::cout << "PixelTrackONNXHighPuritySelector::Filtered tracks=" << nSelectedTracks << "\n";
 #endif
     TkSoADevice tracks_out(queue, int(maxPreselectedTracks_), int(maxPreselectedTracks_ * avgHitsPerTrack_));
-    { 
-    CMS_PERFETTO_SCOPE("Output Tracks");
-    tracks_out = launchProduceOutputTracks(queue,
-                                                maxPreselectedTracks_,
-                                                avgHitsPerTrack_,
-                                                tracks.tracks(),
-                                                tracks.trackHits(),
-                                                alpaka::getPtrNative(d_selectedTrackIndices),
-                                                alpaka::getPtrNative(d_nSelectedTracks),
-                                                alpaka::getPtrNative(d_selectedTrackHitOffsets));
+    {
+      CMS_PERFETTO_SCOPE("Output Tracks");
+      tracks_out = launchProduceOutputTracks(queue,
+                                             maxPreselectedTracks_,
+                                             avgHitsPerTrack_,
+                                             tracks.tracks(),
+                                             tracks.trackHits(),
+                                             alpaka::getPtrNative(d_selectedTrackIndices),
+                                             alpaka::getPtrNative(d_nSelectedTracks),
+                                             alpaka::getPtrNative(d_selectedTrackHitOffsets));
     }
 
     iEvent.emplace(tokenTrackOut_, std::move(tracks_out));

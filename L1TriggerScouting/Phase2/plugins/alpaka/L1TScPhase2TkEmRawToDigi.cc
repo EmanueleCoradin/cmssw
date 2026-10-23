@@ -13,22 +13,22 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/EDProducer.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "L1TriggerScouting/Phase2/interface/L1TScPhase2Common.h"
-#include "L1TriggerScouting/Phase2/plugins/alpaka/L1TScPhase2TkEmRawToDigiKernels.h" // modify !
+#include "L1TriggerScouting/Phase2/plugins/alpaka/L1TScPhase2TkEmRawToDigiKernels.h"  // modify !
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
   struct TkEmBxData {
     bx_t bx;
-    count_t bx_size; // size in terms of number of objects
+    count_t bx_size;  // size in terms of number of objects
     const data_t *data_ptr;
-    size_t data_size; // size in terms of data_t words
+    size_t data_size;  // size in terms of data_t words
 
     // comparison operator for priority queue
     bool operator>(const TkEmBxData &other) const { return bx > other.bx; }
   };
 
   using TkEmHeap = std::priority_queue<TkEmBxData, std::vector<TkEmBxData>, std::greater<>>;
-  
+
   using namespace ::l1sc;
 
   class L1TScPhase2TkEmRawToDigi : public stream::EDProducer<> {
@@ -50,7 +50,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
       // normalize header & payload
       auto ngoodbx = normalize(raw_data);
-      assert(tkem_bx_vec_.size() == tkele_bx_vec_.size() && "[L1TScPhase2TkEmRawToDigi] TkEm and TkEle bx numbers differ.\n");
+      assert(tkem_bx_vec_.size() == tkele_bx_vec_.size() &&
+             "[L1TScPhase2TkEmRawToDigi] TkEm and TkEle bx numbers differ.\n");
       const auto nbx = static_cast<int32_t>(tkem_bx_vec_.size());
 
       // create bx lookup host (associaton maps are created on the host)
@@ -59,11 +60,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
 
       // copy bx indexes to the host collection bx column
       memcpy(bx_lookup_tkem.view().bx().bx().data(), tkem_bx_vec_.data(), sizeof(tkem_bx_vec_.size() * sizeof(bx_t)));
-      memcpy(bx_lookup_tkele.view().bx().bx().data(), tkele_bx_vec_.data(), sizeof(tkele_bx_vec_.size() * sizeof(bx_t)));
+      memcpy(
+          bx_lookup_tkele.view().bx().bx().data(), tkele_bx_vec_.data(), sizeof(tkele_bx_vec_.size() * sizeof(bx_t)));
 
       // calculate offsets using inclusive scan and put them into the host collection offset column
-      std::inclusive_scan(tkem_count_vec_.begin(), tkem_count_vec_.end(), bx_lookup_tkem.view().offset().offset().data() + 1);
-      std::inclusive_scan(tkele_count_vec_.begin(), tkele_count_vec_.end(), bx_lookup_tkele.view().offset().offset().data() + 1);
+      std::inclusive_scan(
+          tkem_count_vec_.begin(), tkem_count_vec_.end(), bx_lookup_tkem.view().offset().offset().data() + 1);
+      std::inclusive_scan(
+          tkele_count_vec_.begin(), tkele_count_vec_.end(), bx_lookup_tkele.view().offset().offset().data() + 1);
 
       // create TkEm/TkEle device collections (TkEm/TkEle collections are created on the device)
       auto tkem = TkEmDeviceCollection(event.queue(), tkem_payload_vec_.size());
@@ -111,29 +115,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
         const auto chunk_begin = reinterpret_cast<const data_t *>(stream.data());
         const auto chunk_end = reinterpret_cast<const data_t *>(stream.data() + stream.size());
 
-        for (auto ptr = chunk_begin; ptr < chunk_end;) { 
+        for (auto ptr = chunk_begin; ptr < chunk_end;) {
           if (*ptr == 0) {
             ++ptr;
             continue;
           }  // skip empty words
 
-          bx_t          bx            = ((*ptr) >> 12) & 0xFFF;
-          size_t        nwords        = (*ptr) & 0xFFF;              // unpack chunk size (no. of 64 bit word of Native64 header)
-          const count_t negamma       = (nwords * 2) / 3;
+          bx_t bx = ((*ptr) >> 12) & 0xFFF;
+          size_t nwords = (*ptr) & 0xFFF;  // unpack chunk size (no. of 64 bit word of Native64 header)
+          const count_t negamma = (nwords * 2) / 3;
 
-          auto          first_tkem    = ptr + 1;                     // move past header
-          auto          last_tkem     = ptr + numTkEmWords;          // move the pointer to the last tkEm of the 12 tkEm block
-          const count_t ntkem         = numTkEm;                     // the number of tkem words is fixed to 12 a-priori
+          auto first_tkem = ptr + 1;            // move past header
+          auto last_tkem = ptr + numTkEmWords;  // move the pointer to the last tkEm of the 12 tkEm block
+          const count_t ntkem = numTkEm;        // the number of tkem words is fixed to 12 a-priori
 
-          auto          first_tkele   = last_tkem + 1;               // move the pointer to the first tkEle of the remaining tkEle block
-          size_t        numTkEleWords = nwords - numTkEmWords;       // number of 64b words
-          const count_t ntkele        = (numTkEleWords * 2) / 3;     // convert number of 64b words difference in number of tkEle
+          auto first_tkele = last_tkem + 1;  // move the pointer to the first tkEle of the remaining tkEle block
+          size_t numTkEleWords = nwords - numTkEmWords;    // number of 64b words
+          const count_t ntkele = (numTkEleWords * 2) / 3;  // convert number of 64b words difference in number of tkEle
 
-          assert(negamma == (ntkem + ntkele));                       // closure test
+          assert(negamma == (ntkem + ntkele));  // closure test
           tkem_heap.push({bx, ntkem, first_tkem, numTkEmWords});
           tkele_heap.push({bx, ntkele, first_tkele, numTkEleWords});
 
-          ptr += (nwords + 1);                                      // move to the next bx, the + 1 is needed to move past the header
+          ptr += (nwords + 1);  // move to the next bx, the + 1 is needed to move past the header
         }
       }
 
@@ -145,16 +149,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       count_t ngoodbx_tkem = consume_heap(tkem_bx_vec_, tkem_count_vec_, tkem_payload_vec_, tkem_heap);
       count_t ngoodbx_tkele = consume_heap(tkele_bx_vec_, tkele_count_vec_, tkele_payload_vec_, tkele_heap);
 
-      assert(ngoodbx_tkem == ngoodbx_tkele && "[L1TScPhase2TkEmRawToDigi] Total good tkem BXs and total good tkele BX do not match.");
+      assert(ngoodbx_tkem == ngoodbx_tkele &&
+             "[L1TScPhase2TkEmRawToDigi] Total good tkem BXs and total good tkele BX do not match.");
       return ngoodbx_tkem;
     }
 
-    count_t consume_heap(BxVec& bx_vec, CountVec& count_vec, TkEmPayloadVec& payload_vec, TkEmHeap& pq) {
+    count_t consume_heap(BxVec &bx_vec, CountVec &count_vec, TkEmPayloadVec &payload_vec, TkEmHeap &pq) {
       count_t ngoodbx = 0;
       count_t nslices = 0;
-      
+
       auto bx_data = pq.top();
-      
+
       bx_vec.push_back(bx_data.bx);
       count_vec.push_back(bx_data.bx_size);
       auto buf_vec = flattenBuffer(bx_data);
@@ -175,7 +180,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
           count_vec.back() += bx_data2.bx_size;
           nslices++;
         }
-        
+
         bx_data = bx_data2;
 
         buf_vec = flattenBuffer(bx_data);
@@ -189,35 +194,30 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::l1sc {
       return ngoodbx;
     }
 
-    TkEmPayloadVec flattenBuffer(TkEmBxData& data)
-    {
-        TkEmPayloadVec output;
-        output.reserve(data.bx_size);
+    TkEmPayloadVec flattenBuffer(TkEmBxData &data) {
+      TkEmPayloadVec output;
+      output.reserve(data.bx_size);
 
-        for (std::size_t i = 0; i + 2 < data.data_size; i += 3) {
-          const uint64_t w0 = data.data_ptr[i];
-          const uint64_t w1 = data.data_ptr[i + 1];
-          const uint64_t w2 = data.data_ptr[i + 2];
+      for (std::size_t i = 0; i + 2 < data.data_size; i += 3) {
+        const uint64_t w0 = data.data_ptr[i];
+        const uint64_t w1 = data.data_ptr[i + 1];
+        const uint64_t w2 = data.data_ptr[i + 2];
 
-          // Logical element 0:
-          // [95:64] = lower 32 bits of w1
-          // [63:0]  = w0
-          const uint128_t x0 =
-              static_cast<uint128_t>(w0) |
-              (static_cast<uint128_t>(w1 & 0xffffffffULL) << 64);
+        // Logical element 0:
+        // [95:64] = lower 32 bits of w1
+        // [63:0]  = w0
+        const uint128_t x0 = static_cast<uint128_t>(w0) | (static_cast<uint128_t>(w1 & 0xffffffffULL) << 64);
 
-          // Logical element 1:
-          // [95:64] = upper 32 bits of w1
-          // [63:0]  = w2
-          const uint128_t x1 =
-              static_cast<uint128_t>(w2) |
-              (static_cast<uint128_t>(w1 >> 32) << 64);
+        // Logical element 1:
+        // [95:64] = upper 32 bits of w1
+        // [63:0]  = w2
+        const uint128_t x1 = static_cast<uint128_t>(w2) | (static_cast<uint128_t>(w1 >> 32) << 64);
 
-          output.push_back(x0);
-          output.push_back(x1);
-        }
+        output.push_back(x0);
+        output.push_back(x1);
+      }
 
-        return output;
+      return output;
     }
 
   private:

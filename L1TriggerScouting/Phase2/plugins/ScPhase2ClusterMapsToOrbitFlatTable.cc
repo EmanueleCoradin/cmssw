@@ -31,12 +31,12 @@ using LorentzVector = math::PtEtaPhiMLorentzVectorF;
 class ScPhase2ClusterMapsToOrbitFlatTable : public edm::global::EDProducer<> {
 public:
   // constructor and destructor
-  explicit ScPhase2ClusterMapsToOrbitFlatTable(const edm::ParameterSet&);
+  explicit ScPhase2ClusterMapsToOrbitFlatTable(const edm::ParameterSet &);
   ~ScPhase2ClusterMapsToOrbitFlatTable() override {};
 
-  void produce(edm::StreamID, edm::Event&, edm::EventSetup const&) const override;
+  void produce(edm::StreamID, edm::Event &, edm::EventSetup const &) const override;
 
-  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+  static void fillDescriptions(edm::ConfigurationDescriptions &descriptions);
 
 private:
   // the tokens to access the data
@@ -51,11 +51,13 @@ private:
 
 // -------------------------------- constructor  -------------------------------
 
-ScPhase2ClusterMapsToOrbitFlatTable::ScPhase2ClusterMapsToOrbitFlatTable(const edm::ParameterSet& iConfig) :
-      srcCandidates_(consumes<l1sc::PFCandidateHostCollection>(iConfig.getParameter<edm::InputTag>("srcCandidates"))),
+ScPhase2ClusterMapsToOrbitFlatTable::ScPhase2ClusterMapsToOrbitFlatTable(const edm::ParameterSet &iConfig)
+    : srcCandidates_(consumes<l1sc::PFCandidateHostCollection>(iConfig.getParameter<edm::InputTag>("srcCandidates"))),
       srcBxClustersMap_(consumes<l1sc::BxLookupHost>(iConfig.getParameter<edm::InputTag>("srcBxClustersMap"))),
-      srcClustersCandsMap_(consumes<l1sc::AssociationMapHost>(iConfig.getParameter<edm::InputTag>("srcClustersCandsMap"))),
-      srcClusterIndexes_(consumes<l1sc::ClustersHostCollection>(iConfig.getParameter<edm::InputTag>("srcClusterIndexes"))),
+      srcClustersCandsMap_(
+          consumes<l1sc::AssociationMapHost>(iConfig.getParameter<edm::InputTag>("srcClustersCandsMap"))),
+      srcClusterIndexes_(
+          consumes<l1sc::ClustersHostCollection>(iConfig.getParameter<edm::InputTag>("srcClusterIndexes"))),
       name_clusters_(iConfig.getParameter<std::string>("nameClusters")),
       doc_(iConfig.getParameter<std::string>("doc")) {
   produces<l1ScoutingRun3::OrbitFlatTable>("clusters");
@@ -63,7 +65,7 @@ ScPhase2ClusterMapsToOrbitFlatTable::ScPhase2ClusterMapsToOrbitFlatTable(const e
 // -----------------------------------------------------------------------------
 
 // ----------------------- method called for each orbit  -----------------------
-void ScPhase2ClusterMapsToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEvent, edm::EventSetup const&) const {
+void ScPhase2ClusterMapsToOrbitFlatTable::produce(edm::StreamID, edm::Event &iEvent, edm::EventSetup const &) const {
   edm::Handle<l1sc::PFCandidateHostCollection> srcCandidates;
   iEvent.getByToken(srcCandidates_, srcCandidates);
   edm::Handle<l1sc::BxLookupHost> srcBxClustersMap;
@@ -80,7 +82,7 @@ void ScPhase2ClusterMapsToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEv
   // bx->clusters map
   const auto *bxc_offsets = srcBxClustersMap->const_view().offset().offset().data();
   const auto *bxc_indexes = srcBxClustersMap->const_view().bx().bx().data();
-  
+
   // clusters->candidates map
   const auto *cc_offsets = srcClustersCandsMap->const_view().offset().offset().data();
   const auto *cc_indexes = srcClustersCandsMap->const_view().index().index().data();
@@ -108,14 +110,14 @@ void ScPhase2ClusterMapsToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEv
 
     // loop though the cluster indexes of the current bx
     for (auto jj = bx_start; jj < bx_end; ++jj) {
-      auto clu_idx = cluster_indexes[jj]; // fix a cluster index
+      auto clu_idx = cluster_indexes[jj];  // fix a cluster index
       auto clu_start = cc_offsets[clu_idx];
       auto clu_end = cc_offsets[clu_idx + 1];
 
       LorentzVector sum(0.0f, 0.0f, 0.0f, 0.0f);
       for (auto kk = clu_start; kk < clu_end; ++kk) {
-        auto cand_idx = cc_indexes[kk]; // fix a candidate index
-        LorentzVector cand(pf_pt[cand_idx], pf_eta[cand_idx], pf_phi[cand_idx], 0.13957f); // assume Pion mass
+        auto cand_idx = cc_indexes[kk];                                                     // fix a candidate index
+        LorentzVector cand(pf_pt[cand_idx], pf_eta[cand_idx], pf_phi[cand_idx], 0.13957f);  // assume Pion mass
         sum += cand;
       }
 
@@ -141,7 +143,7 @@ void ScPhase2ClusterMapsToOrbitFlatTable::produce(edm::StreamID, edm::Event& iEv
   iEvent.put(std::move(clu_table), "clusters");
 }
 
-void ScPhase2ClusterMapsToOrbitFlatTable::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+void ScPhase2ClusterMapsToOrbitFlatTable::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("srcCandidates");
   desc.add<edm::InputTag>("srcBxClustersMap");
