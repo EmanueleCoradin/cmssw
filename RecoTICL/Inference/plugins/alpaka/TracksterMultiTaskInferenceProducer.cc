@@ -17,6 +17,7 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/FixedQueueEDProducer.h"
 #include "RecoTICL/Inference/interface/alpaka/TracksterInferenceRunner.h"
+#include "PerfTools/Perfetto/interface/CMSSWPerfettoTrace.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -89,8 +90,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               queue, std::get<0>(features.const_view().records().selectedTracksterIndex()).data(), output, total);
         if (regression_)
           regression_->runInto(queue, features, output, minEnergy_);
-        if (pid_)
+        if (pid_){
+	  CMS_PERFETTO_SCOPE("Run into");
           pid_->runInto(queue, features, output);
+      	}
       }
       event.emplace(outputToken_, std::move(output));
     }

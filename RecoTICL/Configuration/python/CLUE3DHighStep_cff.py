@@ -29,7 +29,7 @@ ticlTrackstersCLUE3DHigh = _trackstersProducer.clone(
         doPidCut = True,
         cutHadProb = 999
     ),
-    inferenceAlgo = cms.string('TracksterInferenceByPFN'),
+    inferenceAlgo = cms.string('TracksterInferenceByCNN'),
     pluginInferenceAlgoTracksterInferenceByCNN = cms.PSet(
         algo_verbosity = cms.int32(0),
         type = cms.string("TracksterInferenceByCNN"),
@@ -81,12 +81,13 @@ ticlTrackstersToSoAProducer = _trackstersToSoAProducer.clone(
 
 # Retain the public module labels and the existing CNN PID-only defaults.
 _clue3DHighInference = makeTracksterInference(
-    model="PFN", 
+    model="CNN", 
     doPID=True, 
-    doRegression=True,
-    pidModel="RecoTICL/Inference/data/trackster_pid_pfn.pt",
+    doRegression=False,
+    pidModel="RecoTICL/Inference/data/trackster_pid_cnn.pt",
     regressionModel="RecoTICL/Inference/data/trackster_energy_pfn.pt",
-    minClusterEnergy=1.0
+    minClusterEnergy=1.0,
+    batchSize = 512
 )
 ticlTracksterFeaturesProducer = _clue3DHighInference.features
 ticlTracksterInferenceProducer = _clue3DHighInference.producer.clone(
