@@ -18,12 +18,10 @@ ticlSoATracksters = _hgCalSoATrackstersProducer.clone(
 )
 
 # CNN PID inference on the device, using features extracted from CLUEstering Tracksters.
-ticlCLUEsteringCNNFeatures, _cnnInferenceProducer = makeTracksterInference(
-    model="CNN", doPID=True, doRegression=False, tracksters="ticlSoATracksters"
+ticlCLUEsteringCNNFeatures, ticlCLUEsteringCNNInference = makeTracksterInference(
+    model="CNN", tracksters="ticlSoATracksters"
 )
-ticlCLUEsteringCNNInference = _cnnInferenceProducer.clone(
-    features = cms.InputTag("ticlCLUEsteringCNNFeatures", "features")
-)
+ticlCLUEsteringCNNInference.features = cms.InputTag("ticlCLUEsteringCNNFeatures", "features")
 
 # Convert Tracksters with CNN PID predictions to the legacy format.
 ticlTrackstersCLUEstering = _hgCalTrackstersFromSoAProducer.clone(
