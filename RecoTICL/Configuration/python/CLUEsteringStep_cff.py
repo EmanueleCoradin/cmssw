@@ -3,6 +3,7 @@ import FWCore.ParameterSet.Config as cms
 from RecoTICL.PatternRecognition.hgCalCLUEsteringTrackstersProducer_cfi import hgCalCLUEsteringTrackstersProducer as _hgCalCLUEsteringTrackstersProducer
 from RecoTICL.PatternRecognition.hgCalSoATrackstersProducer_cfi import hgCalSoATrackstersProducer as _hgCalSoATrackstersProducer
 from RecoTICL.PatternRecognition.hgCalTrackstersFromSoAProducer_cfi import hgCalTrackstersFromSoAProducer as _hgCalTrackstersFromSoAProducer
+from RecoTICL.Configuration.tracksterInference_cff import makeTracksterInference
 
 # The layer clusters of all the HGCAL components, merged on the device by hgcalSoAMergeLayerClusters, are clustered
 # into tracksters with CLUEstering, and the tracksters are built on the device
@@ -16,12 +17,22 @@ ticlSoATracksters = _hgCalSoATrackstersProducer.clone(
     hgcalLayerClustersTrackstersSoA = 'ticlCLUEstering'
 )
 
-# Conversion to legacy tracksters
+# CNN PID inference on the device, using features extracted from CLUEstering Tracksters.
+_cnnInference = makeTracksterInference(model="CNN", doPID=True, doRegression=False,
+                                      tracksters="ticlSoATracksters")
+ticlCLUEsteringCNNFeatures = _cnnInference.features
+ticlCLUEsteringCNNInference = _cnnInference.producer.clone(
+    features = cms.InputTag("ticlCLUEsteringCNNFeatures", "features")
+)
+
+# Convert Tracksters with CNN PID predictions to the legacy format.
 ticlTrackstersCLUEstering = _hgCalTrackstersFromSoAProducer.clone(
-    src = 'ticlSoATracksters',
+    src = 'ticlCLUEsteringCNNInference',
     originalMask = 'hgcalMergeLayerClusters:InitialLayerClustersMask'
 )
 
 ticlCLUEsteringStepTask = cms.Task(ticlCLUEstering
     ,ticlSoATracksters
+    ,ticlCLUEsteringCNNFeatures
+    ,ticlCLUEsteringCNNInference
     ,ticlTrackstersCLUEstering)
