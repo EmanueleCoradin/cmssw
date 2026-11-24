@@ -1,8 +1,0 @@
-
-Processing JEWEL_weight_3.C("ppref24", 1, 0, 30, 40.0, 9999.0)...
-Parsed Lumi  : 478.943 pb^-1
-Opening MC file   : ../../syst_prior_model/output_ppref_mu_MC_prior_model_ptZ40_Inf.root
-Opening Jewel file   : ../../plot/output_ppref_mu_MC_alternative_ptZ40_Inf.root
-before norm MC: 8466.14 JEWEL: 6999.68
-after norm MC: 1 JEWEL: 1
-Info in <TCanvas::Print>: pdf file h_xZj_for_JEWEL_w_ppref_ptZ40_Inf_after.pdf has been created

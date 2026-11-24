@@ -1,36 +1,0 @@
-
-Processing analyze_HI_TTreeReader_ZMM.C("ppref24", "data", 1, 8, 0, 30, 40.0, 9999.0)...
-------------------------------------------------
-Running 2024 ppref collisions
-isPbPb = 0 is2023 = 0 isSignal = 0
-Found 8 files matching pattern
-[0] root://eosinfnts.ts.infn.it:1094//eos/infnts/cms/store/user/rdelliga/PPRefSingleMuon0/CRAB3_Analysis_test25_run3_ppref_DATA_ZMM_PPRefSingleMuon0/260412_115406/0000.root
-... and 7 more files.
-Parsed Lumi  : 478.943 pb^-1
-------------------------------------------------
-Loading Muon Scale Factors from JSON...
-Loaded 'ppRef_2024_MuonSF_schemaV2.json'
-Loaded 'NUM_TightID_DEN_generalTracks'
-Loaded 'NUM_HLT_PPRefL2SingleMu7_v_DEN_TightID'
-Loaded 'NUM_IsoWP95_DEN_TightID' SFs from NUM_Iso_DEN_TightID_abseta_pt_schemaV2.json
-JSON Scale Factors loaded successfully.
-Initializing JEC...
-Loaded JEC File: Prompt24HIpp_V1_MC_L1FastJet_AK2PF.txt
-Loaded JEC File: Prompt24HIpp_V2_MC_L2Relative_AK2PF.txt
-Loaded JEC File: Prompt24HIpp_V1_DATA_L2Residual_AK2PF.txt
-Loaded JEC Uncertainty File: Prompt24HIpp_AK2PF_NonClosure_missPUL3_Uncertainty.txt
-Loaded Jet Veto Map using JetSelect_pp from: Winter25Prompt25_RunCDE.root
-------------------------------------------------
-Running binning variation (systFlag = 8)
-File created: ./syst_binning/output_ppref_mu_data_binning_ptZ40_Inf.root
-------------------------------------------------
-Starting Analysis Loop over 204855 events...
-[Analysis] Processing: 1 / 204855 (0.00%)[Analysis] Processing: 2048 / 204855 (1.00%)[Analysis] Processing: 4096 / 204855 (2.00%)[Analysis] Processing: 6144 / 204855 (3.00%)[Analysis] Processing: 8192 / 204855 (4.00%)[Analysis] Processing: 10240 / 204855 (5.00%)[Analysis] Processing: 12288 / 204855 (6.00%)[Analysis] Processing: 14336 / 204855 (7.00%)[Analysis] Processing: 16384 / 204855 (8.00%)[Analysis] Processing: 18432 / 204855 (9.00%)[Analysis] Processing: 20480 / 204855 (10.00%)[Analysis] Processing: 22528 / 204855 (11.00%)[Analysis] Processing: 24576 / 204855 (12.00%)[Analysis] Processing: 26624 / 204855 (13.00%)[Analysis] Processing: 28672 / 204855 (14.00%)[Analysis] Processing: 30720 / 204855 (15.00%)[Analysis] Processing: 32768 / 204855 (16.00%)[Analysis] Processing: 34816 / 204855 (17.00%)[Analysis] Processing: 36864 / 204855 (18.00%)[Analysis] Processing: 38912 / 204855 (18.99%)[Analysis] Processing: 40960 / 204855 (19.99%)[Analysis] Processing: 43008 / 204855 (20.99%)[Analysis] Processing: 45056 / 204855 (21.99%)[Analysis] Processing: 47104 / 204855 (22.99%)[Analysis] Processing: 49152 / 204855 (23.99%)[Analysis] Processing: 51200 / 204855 (24.99%)[Analysis] Processing: 53248 / 204855 (25.99%)[Analysis] Processing: 55296 / 204855 (26.99%)[Analysis] Processing: 57344 / 204855 (27.99%)[Analysis] Processing: 59392 / 204855 (28.99%)[Analysis] Processing: 61440 / 204855 (29.99%)[Analysis] Processing: 63488 / 204855 (30.99%)[Analysis] Processing: 65536 / 204855 (31.99%)[Analysis] Processing: 67584 / 204855 (32.99%)[Analysis] Processing: 69632 / 204855 (33.99%)[Analysis] Processing: 71680 / 204855 (34.99%)[Analysis] Processing: 73728 / 204855 (35.99%)[Analysis] Processing: 75776 / 204855 (36.99%)[Analysis] Processing: 77824 / 204855 (37.99%)[Analysis] Processing: 79872 / 204855 (38.99%)[Analysis] Processing: 81920 / 204855 (39.99%)[Analysis] Processing: 83968 / 204855 (40.99%)[Analysis] Processing: 86016 / 204855 (41.99%)[Analysis] Processing: 88064 / 204855 (42.99%)[Analysis] Processing: 90112 / 204855 (43.99%)[Analysis] Processing: 92160 / 204855 (44.99%)[Analysis] Processing: 94208 / 204855 (45.99%)[Analysis] Processing: 96256 / 204855 (46.99%)[Analysis] Processing: 98304 / 204855 (47.99%)[Analysis] Processing: 100352 / 204855 (48.99%)[Analysis] Processing: 102400 / 204855 (49.99%)[Analysis] Processing: 104448 / 204855 (50.99%)[Analysis] Processing: 106496 / 204855 (51.99%)[Analysis] Processing: 108544 / 204855 (52.99%)[Analysis] Processing: 110592 / 204855 (53.99%)[Analysis] Processing: 112640 / 204855 (54.99%)[Analysis] Processing: 114688 / 204855 (55.98%)[Analysis] Processing: 116736 / 204855 (56.98%)[Analysis] Processing: 118784 / 204855 (57.98%)[Analysis] Processing: 120832 / 204855 (58.98%)[Analysis] Processing: 122880 / 204855 (59.98%)[Analysis] Processing: 124928 / 204855 (60.98%)[Analysis] Processing: 126976 / 204855 (61.98%)[Analysis] Processing: 129024 / 204855 (62.98%)[Analysis] Processing: 131072 / 204855 (63.98%)[Analysis] Processing: 133120 / 204855 (64.98%)[Analysis] Processing: 135168 / 204855 (65.98%)[Analysis] Processing: 137216 / 204855 (66.98%)[Analysis] Processing: 139264 / 204855 (67.98%)[Analysis] Processing: 141312 / 204855 (68.98%)[Analysis] Processing: 143360 / 204855 (69.98%)[Analysis] Processing: 145408 / 204855 (70.98%)[Analysis] Processing: 147456 / 204855 (71.98%)[Analysis] Processing: 149504 / 204855 (72.98%)[Analysis] Processing: 151552 / 204855 (73.98%)[Analysis] Processing: 153600 / 204855 (74.98%)[Analysis] Processing: 155648 / 204855 (75.98%)[Analysis] Processing: 157696 / 204855 (76.98%)[Analysis] Processing: 159744 / 204855 (77.98%)[Analysis] Processing: 161792 / 204855 (78.98%)[Analysis] Processing: 163840 / 204855 (79.98%)[Analysis] Processing: 165888 / 204855 (80.98%)[Analysis] Processing: 167936 / 204855 (81.98%)[Analysis] Processing: 169984 / 204855 (82.98%)[Analysis] Processing: 172032 / 204855 (83.98%)[Analysis] Processing: 174080 / 204855 (84.98%)[Analysis] Processing: 176128 / 204855 (85.98%)[Analysis] Processing: 178176 / 204855 (86.98%)[Analysis] Processing: 180224 / 204855 (87.98%)[Analysis] Processing: 182272 / 204855 (88.98%)[Analysis] Processing: 184320 / 204855 (89.98%)[Analysis] Processing: 186368 / 204855 (90.98%)[Analysis] Processing: 188416 / 204855 (91.98%)[Analysis] Processing: 190464 / 204855 (92.98%)[Analysis] Processing: 192512 / 204855 (93.97%)[Analysis] Processing: 194560 / 204855 (94.97%)[Analysis] Processing: 196608 / 204855 (95.97%)[Analysis] Processing: 198656 / 204855 (96.97%)[Analysis] Processing: 200704 / 204855 (97.97%)[Analysis] Processing: 202752 / 204855 (98.97%)[Analysis] Processing: 204800 / 204855 (99.97%)[Analysis] Processing: 204855 / 204855 (100.0%) - Complete.
-------------------------------------------------
---- Analysis Summary ---
-Total Events Processed: 204855 average_weight = 1.00
-[Raw Info]
-Raw Integral (dPhi):   7786.00        Raw Integral (pT):    5883.00
-Events with exactly 1 jet: 5710.00 (97.06 % of Z+jet events)
---- End Analysis Sum ---
-------------------------------------------------
