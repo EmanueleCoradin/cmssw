@@ -38,4 +38,5 @@ ggHiNtuplizer = cms.EDAnalyzer("ggHiNtuplizer",
     doPfIso = cms.bool(True),
     particleFlowCollection = cms.InputTag("packedPFCandidates"),
     isPackedPFCandidate = cms.bool(True), # use False if "particleFlow" is particleFlowCollection
+    outputBranches = cms.untracked.vstring("*"),
 )

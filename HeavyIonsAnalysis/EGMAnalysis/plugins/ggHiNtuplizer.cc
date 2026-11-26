@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "HeavyIonsAnalysis/EGMAnalysis/plugins/ggHiNtuplizer.h"
 #include "HeavyIonsAnalysis/EGMAnalysis/plugins/GenParticleParentage.h"
 #include "HeavyIonsAnalysis/EGMAnalysis/interface/pfIsoCalculator.h"
@@ -19,6 +21,17 @@ using namespace std::placeholders;
 
 ggHiNtuplizer::ggHiNtuplizer(const edm::ParameterSet& ps)
     : effectiveAreas_((ps.getParameter<edm::FileInPath>("effAreasConfigFile")).fullPath()) {
+
+  const auto outputBranches = ps.getUntrackedParameter<std::vector<std::string>>("outputBranches", {"*"});
+  const bool saveAll = std::find(outputBranches.begin(), outputBranches.end(), "*") != outputBranches.end();
+  
+  // Lambda function to select the output branches
+  auto bookBranch = [this, &outputBranches, saveAll](const std::string& name, auto* address) {
+    if (saveAll || std::find(outputBranches.begin(), outputBranches.end(), name) != outputBranches.end()) {
+      tree_->Branch(name.c_str(), address);
+    }
+  };
+
   doGenParticles_ = ps.getParameter<bool>("doGenParticles");
   doElectrons_ = ps.getParameter<bool>("doElectrons");
   doPhotons_ = ps.getParameter<bool>("doPhotons");
@@ -100,469 +113,469 @@ ggHiNtuplizer::ggHiNtuplizer(const edm::ParameterSet& ps)
   edm::Service<TFileService> fs;
   tree_ = fs->make<TTree>("EventTree", "electrons, photons, muons");
 
-  tree_->Branch("run", &run_);
-  tree_->Branch("event", &event_);
-  tree_->Branch("lumis", &lumis_);
+  bookBranch("run", &run_);
+  bookBranch("event", &event_);
+  bookBranch("lumis", &lumis_);
 
-  tree_->Branch("rho", &rho_);
+  bookBranch("rho", &rho_);
 
   if (doGenParticles_) {
-    tree_->Branch("nPUInfo", &nPUInfo_);
-    tree_->Branch("nPU", &nPU_);
-    tree_->Branch("puBX", &puBX_);
-    tree_->Branch("puTrue", &puTrue_);
+    bookBranch("nPUInfo", &nPUInfo_);
+    bookBranch("nPU", &nPU_);
+    bookBranch("puBX", &puBX_);
+    bookBranch("puTrue", &puTrue_);
 
-    tree_->Branch("nMC", &nMC_);
+    bookBranch("nMC", &nMC_);
 
-    tree_->Branch("mcVtx_x", &mcVtx_x_);
-    tree_->Branch("mcVtx_y", &mcVtx_y_);
-    tree_->Branch("mcVtx_z", &mcVtx_z_);
+    bookBranch("mcVtx_x", &mcVtx_x_);
+    bookBranch("mcVtx_y", &mcVtx_y_);
+    bookBranch("mcVtx_z", &mcVtx_z_);
 
-    tree_->Branch("mcPID", &mcPID_);
-    tree_->Branch("mcStatus", &mcStatus_);
-    tree_->Branch("mcPt", &mcPt_);
-    tree_->Branch("mcEta", &mcEta_);
-    tree_->Branch("mcPhi", &mcPhi_);
-    tree_->Branch("mcE", &mcE_);
-    tree_->Branch("mcEt", &mcEt_);
-    tree_->Branch("mcMass", &mcMass_);
+    bookBranch("mcPID", &mcPID_);
+    bookBranch("mcStatus", &mcStatus_);
+    bookBranch("mcPt", &mcPt_);
+    bookBranch("mcEta", &mcEta_);
+    bookBranch("mcPhi", &mcPhi_);
+    bookBranch("mcE", &mcE_);
+    bookBranch("mcEt", &mcEt_);
+    bookBranch("mcMass", &mcMass_);
 
-    tree_->Branch("mcParentage", &mcParentage_);
-    tree_->Branch("mcMomPID", &mcMomPID_);
-    tree_->Branch("mcMomKey", &mcMomKey_);
-    tree_->Branch("mcMomPt", &mcMomPt_);
-    tree_->Branch("mcMomEta", &mcMomEta_);
-    tree_->Branch("mcMomPhi", &mcMomPhi_);
-    tree_->Branch("mcMomMass", &mcMomMass_);
-    tree_->Branch("mcGMomPID", &mcGMomPID_);
-    tree_->Branch("mcGMomKey", &mcGMomKey_);
-    tree_->Branch("mcGGMomPID", &mcGGMomPID_);
-    tree_->Branch("mcGGMomKey", &mcGGMomKey_);
-    tree_->Branch("mcIndex", &mcIndex_);
-    tree_->Branch("mcSube", &mcSube_);
+    bookBranch("mcParentage", &mcParentage_);
+    bookBranch("mcMomPID", &mcMomPID_);
+    bookBranch("mcMomKey", &mcMomKey_);
+    bookBranch("mcMomPt", &mcMomPt_);
+    bookBranch("mcMomEta", &mcMomEta_);
+    bookBranch("mcMomPhi", &mcMomPhi_);
+    bookBranch("mcMomMass", &mcMomMass_);
+    bookBranch("mcGMomPID", &mcGMomPID_);
+    bookBranch("mcGMomKey", &mcGMomKey_);
+    bookBranch("mcGGMomPID", &mcGGMomPID_);
+    bookBranch("mcGGMomKey", &mcGGMomKey_);
+    bookBranch("mcIndex", &mcIndex_);
+    bookBranch("mcSube", &mcSube_);
 
-    tree_->Branch("mcCalIsoDR03", &mcCalIsoDR03_);
-    tree_->Branch("mcCalIsoDR04", &mcCalIsoDR04_);
-    tree_->Branch("mcTrkIsoDR03", &mcTrkIsoDR03_);
-    tree_->Branch("mcTrkIsoDR04", &mcTrkIsoDR04_);
+    bookBranch("mcCalIsoDR03", &mcCalIsoDR03_);
+    bookBranch("mcCalIsoDR04", &mcCalIsoDR04_);
+    bookBranch("mcTrkIsoDR03", &mcTrkIsoDR03_);
+    bookBranch("mcTrkIsoDR04", &mcTrkIsoDR04_);
   }
 
   if (doSuperClusters_) {
-    tree_->Branch("nSC", &nSC_);
-    tree_->Branch("scE", &scE_);
-    tree_->Branch("scRawE", &scRawE_);
-    tree_->Branch("scEta", &scEta_);
-    tree_->Branch("scPhi", &scPhi_);
+    bookBranch("nSC", &nSC_);
+    bookBranch("scE", &scE_);
+    bookBranch("scRawE", &scRawE_);
+    bookBranch("scEta", &scEta_);
+    bookBranch("scPhi", &scPhi_);
   }
 
   if (doElectrons_) {
-    tree_->Branch("nEle", &nEle_);
+    bookBranch("nEle", &nEle_);
 
-    tree_->Branch("eleD0", &eleD0_);
-    tree_->Branch("eleDz", &eleDz_);
-    tree_->Branch("eleD0Err", &eleD0Err_);
-    tree_->Branch("eleDzErr", &eleDzErr_);
-    tree_->Branch("eleTrkPt", &eleTrkPt_);
-    tree_->Branch("eleTrkEta", &eleTrkEta_);
-    tree_->Branch("eleTrkPhi", &eleTrkPhi_);
-    tree_->Branch("eleTrkCharge", &eleTrkCharge_);
-    tree_->Branch("eleTrkPtErr", &eleTrkPtErr_);
-    tree_->Branch("eleTrkChi2", &eleTrkChi2_);
-    tree_->Branch("eleTrkNdof", &eleTrkNdof_);
-    tree_->Branch("eleTrkNormalizedChi2", &eleTrkNormalizedChi2_);
-    tree_->Branch("eleTrkValidHits", &eleTrkValidHits_);
-    tree_->Branch("eleTrkLayers", &eleTrkLayers_);
-    tree_->Branch("eleMissHits", &eleMissHits_);
-    tree_->Branch("eleIP3D", &eleIP3D_);
-    tree_->Branch("eleIP3DErr", &eleIP3DErr_);
+    bookBranch("eleD0", &eleD0_);
+    bookBranch("eleDz", &eleDz_);
+    bookBranch("eleD0Err", &eleD0Err_);
+    bookBranch("eleDzErr", &eleDzErr_);
+    bookBranch("eleTrkPt", &eleTrkPt_);
+    bookBranch("eleTrkEta", &eleTrkEta_);
+    bookBranch("eleTrkPhi", &eleTrkPhi_);
+    bookBranch("eleTrkCharge", &eleTrkCharge_);
+    bookBranch("eleTrkPtErr", &eleTrkPtErr_);
+    bookBranch("eleTrkChi2", &eleTrkChi2_);
+    bookBranch("eleTrkNdof", &eleTrkNdof_);
+    bookBranch("eleTrkNormalizedChi2", &eleTrkNormalizedChi2_);
+    bookBranch("eleTrkValidHits", &eleTrkValidHits_);
+    bookBranch("eleTrkLayers", &eleTrkLayers_);
+    bookBranch("eleMissHits", &eleMissHits_);
+    bookBranch("eleIP3D", &eleIP3D_);
+    bookBranch("eleIP3DErr", &eleIP3DErr_);
 
-    tree_->Branch("elePt", &elePt_);
-    tree_->Branch("eleRawPt", &eleRawPt_);
-    tree_->Branch("eleEta", &eleEta_);
-    tree_->Branch("elePhi", &elePhi_);
-    tree_->Branch("eleCharge", &eleCharge_);
-    tree_->Branch("eleEn", &eleEn_);
+    bookBranch("elePt", &elePt_);
+    bookBranch("eleRawPt", &eleRawPt_);
+    bookBranch("eleEta", &eleEta_);
+    bookBranch("elePhi", &elePhi_);
+    bookBranch("eleCharge", &eleCharge_);
+    bookBranch("eleEn", &eleEn_);
 
-    tree_->Branch("eleMVAIso", &eleMVAIso_);
+    bookBranch("eleMVAIso", &eleMVAIso_);
     for (auto& w : eleMVAIsoWP_)
-      tree_->Branch(("eleMVAIso"+w.first).c_str(), &(w.second));
-    tree_->Branch("eleMVAId", &eleMVAId_);
+      bookBranch(("eleMVAIso"+w.first).c_str(), &(w.second));
+    bookBranch("eleMVAId", &eleMVAId_);
     for (auto& w : eleMVAIdWP_)
-      tree_->Branch(("eleMVAId"+w.first).c_str(), &(w.second));
+      bookBranch(("eleMVAId"+w.first).c_str(), &(w.second));
     for (auto& w : eleCutIdWP_)
-      tree_->Branch(("eleCutId"+w.first).c_str(), &(w.second));
+      bookBranch(("eleCutId"+w.first).c_str(), &(w.second));
 
-    tree_->Branch("eleSCEn", &eleSCEn_);
-    tree_->Branch("eleESEn", &eleESEn_);
-    tree_->Branch("eleSCEta", &eleSCEta_);
-    tree_->Branch("eleSCPhi", &eleSCPhi_);
-    tree_->Branch("eleSCRawEn", &eleSCRawEn_);
-    tree_->Branch("eleSCEtaWidth", &eleSCEtaWidth_);
-    tree_->Branch("eleSCPhiWidth", &eleSCPhiWidth_);
-    tree_->Branch("eleSCClustersSize", &eleSCClustersSize_);
-    tree_->Branch("eleSeedEn", &eleSeedEn_);
-    tree_->Branch("eleSeedEta", &eleSeedEta_);
-    tree_->Branch("eleSeedPhi", &eleSeedPhi_);
+    bookBranch("eleSCEn", &eleSCEn_);
+    bookBranch("eleESEn", &eleESEn_);
+    bookBranch("eleSCEta", &eleSCEta_);
+    bookBranch("eleSCPhi", &eleSCPhi_);
+    bookBranch("eleSCRawEn", &eleSCRawEn_);
+    bookBranch("eleSCEtaWidth", &eleSCEtaWidth_);
+    bookBranch("eleSCPhiWidth", &eleSCPhiWidth_);
+    bookBranch("eleSCClustersSize", &eleSCClustersSize_);
+    bookBranch("eleSeedEn", &eleSeedEn_);
+    bookBranch("eleSeedEta", &eleSeedEta_);
+    bookBranch("eleSeedPhi", &eleSeedPhi_);
 
-    tree_->Branch("eleHoverE", &eleHoverE_);
-    tree_->Branch("eleHoverEBc", &eleHoverEBc_);
-    tree_->Branch("eleRawHoverE", &eleRawHoverE_);
-    tree_->Branch("eleRawHoverEBc", &eleRawHoverEBc_);
-    tree_->Branch("eleEoverP", &eleEoverP_);
-    tree_->Branch("eleEoverPInv", &eleEoverPInv_);
-    tree_->Branch("eleEcalE", &eleEcalE_);
-    tree_->Branch("eleRawEcalE", &eleRawEcalE_);
-    tree_->Branch("elePAtVtx", &elePAtVtx_);
-    tree_->Branch("elePAtSC", &elePAtSC_);
-    tree_->Branch("elePAtCluster", &elePAtCluster_);
-    tree_->Branch("elePAtSeed", &elePAtSeed_);
-    tree_->Branch("eledEtaAtVtx", &eledEtaAtVtx_);
-    tree_->Branch("eledPhiAtVtx", &eledPhiAtVtx_);
-    tree_->Branch("eledEtaSeedAtVtx", &eledEtaSeedAtVtx_);
-    tree_->Branch("eleSigmaIEtaIEta", &eleSigmaIEtaIEta_);
-    tree_->Branch("eleSigmaIPhiIPhi", &eleSigmaIPhiIPhi_);
-    tree_->Branch("eleBrem", &eleBrem_);
+    bookBranch("eleHoverE", &eleHoverE_);
+    bookBranch("eleHoverEBc", &eleHoverEBc_);
+    bookBranch("eleRawHoverE", &eleRawHoverE_);
+    bookBranch("eleRawHoverEBc", &eleRawHoverEBc_);
+    bookBranch("eleEoverP", &eleEoverP_);
+    bookBranch("eleEoverPInv", &eleEoverPInv_);
+    bookBranch("eleEcalE", &eleEcalE_);
+    bookBranch("eleRawEcalE", &eleRawEcalE_);
+    bookBranch("elePAtVtx", &elePAtVtx_);
+    bookBranch("elePAtSC", &elePAtSC_);
+    bookBranch("elePAtCluster", &elePAtCluster_);
+    bookBranch("elePAtSeed", &elePAtSeed_);
+    bookBranch("eledEtaAtVtx", &eledEtaAtVtx_);
+    bookBranch("eledPhiAtVtx", &eledPhiAtVtx_);
+    bookBranch("eledEtaSeedAtVtx", &eledEtaSeedAtVtx_);
+    bookBranch("eleSigmaIEtaIEta", &eleSigmaIEtaIEta_);
+    bookBranch("eleSigmaIPhiIPhi", &eleSigmaIPhiIPhi_);
+    bookBranch("eleBrem", &eleBrem_);
 
-    tree_->Branch("eleConvVeto", &eleConvVeto_);
+    bookBranch("eleConvVeto", &eleConvVeto_);
 
-    tree_->Branch("eleR9", &eleR9_);
-    tree_->Branch("eleE3x3", &eleE3x3_);
-    tree_->Branch("eleE5x5", &eleE5x5_);
-    tree_->Branch("eleR9Full5x5", &eleR9Full5x5_);
-    tree_->Branch("eleE3x3Full5x5", &eleE3x3Full5x5_);
-    tree_->Branch("eleE5x5Full5x5", &eleE5x5Full5x5_);
-    tree_->Branch("eleSigmaIEtaIEta_2012", &eleSigmaIEtaIEta_2012_);
+    bookBranch("eleR9", &eleR9_);
+    bookBranch("eleE3x3", &eleE3x3_);
+    bookBranch("eleE5x5", &eleE5x5_);
+    bookBranch("eleR9Full5x5", &eleR9Full5x5_);
+    bookBranch("eleE3x3Full5x5", &eleE3x3Full5x5_);
+    bookBranch("eleE5x5Full5x5", &eleE5x5Full5x5_);
+    bookBranch("eleSigmaIEtaIEta_2012", &eleSigmaIEtaIEta_2012_);
 
-    tree_->Branch("elePFChIso", &elePFChIso_);
-    tree_->Branch("elePFPhoIso", &elePFPhoIso_);
-    tree_->Branch("elePFNeuIso", &elePFNeuIso_);
-    tree_->Branch("elePFPUIso", &elePFPUIso_);
+    bookBranch("elePFChIso", &elePFChIso_);
+    bookBranch("elePFPhoIso", &elePFPhoIso_);
+    bookBranch("elePFNeuIso", &elePFNeuIso_);
+    bookBranch("elePFPUIso", &elePFPUIso_);
 
     if (doEffectiveAreas_) {
-      tree_->Branch("elePFRelIsoWithEA", &elePFRelIsoWithEA_);
-      tree_->Branch("elePFRelIsoWithDBeta", &elePFRelIsoWithDBeta_);
-      tree_->Branch("eleEffAreaTimesRho", &eleEffAreaTimesRho_);
+      bookBranch("elePFRelIsoWithEA", &elePFRelIsoWithEA_);
+      bookBranch("elePFRelIsoWithDBeta", &elePFRelIsoWithDBeta_);
+      bookBranch("eleEffAreaTimesRho", &eleEffAreaTimesRho_);
     }
 
     if (doPfIso_) {
-      tree_->Branch("elePFChIso03", &elePFChIso03_);
-      tree_->Branch("elePFPhoIso03", &elePFPhoIso03_);
-      tree_->Branch("elePFNeuIso03", &elePFNeuIso03_);
-      tree_->Branch("elePFChIso04", &elePFChIso04_);
-      tree_->Branch("elePFPhoIso04", &elePFPhoIso04_);
-      tree_->Branch("elePFNeuIso04", &elePFNeuIso04_);
+      bookBranch("elePFChIso03", &elePFChIso03_);
+      bookBranch("elePFPhoIso03", &elePFPhoIso03_);
+      bookBranch("elePFNeuIso03", &elePFNeuIso03_);
+      bookBranch("elePFChIso04", &elePFChIso04_);
+      bookBranch("elePFPhoIso04", &elePFPhoIso04_);
+      bookBranch("elePFNeuIso04", &elePFNeuIso04_);
     }
 
-    tree_->Branch("eleSeedCryEta", &eleSeedCryEta_);
-    tree_->Branch("eleSeedCryPhi", &eleSeedCryPhi_);
-    tree_->Branch("eleSeedCryIeta", &eleSeedCryIeta_);
-    tree_->Branch("eleSeedCryIphi", &eleSeedCryIphi_);
+    bookBranch("eleSeedCryEta", &eleSeedCryEta_);
+    bookBranch("eleSeedCryPhi", &eleSeedCryPhi_);
+    bookBranch("eleSeedCryIeta", &eleSeedCryIeta_);
+    bookBranch("eleSeedCryIphi", &eleSeedCryIphi_);
 
     if (doGenParticles_)
-      tree_->Branch("ele_genMatchedIndex", &ele_genMatchedIndex_);
+      bookBranch("ele_genMatchedIndex", &ele_genMatchedIndex_);
   }
 
   if (doPhotons_) {
-    tree_->Branch("nPho", &nPho_);
+    bookBranch("nPho", &nPho_);
 
-    tree_->Branch("phoE", &phoE_);
-    tree_->Branch("phoEt", &phoEt_);
-    tree_->Branch("phoEta", &phoEta_);
-    tree_->Branch("phoPhi", &phoPhi_);
+    bookBranch("phoE", &phoE_);
+    bookBranch("phoEt", &phoEt_);
+    bookBranch("phoEta", &phoEta_);
+    bookBranch("phoPhi", &phoPhi_);
 
-    tree_->Branch("phoEcorrStdEcal", &phoEcorrStdEcal_);
-    tree_->Branch("phoEcorrPhoEcal", &phoEcorrPhoEcal_);
-    tree_->Branch("phoEcorrRegr1", &phoEcorrRegr1_);
-    tree_->Branch("phoEcorrRegr2", &phoEcorrRegr2_);
-    tree_->Branch("phoEcorrErrStdEcal", &phoEcorrErrStdEcal_);
-    tree_->Branch("phoEcorrErrPhoEcal", &phoEcorrErrPhoEcal_);
-    tree_->Branch("phoEcorrErrRegr1", &phoEcorrErrRegr1_);
-    tree_->Branch("phoEcorrErrRegr2", &phoEcorrErrRegr2_);
+    bookBranch("phoEcorrStdEcal", &phoEcorrStdEcal_);
+    bookBranch("phoEcorrPhoEcal", &phoEcorrPhoEcal_);
+    bookBranch("phoEcorrRegr1", &phoEcorrRegr1_);
+    bookBranch("phoEcorrRegr2", &phoEcorrRegr2_);
+    bookBranch("phoEcorrErrStdEcal", &phoEcorrErrStdEcal_);
+    bookBranch("phoEcorrErrPhoEcal", &phoEcorrErrPhoEcal_);
+    bookBranch("phoEcorrErrRegr1", &phoEcorrErrRegr1_);
+    bookBranch("phoEcorrErrRegr2", &phoEcorrErrRegr2_);
 
-    tree_->Branch("phoSCE", &phoSCE_);
-    tree_->Branch("phoSCRawE", &phoSCRawE_);
-    tree_->Branch("phoSCEta", &phoSCEta_);
-    tree_->Branch("phoSCPhi", &phoSCPhi_);
-    tree_->Branch("phoSCEtaWidth", &phoSCEtaWidth_);
-    tree_->Branch("phoSCPhiWidth", &phoSCPhiWidth_);
-    tree_->Branch("phoSCBrem", &phoSCBrem_);
-    tree_->Branch("phoSCnHits", &phoSCnHits_);
-    tree_->Branch("phoSCflags", &phoSCflags_);
-    tree_->Branch("phoSCinClean", &phoSCinClean_);
-    tree_->Branch("phoSCinUnClean", &phoSCinUnClean_);
-    tree_->Branch("phoSCnBC", &phoSCnBC_);
-    tree_->Branch("phoESEn", &phoESEn_);
+    bookBranch("phoSCE", &phoSCE_);
+    bookBranch("phoSCRawE", &phoSCRawE_);
+    bookBranch("phoSCEta", &phoSCEta_);
+    bookBranch("phoSCPhi", &phoSCPhi_);
+    bookBranch("phoSCEtaWidth", &phoSCEtaWidth_);
+    bookBranch("phoSCPhiWidth", &phoSCPhiWidth_);
+    bookBranch("phoSCBrem", &phoSCBrem_);
+    bookBranch("phoSCnHits", &phoSCnHits_);
+    bookBranch("phoSCflags", &phoSCflags_);
+    bookBranch("phoSCinClean", &phoSCinClean_);
+    bookBranch("phoSCinUnClean", &phoSCinUnClean_);
+    bookBranch("phoSCnBC", &phoSCnBC_);
+    bookBranch("phoESEn", &phoESEn_);
 
-    tree_->Branch("phoIsPFPhoton", &phoIsPFPhoton_);
-    tree_->Branch("phoIsStandardPhoton", &phoIsStandardPhoton_);
-    tree_->Branch("phoHasPixelSeed", &phoHasPixelSeed_);
-    tree_->Branch("phoHasConversionTracks", &phoHasConversionTracks_);
-    tree_->Branch("phoHadTowerOverEm", &phoHadTowerOverEm_);
-    tree_->Branch("phoHoverE", &phoHoverE_);
-    tree_->Branch("phoHoverEValid", &phoHoverEValid_);
-    tree_->Branch("phoSigmaIEtaIEta", &phoSigmaIEtaIEta_);
-    tree_->Branch("phoR9", &phoR9_);
-    tree_->Branch("phoE1x5", &phoE1x5_);
-    tree_->Branch("phoE2x5", &phoE2x5_);
-    tree_->Branch("phoE3x3", &phoE3x3_);
-    tree_->Branch("phoE5x5", &phoE5x5_);
-    tree_->Branch("phoMaxEnergyXtal", &phoMaxEnergyXtal_);
-    tree_->Branch("phoSigmaEtaEta", &phoSigmaEtaEta_);
-    tree_->Branch("phoSigmaIEtaIEta_2012", &phoSigmaIEtaIEta_2012_);
-    tree_->Branch("phoR9_2012", &phoR9_2012_);
-    tree_->Branch("phoE1x5_2012", &phoE1x5_2012_);
-    tree_->Branch("phoE2x5_2012", &phoE2x5_2012_);
-    tree_->Branch("phoE3x3_2012", &phoE3x3_2012_);
-    tree_->Branch("phoE5x5_2012", &phoE5x5_2012_);
-    tree_->Branch("phoMaxEnergyXtal_2012", &phoMaxEnergyXtal_2012_);
-    tree_->Branch("phoSigmaEtaEta_2012", &phoSigmaEtaEta_2012_);
+    bookBranch("phoIsPFPhoton", &phoIsPFPhoton_);
+    bookBranch("phoIsStandardPhoton", &phoIsStandardPhoton_);
+    bookBranch("phoHasPixelSeed", &phoHasPixelSeed_);
+    bookBranch("phoHasConversionTracks", &phoHasConversionTracks_);
+    bookBranch("phoHadTowerOverEm", &phoHadTowerOverEm_);
+    bookBranch("phoHoverE", &phoHoverE_);
+    bookBranch("phoHoverEValid", &phoHoverEValid_);
+    bookBranch("phoSigmaIEtaIEta", &phoSigmaIEtaIEta_);
+    bookBranch("phoR9", &phoR9_);
+    bookBranch("phoE1x5", &phoE1x5_);
+    bookBranch("phoE2x5", &phoE2x5_);
+    bookBranch("phoE3x3", &phoE3x3_);
+    bookBranch("phoE5x5", &phoE5x5_);
+    bookBranch("phoMaxEnergyXtal", &phoMaxEnergyXtal_);
+    bookBranch("phoSigmaEtaEta", &phoSigmaEtaEta_);
+    bookBranch("phoSigmaIEtaIEta_2012", &phoSigmaIEtaIEta_2012_);
+    bookBranch("phoR9_2012", &phoR9_2012_);
+    bookBranch("phoE1x5_2012", &phoE1x5_2012_);
+    bookBranch("phoE2x5_2012", &phoE2x5_2012_);
+    bookBranch("phoE3x3_2012", &phoE3x3_2012_);
+    bookBranch("phoE5x5_2012", &phoE5x5_2012_);
+    bookBranch("phoMaxEnergyXtal_2012", &phoMaxEnergyXtal_2012_);
+    bookBranch("phoSigmaEtaEta_2012", &phoSigmaEtaEta_2012_);
 
     if (doPhoEReg_) {
-      tree_->Branch("phoHadTowerOverEm1", &phoHadTowerOverEm1_);
-      tree_->Branch("phoHadTowerOverEm2", &phoHadTowerOverEm2_);
-      tree_->Branch("phoHoverE1", &phoHoverE1_);
-      tree_->Branch("phoHoverE2", &phoHoverE2_);
+      bookBranch("phoHadTowerOverEm1", &phoHadTowerOverEm1_);
+      bookBranch("phoHadTowerOverEm2", &phoHadTowerOverEm2_);
+      bookBranch("phoHoverE1", &phoHoverE1_);
+      bookBranch("phoHoverE2", &phoHoverE2_);
 
-      tree_->Branch("phoSigmaIEtaIPhi", &phoSigmaIEtaIPhi_);
-      tree_->Branch("phoSigmaIPhiIPhi", &phoSigmaIPhiIPhi_);
-      tree_->Branch("phoR1x5", &phoR1x5_);
-      tree_->Branch("phoR2x5", &phoR2x5_);
-      tree_->Branch("phoE2nd", &phoE2nd_);
-      tree_->Branch("phoETop", &phoETop_);
-      tree_->Branch("phoEBottom", &phoEBottom_);
-      tree_->Branch("phoELeft", &phoELeft_);
-      tree_->Branch("phoERight", &phoERight_);
-      tree_->Branch("phoE1x3", &phoE1x3_);
-      tree_->Branch("phoE2x2", &phoE2x2_);
-      tree_->Branch("phoE2x5Max", &phoE2x5Max_);
-      tree_->Branch("phoE2x5Top", &phoE2x5Top_);
-      tree_->Branch("phoE2x5Bottom", &phoE2x5Bottom_);
-      tree_->Branch("phoE2x5Left", &phoE2x5Left_);
-      tree_->Branch("phoE2x5Right", &phoE2x5Right_);
-      //tree_->Branch("phoSMMajor",         &phoSMMajor_);
-      //tree_->Branch("phoSMMinor",         &phoSMMinor_);
-      //tree_->Branch("phoSMAlpha",         &phoSMAlpha_);
+      bookBranch("phoSigmaIEtaIPhi", &phoSigmaIEtaIPhi_);
+      bookBranch("phoSigmaIPhiIPhi", &phoSigmaIPhiIPhi_);
+      bookBranch("phoR1x5", &phoR1x5_);
+      bookBranch("phoR2x5", &phoR2x5_);
+      bookBranch("phoE2nd", &phoE2nd_);
+      bookBranch("phoETop", &phoETop_);
+      bookBranch("phoEBottom", &phoEBottom_);
+      bookBranch("phoELeft", &phoELeft_);
+      bookBranch("phoERight", &phoERight_);
+      bookBranch("phoE1x3", &phoE1x3_);
+      bookBranch("phoE2x2", &phoE2x2_);
+      bookBranch("phoE2x5Max", &phoE2x5Max_);
+      bookBranch("phoE2x5Top", &phoE2x5Top_);
+      bookBranch("phoE2x5Bottom", &phoE2x5Bottom_);
+      bookBranch("phoE2x5Left", &phoE2x5Left_);
+      bookBranch("phoE2x5Right", &phoE2x5Right_);
+      //bookBranch("phoSMMajor",         &phoSMMajor_);
+      //bookBranch("phoSMMinor",         &phoSMMinor_);
+      //bookBranch("phoSMAlpha",         &phoSMAlpha_);
 
-      tree_->Branch("phoSigmaIEtaIPhi_2012", &phoSigmaIEtaIPhi_2012_);
-      tree_->Branch("phoSigmaIPhiIPhi_2012", &phoSigmaIPhiIPhi_2012_);
-      tree_->Branch("phoR1x5_2012", &phoR1x5_2012_);
-      tree_->Branch("phoR2x5_2012", &phoR2x5_2012_);
-      tree_->Branch("phoE2nd_2012", &phoE2nd_2012_);
-      tree_->Branch("phoETop_2012", &phoETop_2012_);
-      tree_->Branch("phoEBottom_2012", &phoEBottom_2012_);
-      tree_->Branch("phoELeft_2012", &phoELeft_2012_);
-      tree_->Branch("phoERight_2012", &phoERight_2012_);
-      tree_->Branch("phoE1x3_2012", &phoE1x3_2012_);
-      tree_->Branch("phoE2x2_2012", &phoE2x2_2012_);
-      tree_->Branch("phoE2x5Max_2012", &phoE2x5Max_2012_);
-      tree_->Branch("phoE2x5Top_2012", &phoE2x5Top_2012_);
-      tree_->Branch("phoE2x5Bottom_2012", &phoE2x5Bottom_2012_);
-      tree_->Branch("phoE2x5Left_2012", &phoE2x5Left_2012_);
-      tree_->Branch("phoE2x5Right_2012", &phoE2x5Right_2012_);
-      //tree_->Branch("phoSMMajor_2012",       &phoSMMajor_2012_);
-      //tree_->Branch("phoSMMinor_2012",       &phoSMMinor_2012_);
-      //tree_->Branch("phoSMAlpha_2012",       &phoSMAlpha_2012_);
+      bookBranch("phoSigmaIEtaIPhi_2012", &phoSigmaIEtaIPhi_2012_);
+      bookBranch("phoSigmaIPhiIPhi_2012", &phoSigmaIPhiIPhi_2012_);
+      bookBranch("phoR1x5_2012", &phoR1x5_2012_);
+      bookBranch("phoR2x5_2012", &phoR2x5_2012_);
+      bookBranch("phoE2nd_2012", &phoE2nd_2012_);
+      bookBranch("phoETop_2012", &phoETop_2012_);
+      bookBranch("phoEBottom_2012", &phoEBottom_2012_);
+      bookBranch("phoELeft_2012", &phoELeft_2012_);
+      bookBranch("phoERight_2012", &phoERight_2012_);
+      bookBranch("phoE1x3_2012", &phoE1x3_2012_);
+      bookBranch("phoE2x2_2012", &phoE2x2_2012_);
+      bookBranch("phoE2x5Max_2012", &phoE2x5Max_2012_);
+      bookBranch("phoE2x5Top_2012", &phoE2x5Top_2012_);
+      bookBranch("phoE2x5Bottom_2012", &phoE2x5Bottom_2012_);
+      bookBranch("phoE2x5Left_2012", &phoE2x5Left_2012_);
+      bookBranch("phoE2x5Right_2012", &phoE2x5Right_2012_);
+      //bookBranch("phoSMMajor_2012",       &phoSMMajor_2012_);
+      //bookBranch("phoSMMinor_2012",       &phoSMMinor_2012_);
+      //bookBranch("phoSMAlpha_2012",       &phoSMAlpha_2012_);
     }
 
-    tree_->Branch("phoBC1E", &phoBC1E_);
-    tree_->Branch("phoBC1Ecorr", &phoBC1Ecorr_);
-    tree_->Branch("phoBC1Eta", &phoBC1Eta_);
-    tree_->Branch("phoBC1Phi", &phoBC1Phi_);
-    tree_->Branch("phoBC1size", &phoBC1size_);
-    tree_->Branch("phoBC1flags", &phoBC1flags_);
-    tree_->Branch("phoBC1inClean", &phoBC1inClean_);
-    tree_->Branch("phoBC1inUnClean", &phoBC1inUnClean_);
-    tree_->Branch("phoBC1rawID", &phoBC1rawID_);
+    bookBranch("phoBC1E", &phoBC1E_);
+    bookBranch("phoBC1Ecorr", &phoBC1Ecorr_);
+    bookBranch("phoBC1Eta", &phoBC1Eta_);
+    bookBranch("phoBC1Phi", &phoBC1Phi_);
+    bookBranch("phoBC1size", &phoBC1size_);
+    bookBranch("phoBC1flags", &phoBC1flags_);
+    bookBranch("phoBC1inClean", &phoBC1inClean_);
+    bookBranch("phoBC1inUnClean", &phoBC1inUnClean_);
+    bookBranch("phoBC1rawID", &phoBC1rawID_);
 
     if (useValMapIso_) {
-      tree_->Branch("pho_ecalClusterIsoR1", &pho_ecalClusterIsoR1_);
-      tree_->Branch("pho_ecalClusterIsoR2", &pho_ecalClusterIsoR2_);
-      tree_->Branch("pho_ecalClusterIsoR3", &pho_ecalClusterIsoR3_);
-      tree_->Branch("pho_ecalClusterIsoR4", &pho_ecalClusterIsoR4_);
-      tree_->Branch("pho_ecalClusterIsoR5", &pho_ecalClusterIsoR5_);
-      tree_->Branch("pho_hcalRechitIsoR1", &pho_hcalRechitIsoR1_);
-      tree_->Branch("pho_hcalRechitIsoR2", &pho_hcalRechitIsoR2_);
-      tree_->Branch("pho_hcalRechitIsoR3", &pho_hcalRechitIsoR3_);
-      tree_->Branch("pho_hcalRechitIsoR4", &pho_hcalRechitIsoR4_);
-      tree_->Branch("pho_hcalRechitIsoR5", &pho_hcalRechitIsoR5_);
-      tree_->Branch("pho_trackIsoR1PtCut20", &pho_trackIsoR1PtCut20_);
-      tree_->Branch("pho_trackIsoR2PtCut20", &pho_trackIsoR2PtCut20_);
-      tree_->Branch("pho_trackIsoR3PtCut20", &pho_trackIsoR3PtCut20_);
-      tree_->Branch("pho_trackIsoR4PtCut20", &pho_trackIsoR4PtCut20_);
-      tree_->Branch("pho_trackIsoR5PtCut20", &pho_trackIsoR5PtCut20_);
-      tree_->Branch("pho_swissCrx", &pho_swissCrx_);
-      tree_->Branch("pho_seedTime", &pho_seedTime_);
+      bookBranch("pho_ecalClusterIsoR1", &pho_ecalClusterIsoR1_);
+      bookBranch("pho_ecalClusterIsoR2", &pho_ecalClusterIsoR2_);
+      bookBranch("pho_ecalClusterIsoR3", &pho_ecalClusterIsoR3_);
+      bookBranch("pho_ecalClusterIsoR4", &pho_ecalClusterIsoR4_);
+      bookBranch("pho_ecalClusterIsoR5", &pho_ecalClusterIsoR5_);
+      bookBranch("pho_hcalRechitIsoR1", &pho_hcalRechitIsoR1_);
+      bookBranch("pho_hcalRechitIsoR2", &pho_hcalRechitIsoR2_);
+      bookBranch("pho_hcalRechitIsoR3", &pho_hcalRechitIsoR3_);
+      bookBranch("pho_hcalRechitIsoR4", &pho_hcalRechitIsoR4_);
+      bookBranch("pho_hcalRechitIsoR5", &pho_hcalRechitIsoR5_);
+      bookBranch("pho_trackIsoR1PtCut20", &pho_trackIsoR1PtCut20_);
+      bookBranch("pho_trackIsoR2PtCut20", &pho_trackIsoR2PtCut20_);
+      bookBranch("pho_trackIsoR3PtCut20", &pho_trackIsoR3PtCut20_);
+      bookBranch("pho_trackIsoR4PtCut20", &pho_trackIsoR4PtCut20_);
+      bookBranch("pho_trackIsoR5PtCut20", &pho_trackIsoR5PtCut20_);
+      bookBranch("pho_swissCrx", &pho_swissCrx_);
+      bookBranch("pho_seedTime", &pho_seedTime_);
     }
 
     if (doGenParticles_) {
-      tree_->Branch("pho_genMatchedIndex", &pho_genMatchedIndex_);
+      bookBranch("pho_genMatchedIndex", &pho_genMatchedIndex_);
     }
 
     if (doRecHitsEB_ || doRecHitsEE_) {
       // rechit info
-      tree_->Branch("nRH", &nRH_);
-      tree_->Branch("rhRawId", &rhRawId_);
-      tree_->Branch("rhieta", &rhieta_);
-      tree_->Branch("rhiphi", &rhiphi_);
-      tree_->Branch("rhix", &rhix_);
-      tree_->Branch("rhiy", &rhiy_);
-      tree_->Branch("rhE", &rhE_);
-      tree_->Branch("rhEt", &rhEt_);
-      tree_->Branch("rhEta", &rhEta_);
-      tree_->Branch("rhPhi", &rhPhi_);
-      tree_->Branch("rhChi2", &rhChi2_);
-      tree_->Branch("rhEerror", &rhEerror_);
-      tree_->Branch("rhFlags", &rhFlags_);
-      tree_->Branch("rhPhoIdx", &rhPhoIdx_);
-      tree_->Branch("rhBCIdx", &rhBCIdx_);
+      bookBranch("nRH", &nRH_);
+      bookBranch("rhRawId", &rhRawId_);
+      bookBranch("rhieta", &rhieta_);
+      bookBranch("rhiphi", &rhiphi_);
+      bookBranch("rhix", &rhix_);
+      bookBranch("rhiy", &rhiy_);
+      bookBranch("rhE", &rhE_);
+      bookBranch("rhEt", &rhEt_);
+      bookBranch("rhEta", &rhEta_);
+      bookBranch("rhPhi", &rhPhi_);
+      bookBranch("rhChi2", &rhChi2_);
+      bookBranch("rhEerror", &rhEerror_);
+      bookBranch("rhFlags", &rhFlags_);
+      bookBranch("rhPhoIdx", &rhPhoIdx_);
+      bookBranch("rhBCIdx", &rhBCIdx_);
     }
 
     if (doPfIso_) {
-      tree_->Branch("pfcIso1", &pfcIso1_);
-      tree_->Branch("pfcIso2", &pfcIso2_);
-      tree_->Branch("pfcIso3", &pfcIso3_);
-      tree_->Branch("pfcIso4", &pfcIso4_);
-      tree_->Branch("pfcIso5", &pfcIso5_);
+      bookBranch("pfcIso1", &pfcIso1_);
+      bookBranch("pfcIso2", &pfcIso2_);
+      bookBranch("pfcIso3", &pfcIso3_);
+      bookBranch("pfcIso4", &pfcIso4_);
+      bookBranch("pfcIso5", &pfcIso5_);
 
-      tree_->Branch("pfpIso1", &pfpIso1_);
-      tree_->Branch("pfpIso2", &pfpIso2_);
-      tree_->Branch("pfpIso3", &pfpIso3_);
-      tree_->Branch("pfpIso4", &pfpIso4_);
-      tree_->Branch("pfpIso5", &pfpIso5_);
+      bookBranch("pfpIso1", &pfpIso1_);
+      bookBranch("pfpIso2", &pfpIso2_);
+      bookBranch("pfpIso3", &pfpIso3_);
+      bookBranch("pfpIso4", &pfpIso4_);
+      bookBranch("pfpIso5", &pfpIso5_);
 
-      tree_->Branch("pfnIso1", &pfnIso1_);
-      tree_->Branch("pfnIso2", &pfnIso2_);
-      tree_->Branch("pfnIso3", &pfnIso3_);
-      tree_->Branch("pfnIso4", &pfnIso4_);
-      tree_->Branch("pfnIso5", &pfnIso5_);
+      bookBranch("pfnIso1", &pfnIso1_);
+      bookBranch("pfnIso2", &pfnIso2_);
+      bookBranch("pfnIso3", &pfnIso3_);
+      bookBranch("pfnIso4", &pfnIso4_);
+      bookBranch("pfnIso5", &pfnIso5_);
 
-      tree_->Branch("pfpIso1subSC", &pfpIso1subSC_);
-      tree_->Branch("pfpIso2subSC", &pfpIso2subSC_);
-      tree_->Branch("pfpIso3subSC", &pfpIso3subSC_);
-      tree_->Branch("pfpIso4subSC", &pfpIso4subSC_);
-      tree_->Branch("pfpIso5subSC", &pfpIso5subSC_);
+      bookBranch("pfpIso1subSC", &pfpIso1subSC_);
+      bookBranch("pfpIso2subSC", &pfpIso2subSC_);
+      bookBranch("pfpIso3subSC", &pfpIso3subSC_);
+      bookBranch("pfpIso4subSC", &pfpIso4subSC_);
+      bookBranch("pfpIso5subSC", &pfpIso5subSC_);
 
-      tree_->Branch("pfcIso1subUE", &pfcIso1subUE_);
-      tree_->Branch("pfcIso2subUE", &pfcIso2subUE_);
-      tree_->Branch("pfcIso3subUE", &pfcIso3subUE_);
-      tree_->Branch("pfcIso4subUE", &pfcIso4subUE_);
-      tree_->Branch("pfcIso5subUE", &pfcIso5subUE_);
+      bookBranch("pfcIso1subUE", &pfcIso1subUE_);
+      bookBranch("pfcIso2subUE", &pfcIso2subUE_);
+      bookBranch("pfcIso3subUE", &pfcIso3subUE_);
+      bookBranch("pfcIso4subUE", &pfcIso4subUE_);
+      bookBranch("pfcIso5subUE", &pfcIso5subUE_);
 
-      tree_->Branch("pfpIso1subUE", &pfpIso1subUE_);
-      tree_->Branch("pfpIso2subUE", &pfpIso2subUE_);
-      tree_->Branch("pfpIso3subUE", &pfpIso3subUE_);
-      tree_->Branch("pfpIso4subUE", &pfpIso4subUE_);
-      tree_->Branch("pfpIso5subUE", &pfpIso5subUE_);
+      bookBranch("pfpIso1subUE", &pfpIso1subUE_);
+      bookBranch("pfpIso2subUE", &pfpIso2subUE_);
+      bookBranch("pfpIso3subUE", &pfpIso3subUE_);
+      bookBranch("pfpIso4subUE", &pfpIso4subUE_);
+      bookBranch("pfpIso5subUE", &pfpIso5subUE_);
 
-      tree_->Branch("pfnIso1subUE", &pfnIso1subUE_);
-      tree_->Branch("pfnIso2subUE", &pfnIso2subUE_);
-      tree_->Branch("pfnIso3subUE", &pfnIso3subUE_);
-      tree_->Branch("pfnIso4subUE", &pfnIso4subUE_);
-      tree_->Branch("pfnIso5subUE", &pfnIso5subUE_);
+      bookBranch("pfnIso1subUE", &pfnIso1subUE_);
+      bookBranch("pfnIso2subUE", &pfnIso2subUE_);
+      bookBranch("pfnIso3subUE", &pfnIso3subUE_);
+      bookBranch("pfnIso4subUE", &pfnIso4subUE_);
+      bookBranch("pfnIso5subUE", &pfnIso5subUE_);
 
-      tree_->Branch("pfpIso1subSCsubUE", &pfpIso1subSCsubUE_);
-      tree_->Branch("pfpIso2subSCsubUE", &pfpIso2subSCsubUE_);
-      tree_->Branch("pfpIso3subSCsubUE", &pfpIso3subSCsubUE_);
-      tree_->Branch("pfpIso4subSCsubUE", &pfpIso4subSCsubUE_);
-      tree_->Branch("pfpIso5subSCsubUE", &pfpIso5subSCsubUE_);
+      bookBranch("pfpIso1subSCsubUE", &pfpIso1subSCsubUE_);
+      bookBranch("pfpIso2subSCsubUE", &pfpIso2subSCsubUE_);
+      bookBranch("pfpIso3subSCsubUE", &pfpIso3subSCsubUE_);
+      bookBranch("pfpIso4subSCsubUE", &pfpIso4subSCsubUE_);
+      bookBranch("pfpIso5subSCsubUE", &pfpIso5subSCsubUE_);
 
-      tree_->Branch("pfcIso1pTgt1p0subUE", &pfcIso1pTgt1p0subUE_);
-      tree_->Branch("pfcIso2pTgt1p0subUE", &pfcIso2pTgt1p0subUE_);
-      tree_->Branch("pfcIso3pTgt1p0subUE", &pfcIso3pTgt1p0subUE_);
-      tree_->Branch("pfcIso4pTgt1p0subUE", &pfcIso4pTgt1p0subUE_);
-      tree_->Branch("pfcIso5pTgt1p0subUE", &pfcIso5pTgt1p0subUE_);
+      bookBranch("pfcIso1pTgt1p0subUE", &pfcIso1pTgt1p0subUE_);
+      bookBranch("pfcIso2pTgt1p0subUE", &pfcIso2pTgt1p0subUE_);
+      bookBranch("pfcIso3pTgt1p0subUE", &pfcIso3pTgt1p0subUE_);
+      bookBranch("pfcIso4pTgt1p0subUE", &pfcIso4pTgt1p0subUE_);
+      bookBranch("pfcIso5pTgt1p0subUE", &pfcIso5pTgt1p0subUE_);
 
-      tree_->Branch("pfcIso1pTgt2p0subUE", &pfcIso1pTgt2p0subUE_);
-      tree_->Branch("pfcIso2pTgt2p0subUE", &pfcIso2pTgt2p0subUE_);
-      tree_->Branch("pfcIso3pTgt2p0subUE", &pfcIso3pTgt2p0subUE_);
-      tree_->Branch("pfcIso4pTgt2p0subUE", &pfcIso4pTgt2p0subUE_);
-      tree_->Branch("pfcIso5pTgt2p0subUE", &pfcIso5pTgt2p0subUE_);
+      bookBranch("pfcIso1pTgt2p0subUE", &pfcIso1pTgt2p0subUE_);
+      bookBranch("pfcIso2pTgt2p0subUE", &pfcIso2pTgt2p0subUE_);
+      bookBranch("pfcIso3pTgt2p0subUE", &pfcIso3pTgt2p0subUE_);
+      bookBranch("pfcIso4pTgt2p0subUE", &pfcIso4pTgt2p0subUE_);
+      bookBranch("pfcIso5pTgt2p0subUE", &pfcIso5pTgt2p0subUE_);
 
-      tree_->Branch("pfcIso1pTgt3p0subUE", &pfcIso1pTgt3p0subUE_);
-      tree_->Branch("pfcIso2pTgt3p0subUE", &pfcIso2pTgt3p0subUE_);
-      tree_->Branch("pfcIso3pTgt3p0subUE", &pfcIso3pTgt3p0subUE_);
-      tree_->Branch("pfcIso4pTgt3p0subUE", &pfcIso4pTgt3p0subUE_);
-      tree_->Branch("pfcIso5pTgt3p0subUE", &pfcIso5pTgt3p0subUE_);
+      bookBranch("pfcIso1pTgt3p0subUE", &pfcIso1pTgt3p0subUE_);
+      bookBranch("pfcIso2pTgt3p0subUE", &pfcIso2pTgt3p0subUE_);
+      bookBranch("pfcIso3pTgt3p0subUE", &pfcIso3pTgt3p0subUE_);
+      bookBranch("pfcIso4pTgt3p0subUE", &pfcIso4pTgt3p0subUE_);
+      bookBranch("pfcIso5pTgt3p0subUE", &pfcIso5pTgt3p0subUE_);
 
       // photon pf isolation UE-subtracted and cone excluded
-      tree_->Branch("pfcIso2subUEec", &pfcIso2subUEec_);
-      tree_->Branch("pfcIso3subUEec", &pfcIso3subUEec_);
-      tree_->Branch("pfcIso4subUEec", &pfcIso4subUEec_);
+      bookBranch("pfcIso2subUEec", &pfcIso2subUEec_);
+      bookBranch("pfcIso3subUEec", &pfcIso3subUEec_);
+      bookBranch("pfcIso4subUEec", &pfcIso4subUEec_);
 
-      tree_->Branch("pfpIso2subUEec", &pfpIso2subUEec_);
-      tree_->Branch("pfpIso3subUEec", &pfpIso3subUEec_);
-      tree_->Branch("pfpIso4subUEec", &pfpIso4subUEec_);
+      bookBranch("pfpIso2subUEec", &pfpIso2subUEec_);
+      bookBranch("pfpIso3subUEec", &pfpIso3subUEec_);
+      bookBranch("pfpIso4subUEec", &pfpIso4subUEec_);
 
-      tree_->Branch("pfnIso2subUEec", &pfnIso2subUEec_);
-      tree_->Branch("pfnIso3subUEec", &pfnIso3subUEec_);
-      tree_->Branch("pfnIso4subUEec", &pfnIso4subUEec_);
+      bookBranch("pfnIso2subUEec", &pfnIso2subUEec_);
+      bookBranch("pfnIso3subUEec", &pfnIso3subUEec_);
+      bookBranch("pfnIso4subUEec", &pfnIso4subUEec_);
 
-      tree_->Branch("pfcIso2pTgt2p0subUEec", &pfcIso2pTgt2p0subUEec_);
-      tree_->Branch("pfcIso3pTgt2p0subUEec", &pfcIso3pTgt2p0subUEec_);
-      tree_->Branch("pfcIso4pTgt2p0subUEec", &pfcIso4pTgt2p0subUEec_);
+      bookBranch("pfcIso2pTgt2p0subUEec", &pfcIso2pTgt2p0subUEec_);
+      bookBranch("pfcIso3pTgt2p0subUEec", &pfcIso3pTgt2p0subUEec_);
+      bookBranch("pfcIso4pTgt2p0subUEec", &pfcIso4pTgt2p0subUEec_);
     }
   }
 
   if (doMuons_) {
-    tree_->Branch("nMu", &nMu_);
+    bookBranch("nMu", &nMu_);
 
-    tree_->Branch("muPt", &muPt_);
-    tree_->Branch("muEta", &muEta_);
-    tree_->Branch("muPhi", &muPhi_);
-    tree_->Branch("muL1Eta", &muL1Eta_);
-    tree_->Branch("muL1Phi", &muL1Phi_);
-    tree_->Branch("muMVAIso", &muMVAIso_);
+    bookBranch("muPt", &muPt_);
+    bookBranch("muEta", &muEta_);
+    bookBranch("muPhi", &muPhi_);
+    bookBranch("muL1Eta", &muL1Eta_);
+    bookBranch("muL1Phi", &muL1Phi_);
+    bookBranch("muMVAIso", &muMVAIso_);
     for (auto& w : muMVAIsoWP_)
-      tree_->Branch(("muMVAIso"+w.first).c_str(), &(w.second));
-    tree_->Branch("muCharge", &muCharge_);
-    tree_->Branch("muType", &muType_);
-    tree_->Branch("muIsGood", &muIsGood_);
+      bookBranch(("muMVAIso"+w.first).c_str(), &(w.second));
+    bookBranch("muCharge", &muCharge_);
+    bookBranch("muType", &muType_);
+    bookBranch("muIsGood", &muIsGood_);
 
-    tree_->Branch("muIsGlobal", &muIsGlobal_);
-    tree_->Branch("muIsTracker", &muIsTracker_);
-    tree_->Branch("muIsPF", &muIsPF_);
-    tree_->Branch("muIsSTA", &muIsSTA_);
+    bookBranch("muIsGlobal", &muIsGlobal_);
+    bookBranch("muIsTracker", &muIsTracker_);
+    bookBranch("muIsPF", &muIsPF_);
+    bookBranch("muIsSTA", &muIsSTA_);
 
-    tree_->Branch("muD0", &muD0_);
-    tree_->Branch("muDz", &muDz_);
-    tree_->Branch("muIP3D", &muIP3D_);
-    tree_->Branch("muD0Err", &muD0Err_);
-    tree_->Branch("muDzErr", &muDzErr_);
-    tree_->Branch("muIP3DErr", &muIP3DErr_);
-    tree_->Branch("muChi2NDF", &muChi2NDF_);
-    tree_->Branch("muInnerD0", &muInnerD0_);
-    tree_->Branch("muInnerDz", &muInnerDz_);
+    bookBranch("muD0", &muD0_);
+    bookBranch("muDz", &muDz_);
+    bookBranch("muIP3D", &muIP3D_);
+    bookBranch("muD0Err", &muD0Err_);
+    bookBranch("muDzErr", &muDzErr_);
+    bookBranch("muIP3DErr", &muIP3DErr_);
+    bookBranch("muChi2NDF", &muChi2NDF_);
+    bookBranch("muInnerD0", &muInnerD0_);
+    bookBranch("muInnerDz", &muInnerDz_);
 
-    tree_->Branch("muInnerD0Err", &muInnerD0Err_);
-    tree_->Branch("muInnerDzErr", &muInnerDzErr_);
-    tree_->Branch("muInnerPt", &muInnerPt_);
-    tree_->Branch("muInnerPtErr", &muInnerPtErr_);
-    tree_->Branch("muInnerEta", &muInnerEta_);
+    bookBranch("muInnerD0Err", &muInnerD0Err_);
+    bookBranch("muInnerDzErr", &muInnerDzErr_);
+    bookBranch("muInnerPt", &muInnerPt_);
+    bookBranch("muInnerPtErr", &muInnerPtErr_);
+    bookBranch("muInnerEta", &muInnerEta_);
 
-    tree_->Branch("muTrkLayers", &muTrkLayers_);
-    tree_->Branch("muPixelLayers", &muPixelLayers_);
-    tree_->Branch("muPixelHits", &muPixelHits_);
-    tree_->Branch("muMuonHits", &muMuonHits_);
-    tree_->Branch("muTrkQuality", &muTrkQuality_);
-    tree_->Branch("muStations", &muStations_);
-    tree_->Branch("muIsoTrk", &muIsoTrk_);
-    tree_->Branch("muPFChIso", &muPFChIso_);
-    tree_->Branch("muPFPhoIso", &muPFPhoIso_);
-    tree_->Branch("muPFNeuIso", &muPFNeuIso_);
-    tree_->Branch("muPFPUIso", &muPFPUIso_);
+    bookBranch("muTrkLayers", &muTrkLayers_);
+    bookBranch("muPixelLayers", &muPixelLayers_);
+    bookBranch("muPixelHits", &muPixelHits_);
+    bookBranch("muMuonHits", &muMuonHits_);
+    bookBranch("muTrkQuality", &muTrkQuality_);
+    bookBranch("muStations", &muStations_);
+    bookBranch("muIsoTrk", &muIsoTrk_);
+    bookBranch("muPFChIso", &muPFChIso_);
+    bookBranch("muPFPhoIso", &muPFPhoIso_);
+    bookBranch("muPFNeuIso", &muPFNeuIso_);
+    bookBranch("muPFPUIso", &muPFPUIso_);
 
-    tree_->Branch("muSelectors", &muSelectors_);
-    tree_->Branch("muIDSoft", &muIDSoft_);
-    tree_->Branch("muIDLoose", &muIDLoose_);
-    tree_->Branch("muIDMedium", &muIDMedium_);
-    tree_->Branch("muIDMediumPrompt", &muIDMediumPrompt_);
-    tree_->Branch("muIDTight", &muIDTight_);
-    tree_->Branch("muIDGlobalHighPt", &muIDGlobalHighPt_);
-    tree_->Branch("muIDTrkHighPt", &muIDTrkHighPt_);
-    tree_->Branch("muIDInTime", &muIDInTime_);
+    bookBranch("muSelectors", &muSelectors_);
+    bookBranch("muIDSoft", &muIDSoft_);
+    bookBranch("muIDLoose", &muIDLoose_);
+    bookBranch("muIDMedium", &muIDMedium_);
+    bookBranch("muIDMediumPrompt", &muIDMediumPrompt_);
+    bookBranch("muIDTight", &muIDTight_);
+    bookBranch("muIDGlobalHighPt", &muIDGlobalHighPt_);
+    bookBranch("muIDTrkHighPt", &muIDTrkHighPt_);
+    bookBranch("muIDInTime", &muIDInTime_);
 
     if (doGenParticles_)
-      tree_->Branch("mu_genMatchedIndex", &mu_genMatchedIndex_);
+      bookBranch("mu_genMatchedIndex", &mu_genMatchedIndex_);
   }
 }
 

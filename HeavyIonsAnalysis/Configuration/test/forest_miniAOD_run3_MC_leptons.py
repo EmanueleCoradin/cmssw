@@ -118,37 +118,6 @@ process.unpackedMuons.muons = "hiMuons"
 process.muonSequence = cms.Sequence(process.rhoSequence * process.hiMuons * process.unpackedMuons)
 process.load("HeavyIonsAnalysis.MuonAnalysis.muonAnalyzer_cfi")
 process.muonAnalyzer.doGen = cms.bool(True)
-process.muonAnalyzer.outputBranches = cms.untracked.vstring(
-    # Event information
-    "run",
-    "event",
-    "lumi",
-
-    # Reconstructed muons
-    "nReco",
-    "recoPt",
-    "recoEta",
-    "recoPhi",
-    "recoCharge",
-
-    # Identification
-    "recoIDTight",
-
-    # Isolation
-    "recoMVAIso",
-    "recoMVAIsoWP95",
-    "recoPFChIso",
-    "recoPFNeuIso",
-    "recoPFPhoIso",
-    "recoPFPUIso",
-
-    # Generator-level muons
-    "nGen",
-    "genPt",
-    "genEta",
-    "genPhi",
-    "genPID",
-)
 
 ###############################################################################
 
@@ -189,6 +158,96 @@ process.forest = cms.Path(
 #customisation
 process.particleFlowAnalyser.ptMin = 0.0
 process.ggHiNtuplizer.muonPtMin = 0.0
+
+process.ggHiNtuplizer.outputBranches = cms.untracked.vstring(
+    # Event information
+    "run", "event", "lumis", "rho",
+
+    # Reconstructed electrons
+    "nEle",
+    "elePt", "eleRawPt", "eleEta", "elePhi",
+    "eleCharge", "eleEn",
+    "eleSCEta", "eleSCPhi",
+
+    # MVA identification
+    "eleMVAId",
+    "eleMVAIdWP95", "eleMVAIdWP90",
+    "eleMVAIdWP85", "eleMVAIdWP80",
+
+    # Cut-based identification
+    "eleCutIdWP95", "eleCutIdWP90",
+    "eleCutIdWP80", "eleCutIdWP70",
+
+    # MVA isolation
+    "eleMVAIso",
+    "eleMVAIsoWP95", "eleMVAIsoWP90",
+    "eleMVAIsoWP85", "eleMVAIsoWP80",
+
+    # PF isolation
+    "elePFChIso", "elePFNeuIso",
+    "elePFPhoIso", "elePFPUIso",
+    "elePFRelIsoWithEA",
+    "elePFRelIsoWithDBeta",
+
+    # Track quality and conversion rejection
+    "eleD0", "eleDz",
+    "eleMissHits", "eleConvVeto",
+
+    # Energy calibration
+    "eleEcalE", "eleRawEcalE",
+    "eleSCEn", "eleSCRawEn",
+    "eleR9", "eleR9Full5x5",
+
+    # Generator matching
+    "ele_genMatchedIndex",
+
+    # Generator-level particles
+    "nMC",
+    "mcPID", "mcStatus",
+    "mcPt", "mcEta", "mcPhi", "mcE", "mcMass",
+    "mcParentage",
+    "mcMomPID", "mcMomKey",
+    "mcMomPt", "mcMomEta", "mcMomPhi", "mcMomMass",
+    "mcSube",
+
+    # Photons for potential FSR recovery
+    "nPho", "phoEt", "phoEta", "phoPhi", "phoE",
+    "phoHasPixelSeed",
+    "phoHoverE", "phoSigmaIEtaIEta_2012",
+    "pho_genMatchedIndex",
+)
+
+process.muonAnalyzer.outputBranches = cms.untracked.vstring(
+    # Event information
+    "run",
+    "event",
+    "lumi",
+
+    # Reconstructed muons
+    "nReco",
+    "recoPt",
+    "recoEta",
+    "recoPhi",
+    "recoCharge",
+
+    # Identification
+    "recoIDTight",
+
+    # Isolation
+    "recoMVAIso",
+    "recoMVAIsoWP95",
+    "recoPFChIso",
+    "recoPFNeuIso",
+    "recoPFPhoIso",
+    "recoPFPUIso",
+
+    # Generator-level muons
+    "nGen",
+    "genPt",
+    "genEta",
+    "genPhi",
+    "genPID",
+)
 
 # Select the types of jets filled
 matchJets = True             # Enables q/g and heavy flavor jet identification in MC
