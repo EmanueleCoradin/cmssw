@@ -7,6 +7,7 @@ muonAnalyzer = cms.EDAnalyzer("MuonAnalyzer",
                            doGen = cms.bool(False),
                            genparticle = cms.InputTag("packedGenParticles"),
                            simtrack = cms.InputTag("mergedtruth","MergedTrackTruth"),
+                           outputBranches = cms.untracked.vstring("*"),
 )
 
 muonAnalyzerPP = muonAnalyzer.clone(muonSrc = cms.InputTag("slimmedMuons"))

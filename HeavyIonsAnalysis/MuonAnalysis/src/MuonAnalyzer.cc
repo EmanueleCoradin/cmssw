@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "HeavyIonsAnalysis/MuonAnalysis/interface/MuonAnalyzer.h"
 
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
@@ -18,6 +20,16 @@ MuonAnalyzer::MuonAnalyzer(const edm::ParameterSet& ps) {
   doGen_ = ps.getParameter<bool>("doGen");
   doReco_ = ps.getUntrackedParameter<bool>("doReco");
 
+  const auto outputBranches = ps.getUntrackedParameter<std::vector<std::string>>("outputBranches", {"*"});
+  const bool saveAll = std::find(outputBranches.begin(), outputBranches.end(), "*") != outputBranches.end();
+
+  // Lambda function to select the output branches
+  auto bookBranch = [this, &outputBranches, saveAll](const std::string& name, auto* address) {
+    if (saveAll || std::find(outputBranches.begin(), outputBranches.end(), name) != outputBranches.end()) {
+      tree_->Branch(name.c_str(), address);
+    }
+  };
+
   vertexToken_ = consumes<std::vector<reco::Vertex>>(ps.getParameter<edm::InputTag>("vertexSrc"));
   genToken_ = consumes<edm::View<pat::PackedGenParticle>>(ps.getParameter<edm::InputTag>("genparticle"));
   muonToken_ = consumes<edm::View<pat::Muon>>(ps.getParameter<edm::InputTag>("muonSrc"));
@@ -28,98 +40,98 @@ MuonAnalyzer::MuonAnalyzer(const edm::ParameterSet& ps) {
   edm::Service<TFileService> fs;
   tree_ = fs->make<TTree>("MuonTree", "muon tree");
 
-  tree_->Branch("run", &run_);
-  tree_->Branch("event", &event_);
-  tree_->Branch("lumi", &lumi_);
+  bookBranch("run", &run_);
+  bookBranch("event", &event_);
+  bookBranch("lumi", &lumi_);
 
-  tree_->Branch("nGen", &nGen_);
-  tree_->Branch("genVtx_x", &genVtx_x_);
-  tree_->Branch("genVtx_y", &genVtx_y_);
-  tree_->Branch("genVtx_z", &genVtx_z_);
-  tree_->Branch("genPID", &genPID_);
-  tree_->Branch("genStatus", &genStatus_);
-  tree_->Branch("genP", &genP_);
-  tree_->Branch("genPt", &genPt_);
-  tree_->Branch("genEta", &genEta_);
-  tree_->Branch("genPhi", &genPhi_);
-  tree_->Branch("genMotherID", &genMotherID_);
+  bookBranch("nGen", &nGen_);
+  bookBranch("genVtx_x", &genVtx_x_);
+  bookBranch("genVtx_y", &genVtx_y_);
+  bookBranch("genVtx_z", &genVtx_z_);
+  bookBranch("genPID", &genPID_);
+  bookBranch("genStatus", &genStatus_);
+  bookBranch("genP", &genP_);
+  bookBranch("genPt", &genPt_);
+  bookBranch("genEta", &genEta_);
+  bookBranch("genPhi", &genPhi_);
+  bookBranch("genMotherID", &genMotherID_);
 
   // reco muon candidates
-  tree_->Branch("nReco", &nReco_);
-  tree_->Branch("recoP", &recoP_);
-  tree_->Branch("recoPt", &recoPt_);
-  tree_->Branch("recoEta", &recoEta_);
-  tree_->Branch("recoPhi", &recoPhi_);
-  tree_->Branch("recoL1Eta", &recoL1Eta_);
-  tree_->Branch("recoL1Phi", &recoL1Phi_);
-  tree_->Branch("recoCharge", &recoCharge_);
-  tree_->Branch("recoType", &recoType_);
-  tree_->Branch("recoIsGood", &recoIsGood_);
-  tree_->Branch("recoIsGlobal", &recoIsGlobal_);
-  tree_->Branch("recoIsTracker", &recoIsTracker_);
-  tree_->Branch("recoIsPF", &recoIsPF_);
-  tree_->Branch("recoIsSTA", &recoIsSTA_);
-  tree_->Branch("recoDxy", &recoDxy_);
-  tree_->Branch("recoDz", &recoDz_);
-  tree_->Branch("recoDxyErr", &recoDxyErr_);
-  tree_->Branch("recoDzErr", &recoDzErr_);
-  tree_->Branch("recoIP3D", &recoIP3D_);
-  tree_->Branch("recoIP3DErr", &recoIP3DErr_);
-  tree_->Branch("recoNMatchedStations", &recoNMatchedStations_);
-  tree_->Branch("recoIsoTrk", &recoIsoTrk_);
-  tree_->Branch("recoPFChIso", &recoPFChIso_);
-  tree_->Branch("recoPFPhoIso", &recoPFPhoIso_);
-  tree_->Branch("recoPFNeuIso", &recoPFNeuIso_);
-  tree_->Branch("recoPFPUIso", &recoPFPUIso_);
-  tree_->Branch("recoMVAIso", &recoMVAIso_);
+  bookBranch("nReco", &nReco_);
+  bookBranch("recoP", &recoP_);
+  bookBranch("recoPt", &recoPt_);
+  bookBranch("recoEta", &recoEta_);
+  bookBranch("recoPhi", &recoPhi_);
+  bookBranch("recoL1Eta", &recoL1Eta_);
+  bookBranch("recoL1Phi", &recoL1Phi_);
+  bookBranch("recoCharge", &recoCharge_);
+  bookBranch("recoType", &recoType_);
+  bookBranch("recoIsGood", &recoIsGood_);
+  bookBranch("recoIsGlobal", &recoIsGlobal_);
+  bookBranch("recoIsTracker", &recoIsTracker_);
+  bookBranch("recoIsPF", &recoIsPF_);
+  bookBranch("recoIsSTA", &recoIsSTA_);
+  bookBranch("recoDxy", &recoDxy_);
+  bookBranch("recoDz", &recoDz_);
+  bookBranch("recoDxyErr", &recoDxyErr_);
+  bookBranch("recoDzErr", &recoDzErr_);
+  bookBranch("recoIP3D", &recoIP3D_);
+  bookBranch("recoIP3DErr", &recoIP3DErr_);
+  bookBranch("recoNMatchedStations", &recoNMatchedStations_);
+  bookBranch("recoIsoTrk", &recoIsoTrk_);
+  bookBranch("recoPFChIso", &recoPFChIso_);
+  bookBranch("recoPFPhoIso", &recoPFPhoIso_);
+  bookBranch("recoPFNeuIso", &recoPFNeuIso_);
+  bookBranch("recoPFPUIso", &recoPFPUIso_);
+  bookBranch("recoMVAIso", &recoMVAIso_);
   for (auto& w : recoMVAIsoWP_)
-    tree_->Branch(("recoMVAIso"+w.first).c_str(), &(w.second));
-  tree_->Branch("recoIDHybridSoft", &recoIDHybridSoft_);
-  tree_->Branch("recoIDSoft", &recoIDSoft_);
-  tree_->Branch("recoIDLoose", &recoIDLoose_);
-  tree_->Branch("recoIDMedium", &recoIDMedium_);
-  tree_->Branch("recoIDMediumPrompt", &recoIDMediumPrompt_);
-  tree_->Branch("recoIDTight", &recoIDTight_);
-  tree_->Branch("recoIDGlobalHighPt", &recoIDGlobalHighPt_);
-  tree_->Branch("recoIDTrkHighPt", &recoIDTrkHighPt_);
-  tree_->Branch("recoIDInTime", &recoIDInTime_);
-  tree_->Branch("recoMVAIDSoft", &recoMVAIDSoft_);
-  tree_->Branch("recoMVAIDLoose", &recoMVAIDLoose_);
-  tree_->Branch("recoMVAIDMedium", &recoMVAIDMedium_);
-  tree_->Branch("recoMVAIDTight", &recoMVAIDTight_);
-  tree_->Branch("recoMVAIDLooseLowPt", &recoMVAIDLooseLowPt_);
-  tree_->Branch("recoMVAIDMediumLowPt", &recoMVAIDMediumLowPt_);
+    bookBranch(("recoMVAIso"+w.first).c_str(), &(w.second));
+  bookBranch("recoIDHybridSoft", &recoIDHybridSoft_);
+  bookBranch("recoIDSoft", &recoIDSoft_);
+  bookBranch("recoIDLoose", &recoIDLoose_);
+  bookBranch("recoIDMedium", &recoIDMedium_);
+  bookBranch("recoIDMediumPrompt", &recoIDMediumPrompt_);
+  bookBranch("recoIDTight", &recoIDTight_);
+  bookBranch("recoIDGlobalHighPt", &recoIDGlobalHighPt_);
+  bookBranch("recoIDTrkHighPt", &recoIDTrkHighPt_);
+  bookBranch("recoIDInTime", &recoIDInTime_);
+  bookBranch("recoMVAIDSoft", &recoMVAIDSoft_);
+  bookBranch("recoMVAIDLoose", &recoMVAIDLoose_);
+  bookBranch("recoMVAIDMedium", &recoMVAIDMedium_);
+  bookBranch("recoMVAIDTight", &recoMVAIDTight_);
+  bookBranch("recoMVAIDLooseLowPt", &recoMVAIDLooseLowPt_);
+  bookBranch("recoMVAIDMediumLowPt", &recoMVAIDMediumLowPt_);
 
   // inner tracks
-  tree_->Branch("nInner", &nInner_);
-  tree_->Branch("innerDxy", &innerDxy_);
-  tree_->Branch("innerDz", &innerDz_);
-  tree_->Branch("innerDxyErr", &innerDxyErr_);
-  tree_->Branch("innerDzErr", &innerDzErr_);
-  tree_->Branch("innerP", &innerP_);
-  tree_->Branch("innerPt", &innerPt_);
-  tree_->Branch("innerPtErr", &innerPtErr_);
-  tree_->Branch("innerEta", &innerEta_);
-  tree_->Branch("innerTrkLayers", &innerTrkLayers_);
-  tree_->Branch("innerNTrkHits", &innerNTrkHits_);
-  tree_->Branch("innerPixelLayers", &innerPixelLayers_);
-  tree_->Branch("innerNPixelHits", &innerNPixelHits_);
-  tree_->Branch("innerIsHighPurityTrack", &innerIsHighPurityTrack_);
-  tree_->Branch("innerNormChi2", &innerNormChi2_);
+  bookBranch("nInner", &nInner_);
+  bookBranch("innerDxy", &innerDxy_);
+  bookBranch("innerDz", &innerDz_);
+  bookBranch("innerDxyErr", &innerDxyErr_);
+  bookBranch("innerDzErr", &innerDzErr_);
+  bookBranch("innerP", &innerP_);
+  bookBranch("innerPt", &innerPt_);
+  bookBranch("innerPtErr", &innerPtErr_);
+  bookBranch("innerEta", &innerEta_);
+  bookBranch("innerTrkLayers", &innerTrkLayers_);
+  bookBranch("innerNTrkHits", &innerNTrkHits_);
+  bookBranch("innerPixelLayers", &innerPixelLayers_);
+  bookBranch("innerNPixelHits", &innerNPixelHits_);
+  bookBranch("innerIsHighPurityTrack", &innerIsHighPurityTrack_);
+  bookBranch("innerNormChi2", &innerNormChi2_);
 
   // global muons
-  tree_->Branch("nGlobal", &nGlobal_);
-  tree_->Branch("globalP", &globalP_);
-  tree_->Branch("globalPt", &globalPt_);
-  tree_->Branch("globalPtErr", &globalPtErr_);
-  tree_->Branch("globalEta", &globalEta_);
-  tree_->Branch("globalIsArbitrated", &globalIsArbitrated_);
-  tree_->Branch("globalDxy", &globalDxy_);
-  tree_->Branch("globalDz", &globalDz_);
-  tree_->Branch("globalDxyErr", &globalDxyErr_);
-  tree_->Branch("globalDzErr", &globalDzErr_);
-  tree_->Branch("globalNormChi2", &globalNormChi2_);
-  tree_->Branch("globalNMuonHits", &globalNMuonHits_);
+  bookBranch("nGlobal", &nGlobal_);
+  bookBranch("globalP", &globalP_);
+  bookBranch("globalPt", &globalPt_);
+  bookBranch("globalPtErr", &globalPtErr_);
+  bookBranch("globalEta", &globalEta_);
+  bookBranch("globalIsArbitrated", &globalIsArbitrated_);
+  bookBranch("globalDxy", &globalDxy_);
+  bookBranch("globalDz", &globalDz_);
+  bookBranch("globalDxyErr", &globalDxyErr_);
+  bookBranch("globalDzErr", &globalDzErr_);
+  bookBranch("globalNormChi2", &globalNormChi2_);
+  bookBranch("globalNMuonHits", &globalNMuonHits_);
 }
 
 MuonAnalyzer::~MuonAnalyzer() {}
