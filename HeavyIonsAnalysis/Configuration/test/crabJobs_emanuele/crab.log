@@ -1,0 +1,231 @@
+DEBUG 2026-11-26 11:32:51.229 UTC: 	 CRAB Client version: v3.260630
+DEBUG 2026-11-26 11:32:51.229 UTC: 	 Running on: Linux farmui01.ts.infn.it 5.14.0-687.66.2.el9_8.x86_64 #1 SMP PREEMPT_DYNAMIC Fri Nov 6 16:20:31 EST 2026 x86_64 x86_64 x86_64 GNU/Linux
+DEBUG 2026-11-26 11:32:51.229 UTC: 	 Using SINGULARITY image: el8:x86_64
+DEBUG 2026-11-26 11:32:51.229 UTC: 	 Operating System: AlmaLinux 8.10 (Cerulean Leopard)
+DEBUG 2026-11-26 11:32:51.229 UTC: 	 Executing command: 'status'
+DEBUG 2026-11-26 11:32:51.230 UTC: 	 Found CRAB cache file /home/coradin/.crab3
+ERROR 2026-11-26 11:32:51.231 UTC: 	 Error: ./crab_test0_mc_leptons_0_DYto2L2Jets4 is not a valid CRAB project directory.
+ERROR 2026-11-26 11:32:51.231 UTC: 	 Caught ClientException exception
+Traceback (most recent call last):
+  File "/cvmfs/cms.cern.ch/share/cms/crab-prod/v3.260630.00/bin/crab.py", line 157, in <module>
+    client()
+  File "/cvmfs/cms.cern.ch/share/cms/crab-prod/v3.260630.00/bin/crab.py", line 135, in __call__
+    self.cmd = sub_cmd(self.logger, args[1:])  # the crab command to be executed
+  File "/cvmfs/cms.cern.ch/share/cms/crab-prod/v3.260630.00/lib/CRABClient/Commands/status.py", line 50, in __init__
+    SubCommand.__init__(self, logger, cmdargs)
+  File "/cvmfs/cms.cern.ch/share/cms/crab-prod/v3.260630.00/lib/CRABClient/Commands/SubCommand.py", line 281, in __init__
+    SubCommand.validateOptions(self)
+  File "/cvmfs/cms.cern.ch/share/cms/crab-prod/v3.260630.00/lib/CRABClient/Commands/SubCommand.py", line 691, in validateOptions
+    raise ConfigurationException(msg)
+CRABClient.ClientExceptions.ConfigurationException: [91mError[0m: ./crab_test0_mc_leptons_0_DYto2L2Jets4 is not a valid CRAB project directory.
+INFO 2026-11-26 11:32:51.233 UTC: 	 Log file is /gfsvol01/cms/users/coradin/work/HeavyIons/reference/CMSSW_13_2_13/src/HeavyIonsAnalysis/Configuration/test/crabJobs_emanuele/crab.log
+DEBUG 2026-11-26 11:39:03.444 UTC: 	 CRAB Client version: v3.260630
+DEBUG 2026-11-26 11:39:03.444 UTC: 	 Running on: Linux farmui01.ts.infn.it 5.14.0-687.66.2.el9_8.x86_64 #1 SMP PREEMPT_DYNAMIC Fri Nov 6 16:20:31 EST 2026 x86_64 x86_64 x86_64 GNU/Linux
+DEBUG 2026-11-26 11:39:03.444 UTC: 	 Using SINGULARITY image: el8:x86_64
+DEBUG 2026-11-26 11:39:03.444 UTC: 	 Operating System: AlmaLinux 8.10 (Cerulean Leopard)
+DEBUG 2026-11-26 11:39:03.444 UTC: 	 Executing command: 'checkwrite'
+DEBUG 2026-11-26 11:39:03.445 UTC: 	 Found CRAB cache file /home/coradin/.crab3
+DEBUG 2026-11-26 11:39:03.445 UTC: 	 Checking credentials
+DEBUG 2026-11-26 11:39:03.446 UTC: 	 Found proxy file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:39:03.446 UTC: 	 Making sure it has proper VOMS extension
+DEBUG 2026-11-26 11:39:03.446 UTC: 	 Executing command :
+ voms-proxy-info --vo --file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:39:03.476 UTC: 	 output : cms
+
+ error: 
+ retcode : 0
+DEBUG 2026-11-26 11:39:03.477 UTC: 	 Getting proxy life time left
+DEBUG 2026-11-26 11:39:03.477 UTC: 	 Executing command :
+ voms-proxy-info --actimeleft --timeleft --file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:39:03.503 UTC: 	 output : 13762
+13761
+
+ error: 
+ retcode : 0
+DEBUG 2026-11-26 11:39:03.503 UTC: 	 Proxy valid for 03:49:21 hours
+DEBUG 2026-11-26 11:39:03.503 UTC: 	 Retrieving username ...
+DEBUG 2026-11-26 11:39:03.503 UTC: 	 Retrieving username from CRIC...
+DEBUG 2026-11-26 11:39:04.463 UTC: 	 username is ecoradin
+INFO 2026-11-26 11:39:04.978 UTC: 	 Rucio client intialized for account ecoradin
+DEBUG 2026-11-26 11:39:04.978 UTC: 	 Command use: checkwrite
+DEBUG 2026-11-26 11:39:04.978 UTC: 	 Options use: ['--site=T3_IT_Trieste', '--lfn=/eos/infnts/cms/store/user/ecoradin']
+DEBUG 2026-11-26 11:39:04.978 UTC: 	 Instance is None
+DEBUG 2026-11-26 11:39:04.978 UTC: 	 Server base url is None
+DEBUG 2026-11-26 11:39:04.979 UTC: 	 Retrieving username ...
+DEBUG 2026-11-26 11:39:04.979 UTC: 	 Retrieving username from CRIC...
+DEBUG 2026-11-26 11:39:05.949 UTC: 	 username is ecoradin
+INFO 2026-11-26 11:39:05.949 UTC: 	 Validating LFN /eos/infnts/cms/store/user/ecoradin...
+INFO 2026-11-26 11:39:05.949 UTC: 	 Refusing to check write permission in /eos/infnts/cms/store/user/ecoradin, because this is not an allowed LFN for stageout.
+The LFN must start with either '/store/user/<username>/' or '/store/group/<groupname>/' (or '/store/local/<something>/' if publication is off), where username is your username as registered in CMS (i.e. the username of your CERN primary account).
+LFN /eos/infnts/cms/store/user/ecoradin is not valid.
+WARNING 2026-11-26 11:39:05.949 UTC: 	 Command checkwrite failed
+ERROR 2026-11-26 11:39:05.949 UTC: 	 Caught CommandFailedException exception
+Traceback (most recent call last):
+  File "/cvmfs/cms.cern.ch/share/cms/crab-prod/v3.260630.00/bin/crab.py", line 157, in <module>
+    client()
+  File "/cvmfs/cms.cern.ch/share/cms/crab-prod/v3.260630.00/bin/crab.py", line 144, in __call__
+    raise CommandFailedException("Command %s failed" % str(args[0]))
+CRABClient.ClientExceptions.CommandFailedException: Command checkwrite failed
+DEBUG 2026-11-26 11:39:44.923 UTC: 	 CRAB Client version: v3.260630
+DEBUG 2026-11-26 11:39:44.923 UTC: 	 Running on: Linux farmui01.ts.infn.it 5.14.0-687.66.2.el9_8.x86_64 #1 SMP PREEMPT_DYNAMIC Fri Nov 6 16:20:31 EST 2026 x86_64 x86_64 x86_64 GNU/Linux
+DEBUG 2026-11-26 11:39:44.923 UTC: 	 Using SINGULARITY image: el8:x86_64
+DEBUG 2026-11-26 11:39:44.923 UTC: 	 Operating System: AlmaLinux 8.10 (Cerulean Leopard)
+DEBUG 2026-11-26 11:39:44.923 UTC: 	 Executing command: 'checkwrite'
+DEBUG 2026-11-26 11:39:44.923 UTC: 	 Found CRAB cache file /home/coradin/.crab3
+DEBUG 2026-11-26 11:39:44.924 UTC: 	 Checking credentials
+DEBUG 2026-11-26 11:39:44.924 UTC: 	 Found proxy file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:39:44.924 UTC: 	 Making sure it has proper VOMS extension
+DEBUG 2026-11-26 11:39:44.924 UTC: 	 Executing command :
+ voms-proxy-info --vo --file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:39:44.953 UTC: 	 output : cms
+
+ error: 
+ retcode : 0
+DEBUG 2026-11-26 11:39:44.954 UTC: 	 Getting proxy life time left
+DEBUG 2026-11-26 11:39:44.954 UTC: 	 Executing command :
+ voms-proxy-info --actimeleft --timeleft --file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:39:44.980 UTC: 	 output : 13721
+13720
+
+ error: 
+ retcode : 0
+DEBUG 2026-11-26 11:39:44.981 UTC: 	 Proxy valid for 03:48:40 hours
+DEBUG 2026-11-26 11:39:44.981 UTC: 	 Retrieving username ...
+DEBUG 2026-11-26 11:39:44.981 UTC: 	 Retrieving username from CRIC...
+DEBUG 2026-11-26 11:39:45.901 UTC: 	 username is ecoradin
+INFO 2026-11-26 11:39:46.441 UTC: 	 Rucio client intialized for account ecoradin
+DEBUG 2026-11-26 11:39:46.441 UTC: 	 Command use: checkwrite
+DEBUG 2026-11-26 11:39:46.441 UTC: 	 Options use: ['--site=T3_IT_Trieste', '--lfn=/store/user/ecoradin']
+DEBUG 2026-11-26 11:39:46.441 UTC: 	 Instance is None
+DEBUG 2026-11-26 11:39:46.441 UTC: 	 Server base url is None
+DEBUG 2026-11-26 11:39:46.441 UTC: 	 Retrieving username ...
+DEBUG 2026-11-26 11:39:46.441 UTC: 	 Retrieving username from CRIC...
+DEBUG 2026-11-26 11:39:47.344 UTC: 	 username is ecoradin
+INFO 2026-11-26 11:39:47.344 UTC: 	 Validating LFN /store/user/ecoradin...
+INFO 2026-11-26 11:39:47.344 UTC: 	 LFN /store/user/ecoradin is valid.
+INFO 2026-11-26 11:39:47.477 UTC: 	 Will use `gfal-copy`, `gfal-rm` commands for checking write permissions
+INFO 2026-11-26 11:39:47.478 UTC: 	 Will check write permission in /store/user/ecoradin on site T3_IT_Trieste
+INFO 2026-11-26 11:39:47.524 UTC: 	 Will use PFN: davs://cmsxrd.ts.infn.it:1094/store/user/ecoradin/crab3checkwrite_20261126_123947_ea3ed2f2-a0ad-42dd-8f7f-63a5e9634f2f/ea3ed2f2-a0ad-42dd-8f7f-63a5e9634f2f.tmp
+INFO 2026-11-26 11:39:47.524 UTC: 	 
+Attempting to create (dummy) directory crab3checkwrite_20261126_123947_ea3ed2f2-a0ad-42dd-8f7f-63a5e9634f2f and copy (dummy) file ea3ed2f2-a0ad-42dd-8f7f-63a5e9634f2f.tmp to /store/user/ecoradin
+
+INFO 2026-11-26 11:39:47.528 UTC: 	 Executing command: which scram >/dev/null 2>&1 && eval `scram unsetenv -sh`; gfal-copy -p -v -t 180 file:///gfsvol01/cms/users/coradin/work/HeavyIons/reference/CMSSW_13_2_13/src/HeavyIonsAnalysis/Configuration/test/crabJobs_emanuele/ea3ed2f2-a0ad-42dd-8f7f-63a5e9634f2f.tmp 'davs://cmsxrd.ts.infn.it:1094/store/user/ecoradin/crab3checkwrite_20261126_123947_ea3ed2f2-a0ad-42dd-8f7f-63a5e9634f2f/ea3ed2f2-a0ad-42dd-8f7f-63a5e9634f2f.tmp'
+INFO 2026-11-26 11:39:47.528 UTC: 	 Please wait...
+ERROR 2026-11-26 11:41:40.721 UTC: 	 Keyboard Interrupted
+DEBUG 2026-11-26 11:42:54.902 UTC: 	 CRAB Client version: v3.260630
+DEBUG 2026-11-26 11:42:54.902 UTC: 	 Running on: Linux farmui01.ts.infn.it 5.14.0-687.66.2.el9_8.x86_64 #1 SMP PREEMPT_DYNAMIC Fri Nov 6 16:20:31 EST 2026 x86_64 x86_64 x86_64 GNU/Linux
+DEBUG 2026-11-26 11:42:54.902 UTC: 	 Using SINGULARITY image: el8:x86_64
+DEBUG 2026-11-26 11:42:54.902 UTC: 	 Operating System: AlmaLinux 8.10 (Cerulean Leopard)
+DEBUG 2026-11-26 11:42:54.902 UTC: 	 Executing command: 'checkwrite'
+DEBUG 2026-11-26 11:42:54.903 UTC: 	 Found CRAB cache file /home/coradin/.crab3
+DEBUG 2026-11-26 11:42:54.903 UTC: 	 Checking credentials
+DEBUG 2026-11-26 11:42:54.904 UTC: 	 Found proxy file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:42:54.904 UTC: 	 Making sure it has proper VOMS extension
+DEBUG 2026-11-26 11:42:54.904 UTC: 	 Executing command :
+ voms-proxy-info --vo --file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:42:54.933 UTC: 	 output : cms
+
+ error: 
+ retcode : 0
+DEBUG 2026-11-26 11:42:54.933 UTC: 	 Getting proxy life time left
+DEBUG 2026-11-26 11:42:54.933 UTC: 	 Executing command :
+ voms-proxy-info --actimeleft --timeleft --file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:42:54.961 UTC: 	 output : 13531
+13530
+
+ error: 
+ retcode : 0
+DEBUG 2026-11-26 11:42:54.961 UTC: 	 Proxy valid for 03:45:30 hours
+DEBUG 2026-11-26 11:42:54.961 UTC: 	 Retrieving username ...
+DEBUG 2026-11-26 11:42:54.961 UTC: 	 Retrieving username from CRIC...
+DEBUG 2026-11-26 11:42:55.958 UTC: 	 username is ecoradin
+INFO 2026-11-26 11:42:56.430 UTC: 	 Rucio client intialized for account ecoradin
+DEBUG 2026-11-26 11:42:56.430 UTC: 	 Command use: checkwrite
+DEBUG 2026-11-26 11:42:56.430 UTC: 	 Options use: ['--site=T3_IT_Trieste', '--lfn=/store/user/ecoradin']
+DEBUG 2026-11-26 11:42:56.430 UTC: 	 Instance is None
+DEBUG 2026-11-26 11:42:56.430 UTC: 	 Server base url is None
+DEBUG 2026-11-26 11:42:56.430 UTC: 	 Retrieving username ...
+DEBUG 2026-11-26 11:42:56.430 UTC: 	 Retrieving username from CRIC...
+DEBUG 2026-11-26 11:42:57.377 UTC: 	 username is ecoradin
+INFO 2026-11-26 11:42:57.377 UTC: 	 Validating LFN /store/user/ecoradin...
+INFO 2026-11-26 11:42:57.377 UTC: 	 LFN /store/user/ecoradin is valid.
+INFO 2026-11-26 11:42:57.391 UTC: 	 Will use `gfal-copy`, `gfal-rm` commands for checking write permissions
+INFO 2026-11-26 11:42:57.391 UTC: 	 Will check write permission in /store/user/ecoradin on site T3_IT_Trieste
+INFO 2026-11-26 11:42:57.428 UTC: 	 Will use PFN: davs://cmsxrd.ts.infn.it:1094/store/user/ecoradin/crab3checkwrite_20261126_124257_670aa80a-1911-4692-9011-edcf496f072e/670aa80a-1911-4692-9011-edcf496f072e.tmp
+INFO 2026-11-26 11:42:57.428 UTC: 	 
+Attempting to create (dummy) directory crab3checkwrite_20261126_124257_670aa80a-1911-4692-9011-edcf496f072e and copy (dummy) file 670aa80a-1911-4692-9011-edcf496f072e.tmp to /store/user/ecoradin
+
+INFO 2026-11-26 11:42:57.433 UTC: 	 Executing command: which scram >/dev/null 2>&1 && eval `scram unsetenv -sh`; gfal-copy -p -v -t 180 file:///gfsvol01/cms/users/coradin/work/HeavyIons/reference/CMSSW_13_2_13/src/HeavyIonsAnalysis/Configuration/test/crabJobs_emanuele/670aa80a-1911-4692-9011-edcf496f072e.tmp 'davs://cmsxrd.ts.infn.it:1094/store/user/ecoradin/crab3checkwrite_20261126_124257_670aa80a-1911-4692-9011-edcf496f072e/670aa80a-1911-4692-9011-edcf496f072e.tmp'
+INFO 2026-11-26 11:42:57.433 UTC: 	 Please wait...
+INFO 2026-11-26 11:42:58.931 UTC: 	 
+Successfully created directory crab3checkwrite_20261126_124257_670aa80a-1911-4692-9011-edcf496f072e and copied file 670aa80a-1911-4692-9011-edcf496f072e.tmp to /store/user/ecoradin
+INFO 2026-11-26 11:42:58.931 UTC: 	 
+Attempting to delete file davs://cmsxrd.ts.infn.it:1094/store/user/ecoradin/crab3checkwrite_20261126_124257_670aa80a-1911-4692-9011-edcf496f072e/670aa80a-1911-4692-9011-edcf496f072e.tmp
+
+INFO 2026-11-26 11:42:58.931 UTC: 	 Executing command: which scram >/dev/null 2>&1 && eval `scram unsetenv -sh`; gfal-rm -v -t 180 'davs://cmsxrd.ts.infn.it:1094/store/user/ecoradin/crab3checkwrite_20261126_124257_670aa80a-1911-4692-9011-edcf496f072e/670aa80a-1911-4692-9011-edcf496f072e.tmp'
+INFO 2026-11-26 11:42:58.931 UTC: 	 Please wait...
+INFO 2026-11-26 11:42:59.817 UTC: 	 Failed running delete command
+INFO 2026-11-26 11:42:59.817 UTC: 	   Stdout:
+    davs://cmsxrd.ts.infn.it:1094/store/user/ecoradin/crab3checkwrite_20261126_124257_670aa80a-1911-4692-9011-edcf496f072e/670aa80a-1911-4692-9011-edcf496f072e.tmp	MISSING
+    
+INFO 2026-11-26 11:42:59.817 UTC: 	 
+Failed to delete file davs://cmsxrd.ts.infn.it:1094/store/user/ecoradin/crab3checkwrite_20261126_124257_670aa80a-1911-4692-9011-edcf496f072e/670aa80a-1911-4692-9011-edcf496f072e.tmp
+INFO 2026-11-26 11:42:59.818 UTC: 	 
+Checkwrite Result:
+INFO 2026-11-26 11:42:59.818 UTC: 	 Error: CRAB3 is able to copy but unable to delete file in /store/user/ecoradin on site T3_IT_Trieste. Asynchronous Stage Out with CRAB3 will fail.
+       You may want to contact the site administrators sending them the 'crab checkwrite' output as printed above.
+INFO 2026-11-26 11:42:59.818 UTC: 	 Note: You cannot write to a site if you did not ask permission.
+WARNING 2026-11-26 11:42:59.818 UTC: 	 Command checkwrite failed
+ERROR 2026-11-26 11:42:59.818 UTC: 	 Caught CommandFailedException exception
+Traceback (most recent call last):
+  File "/cvmfs/cms.cern.ch/share/cms/crab-prod/v3.260630.00/bin/crab.py", line 157, in <module>
+    client()
+  File "/cvmfs/cms.cern.ch/share/cms/crab-prod/v3.260630.00/bin/crab.py", line 144, in __call__
+    raise CommandFailedException("Command %s failed" % str(args[0]))
+CRABClient.ClientExceptions.CommandFailedException: Command checkwrite failed
+DEBUG 2026-11-26 11:44:25.391 UTC: 	 CRAB Client version: v3.260630
+DEBUG 2026-11-26 11:44:25.391 UTC: 	 Running on: Linux farmui01.ts.infn.it 5.14.0-687.66.2.el9_8.x86_64 #1 SMP PREEMPT_DYNAMIC Fri Nov 6 16:20:31 EST 2026 x86_64 x86_64 x86_64 GNU/Linux
+DEBUG 2026-11-26 11:44:25.391 UTC: 	 Using SINGULARITY image: el8:x86_64
+DEBUG 2026-11-26 11:44:25.391 UTC: 	 Operating System: AlmaLinux 8.10 (Cerulean Leopard)
+DEBUG 2026-11-26 11:44:25.391 UTC: 	 Executing command: 'checkwrite'
+DEBUG 2026-11-26 11:44:25.391 UTC: 	 Found CRAB cache file /home/coradin/.crab3
+DEBUG 2026-11-26 11:44:25.392 UTC: 	 Checking credentials
+DEBUG 2026-11-26 11:44:25.392 UTC: 	 Found proxy file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:44:25.392 UTC: 	 Making sure it has proper VOMS extension
+DEBUG 2026-11-26 11:44:25.392 UTC: 	 Executing command :
+ voms-proxy-info --vo --file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:44:25.422 UTC: 	 output : cms
+
+ error: 
+ retcode : 0
+DEBUG 2026-11-26 11:44:25.422 UTC: 	 Getting proxy life time left
+DEBUG 2026-11-26 11:44:25.422 UTC: 	 Executing command :
+ voms-proxy-info --actimeleft --timeleft --file /home/coradin/.globus/x509up_u30935
+DEBUG 2026-11-26 11:44:25.449 UTC: 	 output : 13440
+13439
+
+ error: 
+ retcode : 0
+DEBUG 2026-11-26 11:44:25.449 UTC: 	 Proxy valid for 03:43:59 hours
+DEBUG 2026-11-26 11:44:25.450 UTC: 	 Retrieving username ...
+DEBUG 2026-11-26 11:44:25.450 UTC: 	 Retrieving username from CRIC...
+DEBUG 2026-11-26 11:44:26.424 UTC: 	 username is ecoradin
+INFO 2026-11-26 11:44:26.903 UTC: 	 Rucio client intialized for account ecoradin
+DEBUG 2026-11-26 11:44:26.904 UTC: 	 Command use: checkwrite
+DEBUG 2026-11-26 11:44:26.904 UTC: 	 Options use: ['--site=T3_IT_Trieste', '--lfn=/store/user/ecoradin']
+DEBUG 2026-11-26 11:44:26.904 UTC: 	 Instance is None
+DEBUG 2026-11-26 11:44:26.904 UTC: 	 Server base url is None
+DEBUG 2026-11-26 11:44:26.904 UTC: 	 Retrieving username ...
+DEBUG 2026-11-26 11:44:26.904 UTC: 	 Retrieving username from CRIC...
+DEBUG 2026-11-26 11:44:27.793 UTC: 	 username is ecoradin
+INFO 2026-11-26 11:44:27.793 UTC: 	 Validating LFN /store/user/ecoradin...
+INFO 2026-11-26 11:44:27.793 UTC: 	 LFN /store/user/ecoradin is valid.
+INFO 2026-11-26 11:44:27.806 UTC: 	 Will use `gfal-copy`, `gfal-rm` commands for checking write permissions
+INFO 2026-11-26 11:44:27.806 UTC: 	 Will check write permission in /store/user/ecoradin on site T3_IT_Trieste
+INFO 2026-11-26 11:44:27.841 UTC: 	 Will use PFN: davs://cmsxrd.ts.infn.it:1094/store/user/ecoradin/crab3checkwrite_20261126_124427_1475f47f-bf21-43d6-9388-d0644d04a015/1475f47f-bf21-43d6-9388-d0644d04a015.tmp
+INFO 2026-11-26 11:44:27.841 UTC: 	 
+Attempting to create (dummy) directory crab3checkwrite_20261126_124427_1475f47f-bf21-43d6-9388-d0644d04a015 and copy (dummy) file 1475f47f-bf21-43d6-9388-d0644d04a015.tmp to /store/user/ecoradin
+
+INFO 2026-11-26 11:44:27.845 UTC: 	 Executing command: which scram >/dev/null 2>&1 && eval `scram unsetenv -sh`; gfal-copy -p -v -t 180 file:///gfsvol01/cms/users/coradin/work/HeavyIons/reference/CMSSW_13_2_13/src/HeavyIonsAnalysis/Configuration/test/crabJobs_emanuele/1475f47f-bf21-43d6-9388-d0644d04a015.tmp 'davs://cmsxrd.ts.infn.it:1094/store/user/ecoradin/crab3checkwrite_20261126_124427_1475f47f-bf21-43d6-9388-d0644d04a015/1475f47f-bf21-43d6-9388-d0644d04a015.tmp'
+INFO 2026-11-26 11:44:27.845 UTC: 	 Please wait...
+ERROR 2026-11-26 11:45:12.689 UTC: 	 Keyboard Interrupted
