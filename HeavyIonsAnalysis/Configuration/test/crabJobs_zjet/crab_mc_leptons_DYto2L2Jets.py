@@ -19,6 +19,7 @@ config.Data.publication = False
 config.Data.inputDBS = 'global'
 # This string is used to construct the output dataset name
 config.Data.outputDatasetTag = config.General.requestName
+config.Data.outLFNDirBase = '/store/user/ecoradin/ZJet'
 
 # These values only make sense for processing data
 #    Select input data based on a lumi mask
