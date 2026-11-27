@@ -1,0 +1,5 @@
+root://eosinfnts.ts.infn.it:1094//eos/infnts/cms/store/user/ecoradin/ZJet/DYto2L-2Jets_MLL-50_TuneCP5_5p36TeV_amcatnloFXFX-pythia8/PbPb23_MC_DYto2L2Jets_v1_test2/261126_182142/0000/HiForestMiniAOD_1.root
+root://eosinfnts.ts.infn.it:1094//eos/infnts/cms/store/user/ecoradin/ZJet/DYto2L-2Jets_MLL-50_TuneCP5_5p36TeV_amcatnloFXFX-pythia8/PbPb23_MC_DYto2L2Jets_v1_test2/261126_182142/0000/HiForestMiniAOD_2.root
+root://eosinfnts.ts.infn.it:1094//eos/infnts/cms/store/user/ecoradin/ZJet/DYto2L-2Jets_MLL-50_TuneCP5_5p36TeV_amcatnloFXFX-pythia8/PbPb23_MC_DYto2L2Jets_v1_test2/261126_182142/0000/HiForestMiniAOD_3.root
+root://eosinfnts.ts.infn.it:1094//eos/infnts/cms/store/user/ecoradin/ZJet/DYto2L-2Jets_MLL-50_TuneCP5_5p36TeV_amcatnloFXFX-pythia8/PbPb23_MC_DYto2L2Jets_v1_test2/261126_182142/0000/HiForestMiniAOD_4.root
+root://eosinfnts.ts.infn.it:1094//eos/infnts/cms/store/user/ecoradin/ZJet/DYto2L-2Jets_MLL-50_TuneCP5_5p36TeV_amcatnloFXFX-pythia8/PbPb23_MC_DYto2L2Jets_v1_test2/261126_182142/0000/HiForestMiniAOD_5.root

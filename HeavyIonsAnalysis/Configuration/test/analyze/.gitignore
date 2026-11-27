@@ -1,0 +1,11 @@
+# CRAB-generated task directories
+/crab_*/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local outputs and temporary files
+*.root
+*.log
+.nfs*
