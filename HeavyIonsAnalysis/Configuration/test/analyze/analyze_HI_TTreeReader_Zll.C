@@ -323,19 +323,19 @@ void analyze_HI_TTreeReader_Zll(const char * collision_type = "PbPb23", const ch
   TTreeReaderArray<Int_t> recoCharge = {fReader, isMuon ? "recoCharge" : "eleCharge"};
   
   if (inclusive) {
-
-    TH1D h_mass_ll(
-      "h_mass_ll",
-      ";m_{ll} [GeV];Pairs",
+    std::string lepton_label = isMuon ? "\\mu\\mu": "ee";
+    TH1D h_mass_os(
+      "h_mass_os",
+      (";m_{" + lepton_label + "} [GeV];Events").c_str(),
       100, 0, 200
     );
     TH1D h_Z_pt_ll(
       "h_Z_pt_ll",
-      ";p_{T}^{ll} [GeV];Entries",
+      (";p_{T}^{" + lepton_label + "} [GeV];Events").c_str(),
       30, 0, 300
     );
 
-    h_mass_ll.SetDirectory(nullptr);
+    h_mass_os.SetDirectory(nullptr);
     
     // Look for the ll pair with highest pT
     while (fReader.Next()) {
@@ -391,7 +391,7 @@ void analyze_HI_TTreeReader_Zll(const char * collision_type = "PbPb23", const ch
 
     TFile output(outputName, "RECREATE");
 
-    h_mass_ll.Write();
+    h_mass_os.Write();
     h_Z_pt_ll.Write();
 
     output.Close();
