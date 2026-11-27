@@ -308,3 +308,5 @@ process.load('HeavyIonsAnalysis.EventAnalysis.hffilter_cfi')
 process.pphfCoincFilter2Th4 = cms.Path(process.phfCoincFilter2Th4)
 process.pAna = cms.EndPath(process.skimanalysis)
 
+process.options.numberOfThreads = cms.untracked.uint32(2)
+process.options.numberOfStreams = cms.untracked.uint32(1)

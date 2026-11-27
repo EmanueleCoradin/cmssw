@@ -1,12 +1,13 @@
 from CRABClient.UserUtilities import config
 config = config()
 
-config.General.requestName = 'PbPb23_MC_DYto2L2Jets_v1_test0'
+config.General.requestName = 'PbPb23_MC_DYto2L2Jets_v1_test2'
 
 config.JobType.pluginName = 'Analysis'
 # Name of the CMSSW configuration file
 config.JobType.psetName = 'forest_miniAOD_run3_MC_leptons.py'
-config.JobType.maxMemoryMB = 4000
+config.JobType.numCores = 2
+config.JobType.maxMemoryMB = 5000
 config.JobType.maxJobRuntimeMin = 1200
 config.JobType.allowUndistributedCMSSW = True
 
